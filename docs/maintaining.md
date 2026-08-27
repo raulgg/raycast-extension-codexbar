@@ -9,6 +9,17 @@ quirks that trip people up, and the recurring chore of syncing with upstream.
   Primary/Secondary/Tertiary, Pacing, etc. Use these terms; avoid the listed synonyms.
 - **Why the runtime is shaped the way it is** → [`adr/`](adr/). Four decisions, each with its cost.
 
+## Canonical repo
+
+This GitHub repository (`raulgg/raycast-extension-codexbar`) is the source of truth. Develop here
+and load the extension with `npm run dev` from this directory — not from a copy inside
+`raycast/extensions`.
+
+Do **not** publish to the Raycast Store while the extension is in active local development. When
+that is explicitly in scope: `npm run publish` opens a Store PR; `npx @raycast/api@latest
+pull-contributions` brings reviewer or contributor Store commits back into this repo. Until then
+there is nothing upstream to sync.
+
 ## What this extension does, in one paragraph
 
 It shells out to an external `codexbar` CLI (or its `serve` HTTP mode), normalizes the JSON into
