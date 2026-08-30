@@ -3,20 +3,30 @@
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { optimize } from "svgo";
+import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
 import { createUpstreamSource } from "./lib/upstream.mjs";
-import { parseRegistryEntries } from "./lib/upstream-metadata.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, "..");
-const REGISTRY_PATH = path.join(ROOT, "src/providers/registry.ts");
-const ASSETS_DIR = path.join(ROOT, "assets/provider-icons");
+const ASSETS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../assets/provider-icons");
 const CONCURRENCY = 6;
 const CHECK_ONLY = process.argv.includes("--check");
 
-const PROVIDER_ICON_REGEX = /^providerIcon\("([^"]+)"/;
+export function assertSafeIconSlug(slug) {
+  if (typeof slug !== "string" || slug === "") {
+    throw new Error("Icon slug is empty.");
+  }
+
+  if (slug.includes("..") || slug.startsWith("/") || slug.includes("/") || slug.includes("\\")) {
+    throw new Error(`Unsafe icon slug "${slug}".`);
+  }
+
+  if (!/^[A-Za-z0-9._-]+$/.test(slug)) {
+    throw new Error(`Unsafe icon slug "${slug}".`);
+  }
+
+  return slug;
+}
 
 function ensureTrailingNewline(value) {
   return value.endsWith("\n") ? value : `${value}\n`;
@@ -30,20 +40,8 @@ function normalizeSvgRootDimensions(svg) {
   });
 }
 
-function collectIconSlugs(source) {
-  const slugs = [];
-  const skippedProviders = [];
-
-  for (const [providerId, entry] of parseRegistryEntries(source)) {
-    const iconMatch = entry.icon?.match(PROVIDER_ICON_REGEX);
-    if (iconMatch) {
-      slugs.push({ providerId, slug: iconMatch[1] });
-    } else {
-      skippedProviders.push({ providerId, iconExpression: entry.icon });
-    }
-  }
-
-  return { slugs, skippedProviders };
+function collectIconSlugsFromCatalog(catalog) {
+  return Object.values(catalog).map((entry) => assertSafeIconSlug(entry.iconSlug));
 }
 
 async function readLocalIcon(slug) {
@@ -64,11 +62,11 @@ async function fetchUpstreamIcon(source, slug) {
   return source.readFile(`Sources/CodexBar/Resources/ProviderIcon-${slug}.svg`);
 }
 
-function optimizeSvg(svg, slug) {
+export function optimizeSvg(svg, slug) {
   const result = optimize(svg, {
     multipass: true,
-    path: `${slug}.svg`,
-    plugins: [{ name: "preset-default" }],
+    path: `${assertSafeIconSlug(slug)}.svg`,
+    plugins: [{ name: "preset-default" }, "removeScripts"],
   });
 
   if ("error" in result) {
@@ -98,7 +96,7 @@ async function syncOne(source, slug) {
   const changed = local !== optimized;
 
   if (!CHECK_ONLY && changed) {
-    await writeFile(path.join(ASSETS_DIR, `${slug}.svg`), optimized, "utf8");
+    await writeFile(path.join(ASSETS_DIR, `${assertSafeIconSlug(slug)}.svg`), optimized, "utf8");
   }
 
   return { slug, changed };
@@ -121,11 +119,10 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 }
 
 async function main() {
-  const registrySource = await readFile(REGISTRY_PATH, "utf8");
-  const { slugs, skippedProviders } = collectIconSlugs(registrySource);
+  const slugs = collectIconSlugsFromCatalog(PROVIDER_CATALOG);
 
   if (slugs.length === 0) {
-    throw new Error("No providerIcon(...) entries found in registry.ts");
+    throw new Error("No iconSlug entries found in catalog.ts");
   }
 
   if (!(await fileExists(ASSETS_DIR))) {
@@ -133,7 +130,7 @@ async function main() {
   }
 
   const source = await createUpstreamSource();
-  const uniqueSlugs = [...new Set(slugs.map(({ slug }) => slug))].sort();
+  const uniqueSlugs = [...new Set(slugs)].sort();
   const results = await mapWithConcurrency(uniqueSlugs, CONCURRENCY, (slug) => syncOne(source, slug));
   const changed = results.filter((result) => result.changed).map((result) => result.slug);
   const unchanged = results.filter((result) => !result.changed).map((result) => result.slug);
@@ -159,25 +156,20 @@ async function main() {
     console.log(`Unchanged icons (${unchanged.length}): ${unchanged.join(", ")}`);
   }
 
-  if (skippedProviders.length > 0) {
-    console.warn(
-      `Providers without providerIcon(...) (${skippedProviders.length}): ${skippedProviders
-        .map(({ providerId }) => providerId)
-        .join(", ")}`,
-    );
-  }
-
   if (staleSlugs.length > 0) {
     console.warn(`Stale local icons: ${staleSlugs.join(", ")}`);
   }
 
-  if (CHECK_ONLY && changed.length > 0) {
+  if (CHECK_ONLY && (changed.length > 0 || staleSlugs.length > 0)) {
     process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`sync-provider-icons failed: ${message}`);
-  process.exitCode = 1;
-});
+const invokedDirectly = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+if (invokedDirectly) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`sync-provider-icons failed: ${message}`);
+    process.exitCode = 1;
+  });
+}
