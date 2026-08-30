@@ -3,10 +3,10 @@
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { optimize } from "svgo";
 import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
-import { createUpstreamSource } from "./lib/upstream.mjs";
+import { createUpstreamSource, isMainModule } from "./lib/upstream.mjs";
 
 const ASSETS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../assets/provider-icons");
 const CONCURRENCY = 6;
@@ -165,8 +165,7 @@ async function main() {
   }
 }
 
-const invokedDirectly = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
-if (invokedDirectly) {
+if (isMainModule(import.meta.url)) {
   main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`sync-provider-icons failed: ${message}`);
