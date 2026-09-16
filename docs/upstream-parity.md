@@ -64,7 +64,7 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
 | 4 | Pacing, gating | `paceCapabilities.ts` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
-| 4b | Pacing, formula and labels | `usagePacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
+| 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
 | 5 | Supplemental usage shapes | `normalize.ts` mappers | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
@@ -188,7 +188,7 @@ mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsage
 `normalize.ts` evaluates that table the way the app menu card does, not the CLI's `resolvedKind`.
 Those two disagree for some providers. The GUI wins.
 
-- **The formula.** `calculateUsagePacing` in [`usagePacing.ts`](../src/providers/usagePacing.ts),
+- **The formula.** `calculateUsagePacing` in [`usage/pacing.ts`](../src/usage/pacing.ts),
   mirroring `UsagePace.swift`. Session default 300 minutes, weekly default 10_080. Calendar-month
   sentinels (43_200) are expanded to the real month via `inferredMonthlyWindowMinutes`. Not
   compared by `upstream:check`.
@@ -198,7 +198,7 @@ Those two disagree for some providers. The GUI wins.
   (Codex, Claude, Antigravity, Cursor. 300-minute extras as session except Claude and Cursor,
   10080 as weekly). OpenCode Go sets `allowsEstimatedUsage: false`, so estimated local-cost
   snapshots skip every pace marker.
-- **Labels.** `formatUsagePacingLabels` in `usagePacing.ts`. Not compared by `upstream:check`.
+- **Labels.** `formatUsagePacingLabels` in `usage/pacing.ts`. Not compared by `upstream:check`.
 
 `upstream:check` imports `PACE_CAPABILITIES` and diffs the GUI fields (`resetWindowPace`,
 `inferredMonthlyDuration`, `sessionPaceWindowRule`, `allowsEstimatedUsage`) against each
@@ -308,7 +308,7 @@ When the check fails:
    named function plus a `CUSTOM_PACE_RULES` fingerprint of the Swift body.
    CLI `resolvedKind` lanes stay out of the table.
 2. `computeSlotUsagePacing` already evaluates the table. Add a gating test in
-   [`normalize.test.ts`](../src/providers/normalize.test.ts) for the new rule.
+   [`normalize.test.ts`](../src/usage/normalize.test.ts) for the new rule.
 3. Give the mock a window that actually satisfies it (reset inside the duration, enough elapsed
    for `idealUsedPercentByNow ≥ 3%`). See [`cli/mockPayloads.ts`](../src/cli/mockPayloads.ts).
 

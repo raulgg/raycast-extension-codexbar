@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderUsagePacing } from "./types";
-import { calculateUsagePacing, formatUsagePacingLabels, formatUsagePacingLine, paceMarkerKind } from "./usagePacing";
+import { calculateUsagePacing, formatUsagePacingLabels, formatUsagePacingLine, paceMarkerKind } from "./pacing";
 
 describe("provider usage pacing", () => {
   it("calculates reserve usage pacing for resettable weekly windows", () => {

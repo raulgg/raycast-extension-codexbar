@@ -86,16 +86,19 @@ src/
     detailCard.ts             Detail-card composer: header, meters, info, status, markdown wrap.
     accessoryIcon.ts          Two-bar list accessory icon.
 
-  providers/
+  providers/                  Upstream-synced provider knowledge. Script-guarded; see upstream-parity.md.
     catalog.ts                Raycast-free provider metadata + aliases. Imported by upstream:check.
     registry.ts               Raycast adapter over catalog.ts (icons, palettes, lookups).
     paceCapabilities.ts       GUI pace gating table + dynamic usage-bar title map. Imported by
                               upstream:check.
+
+  usage/                      Raw payload -> domain model. Pure: no Raycast, no IO.
+    types.ts                  Shared domain types (ProviderDetailData, sections, pacing, status).
+    json.ts, duration.ts      Coercion and duration-text helpers shared across the tree.
     normalize.ts              Raw payload -> ProviderSection[]. Dynamic label overrides
                               (resolveDynamicSlotTitle), pacing defaults, supplemental mappers.
-    usagePacing.ts            The pace formula and labels. Hand-maintained (not script-diffed).
+    pacing.ts                 The pace formula and labels. Hand-maintained (not script-diffed).
     status.ts                 Parse the CLI status object into a badge model.
-    types.ts                  Shared types.
 
   components/                 UI: UsageList, ProviderListItem, ProviderDetail, ManageProviders, etc.
   hooks/                      Data hooks: useUsageOverview, useProviderDetails, useProviderStatuses,
@@ -196,7 +199,7 @@ Upstream ships often. A periodic sync pass:
    `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the `-- --check` and let the sync script
    write them.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
-   labels in `usagePacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
+   labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.
 5. **Cite the ref.** In commit messages / plan notes / code comments, name the upstream file and SHA
    you verified against, so the next sync can tell what's already been checked.

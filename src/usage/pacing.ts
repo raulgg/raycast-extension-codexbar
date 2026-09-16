@@ -1,5 +1,5 @@
-import { formatDurationSeconds } from "../usage/duration";
-import { clampPercent } from "../usage/json";
+import { formatDurationSeconds } from "./duration";
+import { clampPercent } from "./json";
 import type { ProviderUsagePacing, ProviderUsagePacingStage } from "./types";
 
 const DEFAULT_WINDOW_MINUTES = 10_080;

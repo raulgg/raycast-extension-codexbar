@@ -10,7 +10,7 @@ import {
   shouldRefreshProviderAutomatically,
   shouldSurfaceProviderDetailFailure,
 } from "../cache/providerDetailCache";
-import type { ProviderDetailData, ProviderSection } from "../providers/types";
+import type { ProviderDetailData, ProviderSection } from "../usage/types";
 
 function makeDetail(providerId: string, fetchedAt: string, sections?: ProviderSection[]): ProviderDetailData {
   return {

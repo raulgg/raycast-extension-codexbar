@@ -1,6 +1,6 @@
 import { environment } from "@raycast/api";
 import { getProviderMetadata, PROVIDER_IDS } from "../providers/registry";
-import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../providers/types";
+import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../usage/types";
 
 // TODO: add CODEXBAR_MOCK_ERROR fixtures later.
 

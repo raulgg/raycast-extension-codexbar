@@ -1,4 +1,4 @@
-import { toTrimmedString } from "../usage/json";
+import { toTrimmedString } from "./json";
 import type { ProviderStatus, ProviderStatusIndicator } from "./types";
 
 // Cached status is only shown while recent; incident data is slow-moving, so a

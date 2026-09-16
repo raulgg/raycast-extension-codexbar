@@ -1,5 +1,5 @@
 import { createIndexedCache } from "../cache/indexedCache";
-import type { ProviderDetailData, ProviderSupplementalUsageSection } from "../providers/types";
+import type { ProviderDetailData, ProviderSupplementalUsageSection } from "../usage/types";
 import type { KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 
 // Per-provider section memory (ADR-0007): upstream fetches sometimes drop

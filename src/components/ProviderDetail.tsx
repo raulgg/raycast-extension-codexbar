@@ -4,7 +4,7 @@ import { formatRelativeUpdateTime } from "../render/format";
 import type { ProviderDetailCacheStatus } from "../cache/providerDetailCache";
 import { getHidePersonalInfoPreference } from "../preferences";
 import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "../render/detailCard";
-import type { ConfiguredProvider, ProviderDetailData, ProviderStatus } from "../providers/types";
+import type { ConfiguredProvider, ProviderDetailData, ProviderStatus } from "../usage/types";
 
 type ProviderDetailProps = {
   provider: ConfiguredProvider;
