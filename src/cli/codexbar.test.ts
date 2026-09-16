@@ -45,8 +45,8 @@ import {
   moveConfiguredProviderInConfig,
   moveConfiguredProviderInRawConfig,
   readConfiguredProvidersFromConfig,
-} from "../lib/providerConfig";
-import { SECTION_MEMORY_TTL_MS } from "../lib/providerShapeMemory";
+} from "../config/providerConfig";
+import { SECTION_MEMORY_TTL_MS } from "../cache/sectionMemory";
 import { recordCodexBarServeRuntime } from "./serveState";
 import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV } from "./keychainAccessPolicy";
 

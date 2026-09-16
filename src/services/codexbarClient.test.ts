@@ -6,8 +6,8 @@ const { listAvailableProvidersMock, setProviderEnabledMock, fetchUsageMock } = v
   fetchUsageMock: vi.fn(async () => ({ provider: "codex" })),
 }));
 
-vi.mock("../lib/providerConfig", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/providerConfig")>()),
+vi.mock("../config/providerConfig", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../config/providerConfig")>()),
   listAvailableProviders: listAvailableProvidersMock,
   setProviderEnabled: setProviderEnabledMock,
 }));

@@ -21,7 +21,7 @@ import {
   normalizeAvailableProviders,
   orderEnabledProvidersByConfig,
   setProviderEnabled,
-} from "./providerConfig";
+} from "../config/providerConfig";
 
 function mockExecSuccess(stdout = "CodexBar", stderr = "") {
   execFileMock.mockImplementation(

@@ -5,7 +5,7 @@ import {
   applyProviderUsageSectionMemory,
   pruneProviderUsageSectionMemory,
   SECTION_MEMORY_TTL_MS,
-} from "./providerShapeMemory";
+} from "../cache/sectionMemory";
 
 function makeDetail(includeSupplemental: boolean): ProviderDetailData {
   return {
