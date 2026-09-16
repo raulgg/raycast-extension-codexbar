@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatProviderStatusSummary,
   getProviderStatusLabel,
   isProviderStatusFresh,
   isRenderableProviderStatusIndicator,
@@ -73,13 +72,6 @@ describe("status presentation", () => {
     expect(isRenderableProviderStatusIndicator("minor")).toBe(true);
     expect(isRenderableProviderStatusIndicator("none")).toBe(false);
     expect(isRenderableProviderStatusIndicator("unknown")).toBe(false);
-  });
-
-  it("joins label and description with an en dash", () => {
-    expect(formatProviderStatusSummary({ indicator: "minor", description: "Partial System Degradation" })).toBe(
-      "Partial outage – Partial System Degradation",
-    );
-    expect(formatProviderStatusSummary({ indicator: "major" })).toBe("Major outage");
   });
 });
 

@@ -67,13 +67,6 @@ export function isRenderableProviderStatusIndicator(indicator: ProviderStatusInd
   return indicator !== "none" && indicator !== "unknown";
 }
 
-// Upstream tooltip/detail format: `{label} – {description}` (en dash), matching
-// ProviderStatusPayload.descriptionSuffix in CLIPayloads.swift.
-export function formatProviderStatusSummary(status: ProviderStatus): string {
-  const label = getProviderStatusLabel(status.indicator);
-  return status.description ? `${label} – ${status.description}` : label;
-}
-
 export function isProviderStatusFresh(fetchedAt: string, now = Date.now()): boolean {
   const fetchedAtMs = Date.parse(fetchedAt);
   return !Number.isNaN(fetchedAtMs) && now - fetchedAtMs <= PROVIDER_STATUS_TTL_MS;

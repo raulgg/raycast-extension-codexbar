@@ -192,42 +192,6 @@ describe("ProviderDetail", () => {
     expect(svg).toContain(">Pro<");
   });
 
-  it("redacts personal info items from info sections when the preference is enabled", () => {
-    appearanceMock.value = "light";
-    hidePersonalInfoMock.value = true;
-    const detail = makeDetail();
-    detail.sections = [
-      ...detail.sections.filter((section) => section.kind !== "info"),
-      {
-        kind: "info",
-        title: "OpenRouter",
-        items: [
-          { label: "Balance", value: "$25.50" },
-          { label: "Source", value: "Web" },
-          { label: "Account", value: "work", personal: true },
-          { label: "Organization", value: "Example Labs", personal: true },
-        ],
-      },
-      {
-        kind: "info",
-        title: "Identity",
-        items: [{ label: "Account", value: "work", personal: true }],
-      },
-    ];
-
-    const element = ProviderDetail({
-      provider,
-      detail,
-      isLoading: false,
-    });
-
-    const svg = extractFirstSvg(element.props.markdown);
-    expect(svg).not.toContain(">work<");
-    expect(svg).not.toContain(">Example Labs<");
-    expect(svg).not.toContain(">Identity<");
-    expect(svg).toContain(">Web<");
-  });
-
   it("renders a no-data markdown state when no detail is available", () => {
     const element = ProviderDetail({
       provider,

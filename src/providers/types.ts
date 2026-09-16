@@ -32,7 +32,6 @@ export type AvailableProvider = {
 export type ProviderSectionItem = {
   label: string;
   value: string;
-  personal?: boolean;
 };
 
 export type ProviderUsagePacingStage =

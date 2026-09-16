@@ -1,13 +1,12 @@
 import { Cache } from "@raycast/api";
 import type { ProviderDetailData, ProviderSupplementalUsageSection } from "../providers/types";
-import type { KeychainAccessPolicy } from "./keychainAccessPolicy";
+import { KEYCHAIN_ACCESS_POLICIES, type KeychainAccessPolicy } from "./keychainAccessPolicy";
 
 // Per-provider section memory (ADR-0007): upstream fetches sometimes drop
 // supplemental sections, so we restore remembered ones until they age out
 const SHAPE_MEMORY_SCHEMA_VERSION = "usage-sections-v2";
 const LEGACY_SHAPE_MEMORY_SCHEMA_VERSION = "usage-sections-v1";
 const SHAPE_MEMORY_INDEX_KEY = `${SHAPE_MEMORY_SCHEMA_VERSION}:index`;
-const KEYCHAIN_ACCESS_POLICIES: KeychainAccessPolicy[] = ["default", "disabled"];
 
 export const SECTION_MEMORY_TTL_MS = 24 * 60 * 60 * 1000;
 
