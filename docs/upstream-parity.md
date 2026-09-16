@@ -65,7 +65,7 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
 | 4 | Pacing, gating | `paceCapabilities.ts` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
-| 5 | Supplemental usage shapes | `normalize.ts` mappers | ❌ hand-maintained | descriptor / snapshot shapes |
+| 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
@@ -234,14 +234,14 @@ implemented.
 ## Codex-only raw projection. Weekly caps session
 
 On the raw usage path (no `presentation.schemaVersion === 1` meters), Codex applies the app's
-`CodexConsumerProjection.weeklyCapsSession` rule in `normalize.ts`. When weekly remaining is 0 and
+`CodexConsumerProjection.weeklyCapsSession` rule in `usage/providerRules/codex.ts`. When weekly remaining is 0 and
 still binding, Primary is forced to 0% remaining and its reset is retargeted via `bindingReset`.
 Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on that path.
 
 ## Surface 5. Supplemental usage shapes (hand-maintained)
 
 Beyond Primary/Secondary/Tertiary, upstream models a long list of provider-specific meters. We map a
-few, per a field-name to mapper table (`SUPPLEMENTAL_USAGE_MAPPERS` in `normalize.ts`) plus special
+few, per a field-name to mapper table (`SUPPLEMENTAL_USAGE_MAPPERS` in `usage/providerRules/openrouter.ts`) plus special
 cases:
 
 - **Mapped.** Codex's "Code review" allowance (`codeReviewRemainingPercent`), named extra rate
