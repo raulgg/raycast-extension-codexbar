@@ -101,6 +101,19 @@ describe("createProviderDetailStore", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it("seeds cached details from the preference policy while the client is still resolving", async () => {
+    cacheProviderDetail(makeDetail("codex"), "default");
+    const { load } = makeLoader();
+    const store = createProviderDetailStore({ loadProviderDetail: load, now: () => NOW });
+
+    store.setContext({ client: undefined, providers: [provider("codex")], keychainAccessPolicy: "default" });
+    await flush();
+
+    expect(load).not.toHaveBeenCalled();
+    expect(store.getSnapshot().isLoading).toBe(false);
+    expect(store.getSnapshot().results.codex).toMatchObject({ cacheStatus: "fresh", isLoading: false });
+  });
+
   it("dedupes concurrent fetches and chains one forced fetch after an automatic one", async () => {
     const { load, calls } = makeLoader();
     const store = createProviderDetailStore({ loadProviderDetail: load, now: () => NOW });
