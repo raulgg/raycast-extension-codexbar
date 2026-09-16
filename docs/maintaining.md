@@ -7,7 +7,7 @@ quirks that trip people up, and the recurring chore of syncing with upstream.
   before touching provider metadata, pacing, or icons.
 - **The words the code and docs use** → [`CONTEXT.md`](../CONTEXT.md). Provider, Reset window,
   Primary/Secondary/Tertiary, Pacing, etc. Use these terms; avoid the listed synonyms.
-- **Why the runtime is shaped the way it is** → [`adr/`](adr/). Four decisions, each with its cost.
+- **Why the runtime is shaped the way it is** → [`adr/`](adr/). Nine decisions, each with its cost.
 
 ## Canonical repo
 
@@ -39,12 +39,22 @@ src/
 
   lib/
     codexbar.ts               CLI discovery, one-shot exec, serve HTTP client, health check,
-                              JSON extraction, error classification. The whole CLI boundary.
+                              serve attestation/restart, JSON extraction, error classification.
+                              The whole CLI boundary. (ADR-0002/0005/0006)
+    codexBarServeState.ts     Cache record of the serve daemon we started (pid, start time,
+                              Keychain policy) so a later run can attest it. (ADR-0006/0009)
+    keychainAccessPolicy.ts   The "default" | "disabled" policy and the env var that enforces it
+                              on every CodexBar child process. (ADR-0009)
+    cliInstall.ts             Install help state + the port of the app's Install CLI button. (ADR-0008)
     providerConfig.ts         Read ~/.codexbar/config.json; enable/disable via CLI; reorder via
                               direct file write. (ADR-0001/0004)
+    providerDetailCache.ts    Provider detail cache (per Keychain policy, 10-min fresh / 60-min
+                              stale), failure counters, and the fetch worker pool. (ADR-0005)
+    providerShapeMemory.ts    Remembered supplemental sections restored when a payload drops
+                              them (24-h TTL). (ADR-0007)
     providerStatusCache.ts    Dedicated status cache (provider-status:<id>, 30-min TTL). (ADR-0003)
     backgroundRefresh.ts      Orchestration for refresh-usage-cache.
-    presentation.ts           Formatting helpers (percentages, durations, currency).
+    presentation.ts           Formatting helpers (percentages, relative times) + error card.
     detailMarkdown.ts, svg.ts, twoBarAccessoryIcon.ts   Rendering helpers.
 
   providers/
@@ -107,8 +117,10 @@ These surprise people. Each has an ADR with the full reasoning; the short versio
 - **Serve is a real daemon, started only by the background refresh.** The extension talks to
   `codexbar serve` over `127.0.0.1:17653`. Only `refresh-usage-cache` may start it; the foreground
   Usage Overview only *reads* an already-healthy serve and otherwise falls back to a one-shot CLI
-  call. Opening a view must never silently spawn a long-lived process. Serve is never killed by the
-  extension. → **ADR-0002**.
+  call. Opening a view must never silently spawn a long-lived process. The foreground never stops
+  serve either; the background refresh sends SIGTERM only to a daemon that predates the installed
+  CLI binary or was started under a different Keychain policy, and immediately replaces it. →
+  **ADR-0002 / ADR-0006 / ADR-0009**.
 - **Status comes only from the CLI, only in the background.** Incident badges are sourced from
   `usage --status` and cached separately (`provider-status:<id>`, 30-min TTL). Serve mode can't
   produce status, so when serve supplies detail the background path issues a status one-shot only

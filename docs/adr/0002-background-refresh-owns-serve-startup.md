@@ -8,6 +8,8 @@ Decision: only `refresh-usage-cache` may start the CodexBar serve daemon. It run
 
 The cache command does not kill serve when scheduling is disabled. Raycast has no reliable disable hook, and a running serve process might belong to the user, the CodexBar app, or another tool. An extension-started serve process can remain until the user stops it or restarts the machine.
 
+_Amended by ADR-0006 and ADR-0009:_ the background refresh does stop a recognizable CodexBar serve daemon when it predates the installed CLI binary or was started under a different Keychain access policy, but only to replace it with a fresh one. It never leaves the port empty on purpose, and the foreground still never starts or stops serve.
+
 How copies bypass serve TTL is in ADR-0005.
 
 Consequences:
