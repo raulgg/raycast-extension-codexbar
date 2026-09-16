@@ -20,8 +20,8 @@ import {
   getRightContentX,
   getTextBaselineY,
   getTextBottomY,
-} from "../lib/detailMarkdown";
-import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "./markdown";
+} from "./layout";
+import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "./detailCard";
 
 function getTextTopY(baselineY: number, fontSize: number): number {
   return baselineY - Math.ceil(fontSize * DETAIL_TEXT_LAYOUT.topInsetRatio);
