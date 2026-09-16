@@ -51,6 +51,14 @@ src/
     keychainAccessPolicy.ts   The "default" | "disabled" policy and the env var that enforces it
                               on every CodexBar child process. (ADR-0009)
     install.ts                Install help state + the port of the app's Install CLI button. (ADR-0008)
+    mockPayloads.ts           Dev-only fixture payloads and the DEV_MOCK flag (see "Working with
+                              mock data").
+
+  services/
+    codexbarClient.ts         CodexBarClient: one object for everything the extension asks of a
+                              CodexBar installation (config, roster, serve, usage fetches). The real
+                              client wraps cli/ + providerConfig; the mock client answers from
+                              mockPayloads. Chosen once in getCodexBarClientAvailability.
 
   lib/
     providerConfig.ts         Read ~/.codexbar/config.json; enable/disable via CLI; reorder via
@@ -80,7 +88,6 @@ src/
   components/                 UI: UsageList, ProviderListItem, ProviderDetail, ManageProviders, etc.
   hooks/                      Data hooks: useUsageOverview, useProviderDetails, useProviderStatuses,
                               useAvailableProviders, useMoveProvider, ...
-  mocks/codexbar.ts           Dev-only mock payloads (see "Working with mock data").
 
 scripts/
   check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating.
@@ -144,9 +151,11 @@ These surprise people. Each has an ADR with the full reasoning; the short versio
 
 ## Working with mock data
 
-`src/mocks/codexbar.ts` supplies fake payloads for development. It only activates when
+`src/cli/mockPayloads.ts` supplies fake payloads for development. It only activates when
 `environment.isDevelopment && DEV_MOCK`. Flip the `DEV_MOCK` const to `true` locally (don't commit
-it `true`). Mocks matter for parity. Pacing markers only render when the mock window shapes are valid
+it `true`); `getCodexBarClientAvailability` then hands every caller the mock `CodexBarClient`, so
+no other module checks for mock mode. Incident badges appear in mock mode only after Refresh Usage
+Cache has run once, since they come from the status cache like in production. Mocks matter for parity. Pacing markers only render when the mock window shapes are valid
 (a session window must reset within ~5h with enough elapsed time). When you make a provider
 newly pace-eligible, fix its mock too. See the pacing worked example in
 [`upstream-parity.md`](upstream-parity.md).

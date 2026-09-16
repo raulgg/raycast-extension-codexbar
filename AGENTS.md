@@ -27,7 +27,7 @@ invention.
 ## Working here
 
 - Develop with `npm run dev`. For mock data without a configured CLI, set `DEV_MOCK = true` in
-  `src/mocks/codexbar.ts` (development builds only; dead code in production) — remember to revert
+  `src/cli/mockPayloads.ts` (development builds only; dead code in production) — remember to revert
   it before committing.
 - Before any PR: `npm test`, `npm run typecheck`, and `npx ray lint` must pass. Vitest does not
   type-check, so `typecheck` is what catches a type error in a test file before it breaks

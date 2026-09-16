@@ -1,14 +1,14 @@
 import { Action, Icon } from "@raycast/api";
-import type { ResolvedCodexBarBinary } from "../cli/binary";
+import type { CodexBarClient } from "../services/codexbarClient";
 import { ManageProviders } from "./ManageProviders";
 
 type ManageProvidersActionProps = {
-  binary?: ResolvedCodexBarBinary;
+  client?: CodexBarClient;
   onProvidersChanged?: () => void;
 };
 
-export function ManageProvidersAction({ binary, onProvidersChanged }: ManageProvidersActionProps) {
-  if (!binary) {
+export function ManageProvidersAction({ client, onProvidersChanged }: ManageProvidersActionProps) {
+  if (!client) {
     return null;
   }
 
@@ -17,7 +17,7 @@ export function ManageProvidersAction({ binary, onProvidersChanged }: ManageProv
       title="Manage Providers"
       icon={Icon.Cog}
       shortcut={{ modifiers: ["cmd", "shift"], key: "m" }}
-      target={<ManageProviders binary={binary} onProvidersChanged={onProvidersChanged} />}
+      target={<ManageProviders client={client} onProvidersChanged={onProvidersChanged} />}
     />
   );
 }
