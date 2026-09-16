@@ -44,7 +44,6 @@ src/
                               direct file write. (ADR-0001/0004)
     providerStatusCache.ts    Dedicated status cache (provider-status:<id>, 30-min TTL). (ADR-0003)
     backgroundRefresh.ts      Orchestration for refresh-usage-cache.
-    refreshUsageCacheLaunch.ts  Unused by Overview (kept); UserInitiated launch helper.
     presentation.ts           Formatting helpers (percentages, durations, currency).
     detailMarkdown.ts, svg.ts, twoBarAccessoryIcon.ts   Rendering helpers.
 
