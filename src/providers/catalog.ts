@@ -234,7 +234,7 @@ export const PROVIDER_CATALOG = {
     iconFallback: "TwoPeople",
     brandColor: "#6467F2",
     usageSectionLabels: { primary: "Credits", secondary: "Usage" },
-    dashboardUrl: "https://openrouter.ai/settings/credits",
+    dashboardUrl: "https://openrouter.ai/activity",
     statusPageUrl: "https://status.openrouter.ai",
   },
   perplexity: {
@@ -651,6 +651,7 @@ export const PROVIDER_ID_ALIASES: Record<string, string> = {
   "wayfinder-router": "wayfinder",
   "kilo-ai": "kilo",
   "kimi-ai": "kimi",
+  "kiro-cli": "kiro",
   "warp-ai": "warp",
   "warp-terminal": "warp",
   "synthetic.new": "synthetic",

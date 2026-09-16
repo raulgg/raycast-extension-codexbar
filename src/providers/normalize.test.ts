@@ -316,6 +316,38 @@ describe("provider normalization", () => {
     ]);
   });
 
+  it("relabels amp primary as Agent usage when an Agent detail row is present", () => {
+    const now = Date.parse("2026-03-23T10:30:00Z");
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "amp",
+        usage: {
+          primary: { usedPercent: 10 },
+          details: [{ title: "Monthly allowances", rows: [{ label: "Agent", value: "$12" }] }],
+        },
+      },
+      "amp",
+      now,
+    );
+    const titles = detail.sections
+      .filter((section) => section.kind === "usage")
+      .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
+    expect(titles).toEqual(["Agent usage"]);
+  });
+
+  it("relabels ollama's monthly-sentinel primary as Monthly", () => {
+    const now = Date.parse("2026-03-23T10:30:00Z");
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "ollama",
+        usage: { primary: { usedPercent: 10, windowMinutes: 43_200 } },
+      },
+      "ollama",
+      now,
+    );
+    expect(detail.sections[0]).toMatchObject({ kind: "usage", displayTitle: "Monthly" });
+  });
+
   it("relabels alibaba token-plan windows by duration", () => {
     const now = Date.parse("2026-03-23T10:30:00Z");
     const usageTitles = (usage: Record<string, unknown>) =>
@@ -1053,6 +1085,19 @@ describe("usage pacing gating", () => {
     expect(usagePacing(primary)).toBeUndefined();
   });
 
+  it("does not pace OpenCode Go estimated snapshots", () => {
+    const monthly = { windowMinutes: 43_200, usedPercent: 50, resetsAt: "2026-04-22T10:30:00Z" };
+    const [estimated] = normalizeProviderDetailPayload(
+      { provider: "opencodego", usage: { primary: monthly, dataConfidence: "estimated" } },
+      "opencodego",
+      NOW,
+    ).sections;
+    expect(usagePacing(estimated)).toBeUndefined();
+
+    const [exact] = pace("opencodego", { primary: monthly, dataConfidence: "exact" });
+    expect(usagePacing(exact)).toMatchObject({ context: "window" });
+  });
+
   it("paces the codex secondary window with the 10080-min default when windowMinutes is absent", () => {
     const [secondary] = pace("codex", { secondary: { usedPercent: 50, resetsAt: WEEKLY_RESETS_AT } });
     expect(secondary).toMatchObject({
@@ -1222,7 +1267,7 @@ describe("usage pacing gating", () => {
     expect(usagePacing(primary)).toMatchObject({ context: "window" });
   });
 
-  it("paces Codex, Claude, and Antigravity extras the way the menu card does", () => {
+  it("paces Codex, Claude, Antigravity, and Cursor extras the way the menu card does", () => {
     const extra = (provider: string, windowMinutes: number) =>
       usagePacing(
         pace(provider, {
@@ -1246,6 +1291,8 @@ describe("usage pacing gating", () => {
     expect(extra("antigravity", 300)).toMatchObject({ context: "session" });
     expect(extra("claude", 10_080)).toMatchObject({ context: "window" });
     expect(extra("claude", 300)).toBeUndefined();
+    expect(extra("cursor", 10_080)).toMatchObject({ context: "window" });
+    expect(extra("cursor", 300)).toBeUndefined();
     expect(extra("factory", 10_080)).toBeUndefined();
     expect(extra("zai", 43_200)).toBeUndefined();
   });

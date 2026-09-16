@@ -55,6 +55,7 @@ describe("provider registry", () => {
     expect(resolveProviderId("ai&")).toBe("aiand");
     expect(resolveProviderId("bob")).toBe("ibmbob");
     expect(resolveProviderId("sub-2-api")).toBe("sub2api");
+    expect(resolveProviderId("kiro-cli")).toBe("kiro");
   });
 
   it("uses harvested upstream metadata for new providers", () => {
@@ -198,7 +199,7 @@ describe("provider registry", () => {
         darkFill: "#8385F5",
       },
       usageSectionLabels: { primary: "Credits", secondary: "Usage" },
-      dashboardUrl: "https://openrouter.ai/settings/credits",
+      dashboardUrl: "https://openrouter.ai/activity",
       statusPageUrl: "https://status.openrouter.ai",
     });
   });

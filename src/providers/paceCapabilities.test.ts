@@ -23,6 +23,33 @@ describe("resolveSlotPace", () => {
     ).toBeUndefined();
   });
 
+  it("paces Amp only when the reset description is a renews-in countdown", () => {
+    expect(
+      resolveSlotPace(
+        "amp",
+        "Primary",
+        { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z", resetDescription: "renews in 12 days" },
+        now,
+      )?.context,
+    ).toBe("window");
+    expect(
+      resolveSlotPace("amp", "Primary", { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" }, now),
+    ).toBeUndefined();
+  });
+
+  it("session-paces Ollama windows of at most 5 hours and monthly-paces the sentinel", () => {
+    expect(
+      resolveSlotPace("ollama", "Primary", { windowMinutes: 90, resetsAt: "2026-03-23T13:00:00Z" }, now)?.context,
+    ).toBe("session");
+    expect(
+      resolveSlotPace("ollama", "Primary", { windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" }, now),
+    ).toBeUndefined();
+    expect(
+      resolveSlotPace("ollama", "Primary", { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" }, now)
+        ?.windowMinutes,
+    ).toBe(inferredMonthlyWindowMinutes("2026-04-22T10:30:00Z"));
+  });
+
   it("does not generic-weekly-pace a factory tertiary, even mid-window", () => {
     expect(
       resolveSlotPace("factory", "Tertiary", { windowMinutes: 43_200, resetsAt: "2026-04-12T10:30:00Z" }, now),
@@ -70,10 +97,15 @@ describe("resolveExtraWindowPace", () => {
     expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 })?.context).toBe("window");
   });
 
-  it("does not pace Claude 5-hour extras or extras on other providers", () => {
+  it("does not pace Claude or Cursor 5-hour extras or extras on other providers", () => {
     expect(resolveExtraWindowPace("claude", { windowMinutes: 300 })).toBeUndefined();
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 })).toBeUndefined();
     expect(resolveExtraWindowPace("factory", { windowMinutes: 10_080 })).toBeUndefined();
     expect(resolveExtraWindowPace("zai", { windowMinutes: 43_200, resetDescription: "MCP" })).toBeUndefined();
+  });
+
+  it("weekly-paces Cursor 7-day extras", () => {
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 10_080 })?.context).toBe("window");
   });
 });
 

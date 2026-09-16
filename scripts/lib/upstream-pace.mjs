@@ -44,6 +44,13 @@ function extractBalanced(source, openIndex, openChar, closeChar) {
   return undefined;
 }
 
+function stripSwiftLineComments(source) {
+  return source
+    .split("\n")
+    .map((line) => line.replace(/\/\/.*$/, ""))
+    .join("\n");
+}
+
 function splitTopLevelFields(body) {
   const fields = [];
   let start = 0;
@@ -60,7 +67,7 @@ function splitTopLevelFields(body) {
     } else if (character === "}") {
       brace -= 1;
     } else if (character === "," && paren === 0 && brace === 0) {
-      const piece = body.slice(start, index).trim();
+      const piece = stripSwiftLineComments(body.slice(start, index)).trim();
       if (piece) {
         fields.push(piece);
       }
@@ -233,6 +240,9 @@ function parseCapabilityLiteral(inner, constants, fileName, source) {
       parseLane(value, constants, fileName);
     } else if (name === "showsHeadroomHint") {
       capability.showsHeadroomHint = value.startsWith("true");
+    } else if (name === "allowsEstimatedUsage") {
+      // GUI gate: estimated snapshots skip pace when false (OpenCode Go local costs).
+      capability.allowsEstimatedUsage = value.startsWith("true");
     } else {
       throw new Error(`${fileName} has an unknown ProviderPaceCapability field "${name}".`);
     }
@@ -328,6 +338,14 @@ export function comparePaceCapabilities(ours, upstreamById, customRules) {
       if (JSON.stringify(oursRule) !== JSON.stringify(upstreamRule)) {
         problems.push(`${id}: ${field} ${formatRule(oursRule)} != upstream ${formatRule(upstreamRule)}`);
       }
+    }
+
+    const oursAllowsEstimated = oursCapability.allowsEstimatedUsage !== false;
+    const upstreamAllowsEstimated = resolved.allowsEstimatedUsage !== false;
+    if (oursAllowsEstimated !== upstreamAllowsEstimated) {
+      problems.push(
+        `${id}: allowsEstimatedUsage ${oursAllowsEstimated} != upstream ${upstreamAllowsEstimated}`,
+      );
     }
   }
 
