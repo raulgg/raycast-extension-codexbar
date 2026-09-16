@@ -362,6 +362,30 @@ describe("parseDescriptorPace", () => {
   it("throws on an unparseable pace value", () => {
     expect(() => parseDescriptorPace(descriptorFixture({ pace: ".mystery" }), "X.swift")).toThrow(/unparseable pace/);
   });
+
+  it("strips line comments and parses allowsEstimatedUsage", () => {
+    const parsed = parseDescriptorPace(
+      descriptorFixture({
+        pace: `ProviderPaceCapability(
+                resetWindowPace: .windowDuration(minutes: ProviderPaceCapability.monthlyWindowSentinelMinutes),
+                inferredMonthlyDuration: .windowDuration(minutes: ProviderPaceCapability.monthlyWindowSentinelMinutes),
+                // Device-local costs cannot establish the account's quota usage or billing-cycle boundaries.
+                allowsEstimatedUsage: false)`,
+      }),
+      "OpenCodeGo.swift",
+    );
+    expect(parsed.resetWindowPace).toEqual({ type: "windowDuration", minutes: 43_200 });
+    expect(parsed.allowsEstimatedUsage).toBe(false);
+  });
+
+  it("throws on an unknown ProviderPaceCapability field", () => {
+    expect(() =>
+      parseDescriptorPace(
+        descriptorFixture({ pace: "ProviderPaceCapability(mysteryFlag: true)" }),
+        "X.swift",
+      ),
+    ).toThrow(/unknown ProviderPaceCapability field "mysteryFlag"/);
+  });
 });
 
 describe("expandCustomFingerprint", () => {
@@ -465,6 +489,30 @@ describe("comparePaceCapabilities", () => {
     expect(problems).toEqual([
       'grok: resetWindowPace {"type":"custom","id":"grokWeeklyCredits"} != upstream {"type":"windowDurationPresent"}',
     ]);
+  });
+
+  it("reports allowsEstimatedUsage drift", () => {
+    const parsed = parseDescriptorPace(
+      descriptorFixture({
+        pace: "ProviderPaceCapability(allowsEstimatedUsage: false)",
+      }),
+      "OpenCodeGo.swift",
+    );
+    const { problems } = comparePaceCapabilities(
+      new Map([
+        [
+          "opencodego",
+          {
+            resetWindowPace: { type: "unsupported" },
+            inferredMonthlyDuration: { type: "unsupported" },
+            sessionPaceWindowRule: { type: "unsupported" },
+          },
+        ],
+      ]),
+      new Map([["opencodego", { pace: parsed }]]),
+      {},
+    );
+    expect(problems).toEqual(["opencodego: allowsEstimatedUsage true != upstream false"]);
   });
 });
 

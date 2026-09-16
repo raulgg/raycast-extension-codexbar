@@ -1,4 +1,9 @@
-import { resolveDynamicSlotTitle, resolveExtraWindowPace, resolveSlotPace } from "./paceCapabilities";
+import {
+  getPaceCapability,
+  resolveDynamicSlotTitle,
+  resolveExtraWindowPace,
+  resolveSlotPace,
+} from "./paceCapabilities";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "./registry";
 import { calculateUsagePacing } from "./usagePacing";
 import { parseProviderStatus } from "./status";
@@ -34,6 +39,40 @@ function toTrimmedString(value: unknown): string | undefined {
 
 function toFiniteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function extractDataConfidence(payload: RawProviderPayload): string | undefined {
+  const usage = toRecord(payload.usage);
+  return toTrimmedString(usage?.dataConfidence) ?? toTrimmedString(payload.dataConfidence);
+}
+
+function allowsUsagePacing(providerId: string, payload: RawProviderPayload): boolean {
+  if (getPaceCapability(providerId).allowsEstimatedUsage !== false) {
+    return true;
+  }
+
+  return extractDataConfidence(payload) !== "estimated";
+}
+
+function usageHasDetailRow(usage: RawProviderPayload | undefined, label: string): boolean {
+  if (!usage || !Array.isArray(usage.details)) {
+    return false;
+  }
+
+  for (const section of usage.details) {
+    const rows = toRecord(section)?.rows;
+    if (!Array.isArray(rows)) {
+      continue;
+    }
+
+    for (const row of rows) {
+      if (toTrimmedString(toRecord(row)?.label) === label) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function firstString(...values: unknown[]): string | undefined {
@@ -332,6 +371,8 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
   // A present window is one that will render — upstream's `snapshot.* != nil` check.
   const factoryHasTertiary = toFiniteNumber(toRecord(usage?.tertiary)?.usedPercent) !== undefined;
   const hasSecondary = toFiniteNumber(toRecord(usage?.secondary)?.usedPercent) !== undefined;
+  const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
+  const pacingAllowed = allowsUsagePacing(providerId, payload);
 
   for (const slot of slotFallbacks) {
     const record = slot.record ?? {};
@@ -344,20 +385,21 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
       if (slot.title === "Primary" || slot.title === "Secondary") {
         resetsAtByTitle[slot.title] = resolvedResetsAt;
       }
-      const usagePacing = resolvedResetsAt
-        ? computeSlotUsagePacing(
-            providerId,
-            slot.title,
-            {
-              usedPercent: resolvedUsedPercent,
-              remainingPercent: progressPercent,
-              resetsAt: resolvedResetsAt,
-              windowMinutes: toFiniteNumber(record.windowMinutes),
-              resetDescription: toTrimmedString(record.resetDescription),
-            },
-            now,
-          )
-        : undefined;
+      const usagePacing =
+        pacingAllowed && resolvedResetsAt
+          ? computeSlotUsagePacing(
+              providerId,
+              slot.title,
+              {
+                usedPercent: resolvedUsedPercent,
+                remainingPercent: progressPercent,
+                resetsAt: resolvedResetsAt,
+                windowMinutes: toFiniteNumber(record.windowMinutes),
+                resetDescription: toTrimmedString(record.resetDescription),
+              },
+              now,
+            )
+          : undefined;
       sections.push({
         kind: "usage",
         title: slot.title,
@@ -368,6 +410,7 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
             resetDescription: toTrimmedString(record.resetDescription),
             factoryHasTertiary,
             hasSecondary,
+            hasAgentDetailRow,
             now,
           }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title),
         remainingPercent: clampPercent(progressPercent),
@@ -394,6 +437,7 @@ function buildExtraRateWindowSections(
   const usage = toRecord(payload.usage);
   const extraRateWindows = Array.isArray(usage?.extraRateWindows) ? usage.extraRateWindows : [];
   const sections: ProviderSection[] = [];
+  const pacingAllowed = allowsUsagePacing(providerId, payload);
 
   for (const entry of extraRateWindows) {
     const record = toRecord(entry);
@@ -410,19 +454,20 @@ function buildExtraRateWindowSections(
 
     const remainingPercent = Math.max(0, 100 - usedPercent);
     const resetsAt = toString(window.resetsAt);
-    const usagePacing = resetsAt
-      ? computeExtraWindowUsagePacing(
-          providerId,
-          {
-            usedPercent,
-            remainingPercent,
-            resetsAt,
-            windowMinutes: toFiniteNumber(window.windowMinutes),
-            resetDescription: toTrimmedString(window.resetDescription),
-          },
-          now,
-        )
-      : undefined;
+    const usagePacing =
+      pacingAllowed && resetsAt
+        ? computeExtraWindowUsagePacing(
+            providerId,
+            {
+              usedPercent,
+              remainingPercent,
+              resetsAt,
+              windowMinutes: toFiniteNumber(window.windowMinutes),
+              resetDescription: toTrimmedString(window.resetDescription),
+            },
+            now,
+          )
+        : undefined;
 
     sections.push({
       kind: "supplementalUsage",
@@ -478,6 +523,7 @@ function buildPresentationMeterSections(
   }
 
   const sections: ProviderSection[] = [];
+  const pacingAllowed = allowsUsagePacing(providerId, payload);
   for (const entry of presentation.meters) {
     const meter = toRecord(entry);
     const kind = toPresentationMeterKind(meter?.kind);
@@ -501,20 +547,21 @@ function buildPresentationMeterSections(
 
     if (kind === "primary" || kind === "secondary" || kind === "tertiary") {
       const title = kind === "primary" ? "Primary" : kind === "secondary" ? "Secondary" : "Tertiary";
-      const usagePacing = resetsAt
-        ? computeSlotUsagePacing(
-            providerId,
-            title,
-            {
-              usedPercent: resolvedUsedPercent,
-              remainingPercent,
-              resetsAt,
-              windowMinutes,
-              resetDescription: toTrimmedString(meter.resetDescription),
-            },
-            now,
-          )
-        : undefined;
+      const usagePacing =
+        pacingAllowed && resetsAt
+          ? computeSlotUsagePacing(
+              providerId,
+              title,
+              {
+                usedPercent: resolvedUsedPercent,
+                remainingPercent,
+                resetsAt,
+                windowMinutes,
+                resetDescription: toTrimmedString(meter.resetDescription),
+              },
+              now,
+            )
+          : undefined;
       sections.push({
         kind: "usage",
         title,
@@ -528,19 +575,20 @@ function buildPresentationMeterSections(
     }
 
     if (kind === "supplemental") {
-      const usagePacing = resetsAt
-        ? computeExtraWindowUsagePacing(
-            providerId,
-            {
-              usedPercent: resolvedUsedPercent,
-              remainingPercent,
-              resetsAt,
-              windowMinutes,
-              resetDescription: toTrimmedString(meter.resetDescription),
-            },
-            now,
-          )
-        : undefined;
+      const usagePacing =
+        pacingAllowed && resetsAt
+          ? computeExtraWindowUsagePacing(
+              providerId,
+              {
+                usedPercent: resolvedUsedPercent,
+                remainingPercent,
+                resetsAt,
+                windowMinutes,
+                resetDescription: toTrimmedString(meter.resetDescription),
+              },
+              now,
+            )
+          : undefined;
       sections.push({
         kind: "supplementalUsage",
         title: label,

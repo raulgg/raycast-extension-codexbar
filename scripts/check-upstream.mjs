@@ -86,6 +86,15 @@ const CUSTOM_PACE_RULES = {
     id: "zaiMonthlyMcp",
     fingerprint: 'window.windowMinutes == 43200 && window.resetDescription == "MCP"',
   },
+  "amp.resetWindowPace": {
+    id: "ampRenewsInDescription",
+    fingerprint: 'window, _ in window.windowMinutes != nil && window.resetDescription?.hasPrefix("renews in ") == true',
+  },
+  "ollama.sessionPaceWindowRule": {
+    id: "ollamaSessionAtMostFiveHours",
+    fingerprint:
+      "window, _ in guard let minutes = window.windowMinutes else { return false } return minutes <= 300",
+  },
 };
 
 const UNPORTABLE_PRESENTATION_PACE = {

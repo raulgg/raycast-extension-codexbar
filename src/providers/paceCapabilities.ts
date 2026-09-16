@@ -5,11 +5,13 @@ export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
 export const MONTHLY_WINDOW_SENTINEL_MINUTES = 30 * 24 * 60;
 
 export type PaceCustomId =
+  | "ampRenewsInDescription"
   | "antigravitySession"
   | "claudeSessionAlways"
   | "codexSessionRejectsWeeklyMonthly"
   | "grokWeeklyCredits"
   | "notionRollingSession"
+  | "ollamaSessionAtMostFiveHours"
   | "zaiMonthlyMcp";
 
 export type PaceWindowRule =
@@ -31,6 +33,8 @@ export type PaceCapability = {
   sessionPaceWindowRule: PaceWindowRule;
   secondarySessionPace?: boolean;
   secondaryAllowsDefaultWindow?: boolean;
+  // Swift default is true. OpenCode Go sets false so estimated local costs do not pace.
+  allowsEstimatedUsage?: boolean;
 };
 
 export type PaceWindow = {
@@ -107,6 +111,8 @@ function grokWeeklyCredits(window: PaceWindow, now: number): boolean {
 }
 
 export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now: number) => boolean> = {
+  ampRenewsInDescription: (window) =>
+    window.windowMinutes !== undefined && (window.resetDescription?.startsWith("renews in ") ?? false),
   antigravitySession: (window) => window.windowMinutes === undefined || window.windowMinutes === 300,
   claudeSessionAlways: () => true,
   codexSessionRejectsWeeklyMonthly: (window) => {
@@ -118,6 +124,8 @@ export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now:
   },
   grokWeeklyCredits,
   notionRollingSession: (window) => window.windowMinutes !== undefined && window.windowMinutes <= 6 * 60,
+  ollamaSessionAtMostFiveHours: (window) =>
+    window.windowMinutes !== undefined && window.windowMinutes <= SESSION_PACE_DEFAULT_WINDOW_MINUTES,
   zaiMonthlyMcp: (window) =>
     window.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES && window.resetDescription === "MCP",
 };
@@ -257,14 +265,18 @@ export function resolveSlotPace(
 }
 
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex"]);
+export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex", "cursor"]);
+const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude", "cursor"]);
 
 export function resolveExtraWindowPace(providerId: string, window: PaceWindow): ResolvedSlotPace | undefined {
   if (!EXTRA_WINDOW_PACE_PROVIDER_IDS.has(providerId)) {
     return undefined;
   }
 
-  if (providerId === "claude" && window.windowMinutes !== WEEKLY_PACE_DEFAULT_WINDOW_MINUTES) {
+  if (
+    WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS.has(providerId) &&
+    window.windowMinutes !== WEEKLY_PACE_DEFAULT_WINDOW_MINUTES
+  ) {
     return undefined;
   }
 
@@ -296,7 +308,11 @@ const CALENDAR_MONTH: PaceCapability = {
 export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
   alibaba: CALENDAR_MONTH,
   alibabatokenplan: CALENDAR_MONTH,
-  amp: CALENDAR_MONTH,
+  amp: {
+    resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
+    inferredMonthlyDuration: { type: "unsupported" },
+    sessionPaceWindowRule: { type: "unsupported" },
+  },
   antigravity: {
     resetWindowPace: { type: "unsupported" },
     inferredMonthlyDuration: { type: "unsupported" },
@@ -342,11 +358,14 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     sessionPaceWindowRule: { type: "custom", id: "notionRollingSession" },
   },
   ollama: {
-    resetWindowPace: { type: "unsupported" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "windowDurationPresent" },
+    resetWindowPace: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
+    inferredMonthlyDuration: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
+    sessionPaceWindowRule: { type: "custom", id: "ollamaSessionAtMostFiveHours" },
   },
-  opencodego: CALENDAR_MONTH,
+  opencodego: {
+    ...CALENDAR_MONTH,
+    allowsEstimatedUsage: false,
+  },
   stepfun: CALENDAR_MONTH,
   zai: {
     resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },
@@ -361,6 +380,7 @@ type DynamicTitleOptions = {
   resetDescription?: string;
   factoryHasTertiary: boolean;
   hasSecondary: boolean;
+  hasAgentDetailRow: boolean;
   now: number;
 };
 
@@ -429,6 +449,10 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
     return options.hasSecondary ? "Requests" : "Credits";
   },
   amp(slotTitle, options) {
+    if (slotTitle === "Primary" && options.hasAgentDetailRow) {
+      return "Agent usage";
+    }
+
     if (!options.hasSecondary) {
       return undefined;
     }
@@ -439,6 +463,13 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     if (slotTitle === "Secondary") {
       return "Orb usage";
+    }
+
+    return undefined;
+  },
+  ollama(slotTitle, options) {
+    if (slotTitle === "Primary" && options.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
+      return "Monthly";
     }
 
     return undefined;

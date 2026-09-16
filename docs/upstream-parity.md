@@ -133,10 +133,12 @@ from payload contents. We port these into `DYNAMIC_SLOT_TITLES` (`paceCapabiliti
   `resetsAt`). Untyped windows with only `resetsAt` fall back to "Weekly" (`displayLabel`, #2929).
 - **doubao.** Relabels a windowless "requests"-style primary as "Requests".
 - **crof.** Relabels a lone primary as "Credits", or "Requests" when a secondary window is present.
-- **amp.** Dual-window accounts become "Other usage" / "Orb usage". A lone primary keeps "Amp Free".
+- **amp.** An "Agent" detail row relabels primary as "Agent usage". Dual-window accounts become
+  "Other usage" / "Orb usage". A lone primary without Agent keeps "Amp Free".
 - **alibabatokenplan.** A 5-hour primary becomes "5-hour", a 7-day secondary becomes "7-day".
 - **sub2api.** A present secondary window relabels primary as "Daily quota". MenuCardView shortens
   secondary/tertiary. We keep the descriptor's Weekly quota / Monthly quota.
+- **ollama.** A monthly-sentinel primary becomes "Monthly".
 
 `upstream:check` scans the renderer files for override call sites and cross-checks them against
 `DYNAMIC_SLOT_TITLES` and `UNPORTABLE_DYNAMIC_TITLES` in `paceCapabilities.ts` (imported, the same
@@ -179,7 +181,7 @@ contain `..`, a leading `/`, or a path separator fail the script.
 
 ## Surface 4. Pacing (`upstream:check`)
 
-*Verified against upstream `v0.55.0` (`061593ca`).*
+*Verified against upstream `v0.60.4` (`937b2081`).*
 
 Eligibility lives in [`paceCapabilities.ts`](../src/providers/paceCapabilities.ts), a table that
 mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsagePacing` in
@@ -193,11 +195,14 @@ Those two disagree for some providers. The GUI wins.
 - **Gating.** `sessionPaceWindowRule` on primary (and Kimi's secondary), else `resetWindowPace`.
   Secondary (not tertiary) then uses the generic weekly rule (`windowMinutes` required except Codex
   via `secondaryAllowsDefaultWindow`). Named extra rate windows use `resolveExtraWindowPace`
-  (Codex, Claude, Antigravity. 300-minute extras as session except Claude, 10080 as weekly).
+  (Codex, Claude, Antigravity, Cursor. 300-minute extras as session except Claude and Cursor,
+  10080 as weekly). OpenCode Go sets `allowsEstimatedUsage: false`, so estimated local-cost
+  snapshots skip every pace marker.
 - **Labels.** `formatUsagePacingLabels` in `usagePacing.ts`. Not compared by `upstream:check`.
 
 `upstream:check` imports `PACE_CAPABILITIES` and diffs the GUI fields (`resetWindowPace`,
-`inferredMonthlyDuration`, `sessionPaceWindowRule`) against each descriptor `pace:` argument.
+`inferredMonthlyDuration`, `sessionPaceWindowRule`, `allowsEstimatedUsage`) against each
+descriptor `pace:` argument.
 `secondaryAllowsDefaultWindow` is TypeScript-only, not a Swift `pace:` field. A unit test in
 `paceCapabilities.test.ts` pins it to Codex.
 CLI `resolvedKind` lanes are parsed so an unknown field still throws, but they are not compared.
@@ -217,7 +222,7 @@ the GUI even though the CLI `resolvedKind` lane would allow it.
 **Tick geometry.** Upstream's pace tip is a Canvas three-stripe punch (`UsageProgressBar.swift`).
 We keep a simple 3×12 rounded rect. We punch a transparent gutter through the bar around that tick
 so the color stays readable on similar brand fills. Color and hide-when-on-pace match the app
-(`v0.55.0`, `061593ca`). Deficit is SwiftUI `Color.red`, reserve is `Color.green`.
+(`v0.60.4`, `937b2081`). Deficit is SwiftUI `Color.red`, reserve is `Color.green`.
 
 ### Out of scope. Not the plain pace marker
 
@@ -253,7 +258,7 @@ cases:
 
 ## Surface 6. CLI install routine (hand-maintained)
 
-*Verified against upstream `v0.45.1` (`757f1ca1`).*
+*Verified against upstream `v0.60.4` (`937b2081`). Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
 
 When the CodexBar CLI is missing but the CodexBar app is installed, the extension can set up the
 app's bundled CLI itself (ADR-0008). `installCodexBarCli` in
