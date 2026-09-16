@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProviderDetailData } from "../usage/types";
+import type { ProviderDetailData } from "../../usage/types";
 
 const { Detail, appearanceMock, hidePersonalInfoMock } = vi.hoisted(() => {
   return {
@@ -34,7 +34,7 @@ vi.mock("@raycast/api", () => ({
   },
 }));
 
-import { extractFirstSvg } from "../../test/svg-markdown";
+import { extractFirstSvg } from "../../../test/svg-markdown";
 import { getProviderDetailHeaderTimestamp, ProviderDetail } from "./ProviderDetail";
 
 function makeDetail(): ProviderDetailData {

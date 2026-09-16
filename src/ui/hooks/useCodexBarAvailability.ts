@@ -1,6 +1,6 @@
 import { useCachedPromise } from "@raycast/utils";
-import { getCodexBarClientAvailability, type CodexBarClientAvailability } from "../services/codexbarClient";
-import { getKeychainAccessPolicy } from "../preferences";
+import { getCodexBarClientAvailability, type CodexBarClientAvailability } from "../../services/codexbarClient";
+import { getKeychainAccessPolicy } from "../../preferences";
 
 type UseCodexBarAvailabilityResult = {
   availability?: CodexBarClientAvailability;
