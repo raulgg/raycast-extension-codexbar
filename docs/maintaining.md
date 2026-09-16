@@ -11,14 +11,15 @@ quirks that trip people up, and the recurring chore of syncing with upstream.
 
 ## Canonical repo
 
-This GitHub repository (`raulgg/raycast-extension-codexbar`) is the source of truth. Develop here
-and load the extension with `npm run dev` from this directory — not from a copy inside
-`raycast/extensions`.
+This GitHub repository (`raulgg/raycast-extension-codexbar`) is where the extension is developed
+and where issues and discussions live. The Raycast Store publishes a copy from `raycast/extensions`
+(`extensions/codexbar`), and contributors may open pull requests in either place. Where things go,
+how credit is preserved, and the `pull-contributions` / `npm run publish` sync steps are in
+[`CONTRIBUTING.md`](../CONTRIBUTING.md). Until the first Store release lands there is nothing in
+`raycast/extensions` to sync.
 
-Do **not** publish to the Raycast Store while the extension is in active local development. When
-that is explicitly in scope: `npm run publish` opens a Store PR; `npx @raycast/api@latest
-pull-contributions` brings reviewer or contributor Store commits back into this repo. Until then
-there is nothing upstream to sync.
+Develop here and load the extension with `npm run dev` from this directory. Only work from a copy
+inside `raycast/extensions` when you are following Raycast's contribute-to-an-extension flow.
 
 ## What this extension does, in one paragraph
 

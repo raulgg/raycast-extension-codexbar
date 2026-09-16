@@ -2,7 +2,9 @@
 
 Maintainer and contributor documentation for the CodexBar Raycast extension.
 
-- **[maintaining.md](maintaining.md)** — start here. Repo layout, dev/test/lint commands, runtime
+- **[../CONTRIBUTING.md](../CONTRIBUTING.md)** — where issues and pull requests go (this repository
+  or `raycast/extensions`), the issue-first rule for new features, and how the two copies stay in sync.
+- **[maintaining.md](maintaining.md)** — start here for code. Repo layout, dev/test/lint commands, runtime
   quirks, and the recurring upstream-sync chore.
 - **[upstream-parity.md](upstream-parity.md)** — the parity reference. Every surface where the
   extension tracks the CodexBar macOS app, the drift-guard scripts, and the quirks. Read before

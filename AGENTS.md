@@ -33,6 +33,8 @@ invention.
   Prettier version — fix formatting with `npm run fix-lint`, not a locally installed prettier.
 - Repo layout, runtime quirks, and the recurring upstream-sync chore:
   [docs/maintaining.md](docs/maintaining.md).
+- The extension is developed here and published through `raycast/extensions`. Where issues and
+  pull requests go, and how the two copies stay in sync: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Scope
 
