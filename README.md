@@ -59,6 +59,9 @@ fetched with normal Keychain access.
 
 ## Contributing
 
-Contributor and maintainer docs live in [`docs/`](docs/) — start with
-[`docs/maintaining.md`](docs/maintaining.md). Contributing with an AI agent? It should read
+The extension is developed in [raulgg/raycast-extension-codexbar](https://github.com/raulgg/raycast-extension-codexbar)
+and published through [raycast/extensions](https://github.com/raycast/extensions).
+[`CONTRIBUTING.md`](CONTRIBUTING.md) explains where to report bugs, where to discuss ideas, and how
+to send code to either repository. Contributor and maintainer docs live in [`docs/`](docs/) — start
+with [`docs/maintaining.md`](docs/maintaining.md). Contributing with an AI agent? It should read
 [`AGENTS.md`](AGENTS.md) first.
