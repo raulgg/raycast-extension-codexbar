@@ -1,7 +1,7 @@
 import { Cache } from "@raycast/api";
 import { createIndexedCache } from "../cache/indexedCache";
 import type { ProviderDetailData, ProviderSourceMode } from "../providers/types";
-import type { KeychainAccessPolicy } from "./keychainAccessPolicy";
+import type { KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 
 export const PROVIDER_DETAIL_CONCURRENCY = 4;
 const PROVIDER_DETAIL_FRESHNESS_WINDOW_MS = 10 * 60 * 1000;

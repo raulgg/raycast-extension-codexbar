@@ -1,15 +1,15 @@
 import { Action, ActionPanel, confirmAlert, Detail, Icon, showToast, Toast } from "@raycast/api";
 import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
-import { codexBarAppPathForHelper, installCodexBarCli } from "../lib/cliInstall";
-import type { KeychainAccessPolicy } from "../lib/keychainAccessPolicy";
+import { codexBarAppPathForHelper, installCodexBarCli } from "../cli/install";
+import type { KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 import {
-  CodexBarCliError,
   resolveCodexBarBinary,
   smokeTestCodexBar,
   type InstallHelpState,
   type ResolvedCodexBarBinary,
-} from "../lib/codexbar";
+} from "../cli/binary";
+import { CodexBarCliError } from "../cli/exec";
 import { getKeychainAccessPolicy } from "../preferences";
 
 type InstallHelpDetailProps = {

@@ -1,6 +1,6 @@
 import { createIndexedCache } from "../cache/indexedCache";
 import type { ProviderDetailData, ProviderSupplementalUsageSection } from "../providers/types";
-import type { KeychainAccessPolicy } from "./keychainAccessPolicy";
+import type { KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 
 // Per-provider section memory (ADR-0007): upstream fetches sometimes drop
 // supplemental sections, so we restore remembered ones until they age out

@@ -10,16 +10,14 @@ import {
 } from "./providerDetailCache";
 import { pruneProviderUsageSectionMemory } from "./providerShapeMemory";
 import { cacheProviderStatus, readProviderStatus } from "./providerStatusCache";
+import { canForceRefreshViaServe, getCodexBarAvailability, type ResolvedCodexBarBinary } from "../cli/binary";
 import {
-  canForceRefreshViaServe,
-  ensureCodexBarServe,
   fetchProviderDetailFromServe,
   fetchProviderDetailFromUsageCommand,
   fetchProviderUsageWithStatus,
-  getCodexBarAvailability,
   type ProviderUsageWithStatus,
-  type ResolvedCodexBarBinary,
-} from "./codexbar";
+} from "../cli/fetch";
+import { ensureCodexBarServe } from "../cli/serve";
 import { readConfiguredProvidersFromConfig } from "./providerConfig";
 import { getKeychainAccessPolicy } from "../preferences";
 
