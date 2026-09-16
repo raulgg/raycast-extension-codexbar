@@ -1,3 +1,5 @@
+import { clampPercent } from "../usage/json";
+
 export type SvgTextAnchor = "start" | "middle" | "end";
 
 const DEFAULT_FONT_FAMILY = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
@@ -323,10 +325,6 @@ function buildSvgProgressMarker(
 
 function svgNumber(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value));
 }
 
 /**

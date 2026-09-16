@@ -17,6 +17,7 @@ import type {
   ProviderStatus,
 } from "../providers/types";
 import { getMockProviderPayload, isCodexBarMockMode } from "../mocks/codexbar";
+import { isRecord } from "../usage/json";
 import { buildInstallHelp, detectHomebrew, findCodexBarApp, type InstallHelpState } from "./cliInstall";
 import { applyProviderUsageSectionMemory } from "./providerShapeMemory";
 import { applyKeychainAccessPolicy, type KeychainAccessPolicy } from "./keychainAccessPolicy";
@@ -73,10 +74,6 @@ const LEGACY_CAPABILITIES: CodexBarCapabilities = {
   serveAppFetchProfile: false,
   serveForceRefresh: false,
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
 
 export type CodexBarCliErrorKind = "unavailable" | "timeout" | "invalid-json" | "execution";
 

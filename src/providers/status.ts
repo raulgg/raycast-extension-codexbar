@@ -1,3 +1,4 @@
+import { toTrimmedString } from "../usage/json";
 import type { ProviderStatus, ProviderStatusIndicator } from "./types";
 
 // Cached status is only shown while recent; incident data is slow-moving, so a
@@ -70,8 +71,4 @@ export function isRenderableProviderStatusIndicator(indicator: ProviderStatusInd
 export function isProviderStatusFresh(fetchedAt: string, now = Date.now()): boolean {
   const fetchedAtMs = Date.parse(fetchedAt);
   return !Number.isNaN(fetchedAtMs) && now - fetchedAtMs <= PROVIDER_STATUS_TTL_MS;
-}
-
-function toTrimmedString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

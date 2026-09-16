@@ -13,9 +13,10 @@ import {
   getTextBottomY,
   wrapText,
 } from "./detailMarkdown";
+import { clampPercent } from "../usage/json";
 
 export function formatPercentRemaining(value: number): string {
-  const clamped = Math.max(0, Math.min(100, value));
+  const clamped = clampPercent(value);
   if (clamped > 0 && clamped < 1) return "<1%";
   return `${Math.round(clamped)}%`;
 }

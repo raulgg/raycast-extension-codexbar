@@ -1,3 +1,5 @@
+import { formatDurationSeconds } from "../usage/duration";
+import { clampPercent } from "../usage/json";
 import type { ProviderUsagePacing, ProviderUsagePacingStage } from "./types";
 
 const DEFAULT_WINDOW_MINUTES = 10_080;
@@ -14,10 +16,6 @@ type UsagePacingLabelSet = {
   leftLabel: string;
   rightLabel?: string;
 };
-
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value));
-}
 
 function stageForUsedVsIdealDelta(usedVsIdealDeltaPercent: number): ProviderUsagePacingStage {
   const absoluteDelta = Math.abs(usedVsIdealDeltaPercent);
@@ -105,37 +103,6 @@ export function calculateUsagePacing(
   };
 }
 
-function durationText(totalSeconds: number): string {
-  const roundedMinutes = Math.max(0, Math.ceil(totalSeconds / 60));
-  if (roundedMinutes <= 0) {
-    return "now";
-  }
-
-  const minutesPerDay = 24 * 60;
-  if (roundedMinutes < minutesPerDay) {
-    const hours = Math.floor(roundedMinutes / 60);
-    const minutes = roundedMinutes % 60;
-
-    if (hours === 0) {
-      return `${minutes}m`;
-    }
-
-    if (minutes === 0) {
-      return `${hours}h`;
-    }
-
-    return `${hours}h ${minutes}m`;
-  }
-
-  const days = Math.floor(roundedMinutes / minutesPerDay);
-  const hours = Math.floor((roundedMinutes % minutesPerDay) / 60);
-  if (hours === 0) {
-    return `${days}d`;
-  }
-
-  return `${days}d ${hours}h`;
-}
-
 function liveRunOutEtaSeconds(usagePacing: ProviderUsagePacing, now = Date.now()): number | undefined {
   if (usagePacing.runOutEtaSeconds === undefined) {
     return undefined;
@@ -172,7 +139,7 @@ export function formatUsagePacingLabels(usagePacing: ProviderUsagePacing, now = 
     return { leftLabel };
   }
 
-  const etaText = durationText(runOutEtaSeconds);
+  const etaText = formatDurationSeconds(runOutEtaSeconds);
   // The session window projects an "empty" ETA; weekly/other windows "run out".
   if (usagePacing.context === "session") {
     return {
