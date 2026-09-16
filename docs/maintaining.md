@@ -46,8 +46,8 @@ src/
                               start/stop/restart. (ADR-0002/0006/0009)
     serveState.ts             Cache record of the serve daemon we started (pid, start time,
                               Keychain policy) so a later run can attest it. (ADR-0006/0009)
-    fetch.ts                  Provider usage fetchers (serve or one-shot) and the usage command
-                              arguments. (ADR-0005)
+    fetch.ts                  fetchUsage: one Provider's raw usage payload via serve, one-shot,
+                              or auto (serve with one-shot fallback). Never normalizes. (ADR-0005)
     keychainAccessPolicy.ts   The "default" | "disabled" policy and the env var that enforces it
                               on every CodexBar child process. (ADR-0009)
     install.ts                Install help state + the port of the app's Install CLI button. (ADR-0008)
@@ -59,6 +59,9 @@ src/
                               CodexBar installation (config, roster, serve, usage fetches). The real
                               client wraps cli/ + providerConfig; the mock client answers from
                               mockPayloads. Chosen once in getCodexBarClientAvailability.
+    providerDetail.ts         loadProviderDetail: raw payload -> ProviderDetailData. The only
+                              place normalize, payload-error rejection, section memory
+                              (ADR-0007), and the Keychain error hint are composed.
 
   lib/
     providerConfig.ts         Read ~/.codexbar/config.json; enable/disable via CLI; reorder via

@@ -10,8 +10,8 @@ import {
 import { pruneProviderUsageSectionMemory } from "./providerShapeMemory";
 import { cacheProviderStatus, readProviderStatus } from "./providerStatusCache";
 import { canForceRefreshViaServe } from "../cli/binary";
-import type { ProviderUsageWithStatus } from "../cli/fetch";
 import { getCodexBarClientAvailability, type CodexBarClient } from "../services/codexbarClient";
+import { loadProviderDetail, type ProviderUsageWithStatus } from "../services/providerDetail";
 import { getKeychainAccessPolicy } from "../preferences";
 
 export type UsageCacheRefreshError = {
@@ -125,7 +125,7 @@ async function fetchProviderDetailAndStatusForBackground(
   const options = { source: provider.source, interaction: "background" as const, mode: "force" as const };
   if (preferServe) {
     try {
-      const detail = await client.fetchProviderDetailFromServe(provider.id, options);
+      const { detail } = await loadProviderDetail(client, provider.id, { ...options, transport: "serve" });
       return attachStatusWhenStale(client, provider, detail);
     } catch {
       return fetchProviderUsageWithStatusOrDetailOnly(client, provider);
@@ -146,9 +146,10 @@ async function attachStatusWhenStale(
   }
 
   try {
-    const { status } = await client.fetchProviderUsageWithStatus(provider.id, {
+    const { status } = await loadProviderDetail(client, provider.id, {
       source: provider.source,
       interaction: "background",
+      includeStatus: true,
     });
     return { detail, status };
   } catch {
@@ -162,14 +163,16 @@ async function fetchProviderUsageWithStatusOrDetailOnly(
   provider: ConfiguredProvider,
 ): Promise<ProviderUsageWithStatus> {
   try {
-    return await client.fetchProviderUsageWithStatus(provider.id, {
+    return await loadProviderDetail(client, provider.id, {
       source: provider.source,
       interaction: "background",
+      includeStatus: true,
     });
   } catch {
-    const detail = await client.fetchProviderDetailFromUsageCommand(provider.id, {
+    const { detail } = await loadProviderDetail(client, provider.id, {
       source: provider.source,
       interaction: "background",
+      transport: "one-shot",
     });
     return { detail, status: undefined };
   }

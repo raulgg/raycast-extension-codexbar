@@ -1,93 +1,52 @@
-import { applyProviderUsageSectionMemory } from "../lib/providerShapeMemory";
-import {
-  extractProviderErrorMessage,
-  extractProviderStatus,
-  normalizeProviderDetailPayload,
-} from "../providers/normalize";
-import { isProviderSelectorId } from "../providers/registry";
-import type {
-  ProviderDetailData,
-  ProviderInteractionMode,
-  ProviderSourceMode,
-  ProviderStatus,
-} from "../providers/types";
+import type { ProviderInteractionMode, ProviderSourceMode } from "../providers/types";
 import { canForceRefreshViaServe, type CodexBarCapabilities, type ResolvedCodexBarBinary } from "./binary";
-import { CodexBarCliError, executeCodexBar } from "./exec";
+import { executeCodexBar } from "./exec";
 import { CODEXBAR_SERVE_REQUEST_TIMEOUT_SECONDS, isCodexBarServeAttested, requestCodexBarServeJson } from "./serve";
 
 const CODEXBAR_WEB_TIMEOUT_MS = 5_000;
 
-export type ProviderFetchOptions = {
+/**
+ * Which CodexBar path answers a usage request.
+ * - `auto`: an attested serve daemon when available, otherwise a one-shot `usage` command.
+ *   Forced refreshes on CLIs without serve force-refresh go straight to one-shot.
+ * - `serve`: only the serve daemon; throws when it is unavailable or unattested.
+ * - `one-shot`: only a fresh `usage` command. The only transport that can carry `--status`.
+ */
+export type UsageTransport = "auto" | "serve" | "one-shot";
+
+export type FetchUsageOptions = {
+  transport?: UsageTransport;
+  /** Add `--status` to the one-shot command. Implies `transport: "one-shot"`; serve cannot produce status. */
+  includeStatus?: boolean;
   mode?: "auto" | "force";
   source?: ProviderSourceMode;
   interaction?: ProviderInteractionMode;
 };
 
-export const KEYCHAIN_ACCESS_DISABLED_PROVIDER_ERROR_HINT =
-  "Keychain access is disabled. This Provider may require another authentication source.\n\nConfigure it in the CodexBar app or allow Keychain access and retry.";
-
-function appendKeychainAccessPolicyHint(error: unknown, binary: ResolvedCodexBarBinary): Error {
-  if (binary.keychainAccessPolicy !== "disabled") {
-    return error instanceof Error ? error : new Error(String(error));
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes(KEYCHAIN_ACCESS_DISABLED_PROVIDER_ERROR_HINT)) {
-    return error instanceof Error ? error : new Error(message);
-  }
-
-  const hintedMessage = `${message}\n\n${KEYCHAIN_ACCESS_DISABLED_PROVIDER_ERROR_HINT}`;
-  return error instanceof CodexBarCliError
-    ? new CodexBarCliError(error.kind, hintedMessage, error.detail)
-    : new Error(hintedMessage);
-}
-
-async function withProviderFetchErrorHint<T>(binary: ResolvedCodexBarBinary, fetch: () => Promise<T>): Promise<T> {
-  try {
-    return await fetch();
-  } catch (error) {
-    throw appendKeychainAccessPolicyHint(error, binary);
-  }
-}
-
-async function executeCodexBarServe(
+/** Fetch one Provider's raw usage payload. Callers normalize; this only talks to the CLI. */
+export async function fetchUsage(
   binary: ResolvedCodexBarBinary,
   providerId: string,
-  options?: ProviderFetchOptions,
+  options: FetchUsageOptions = {},
 ): Promise<unknown> {
-  if (!(await isCodexBarServeAttested(binary))) {
-    throw new Error("CodexBar serve is not attested for the current Keychain access policy.");
-  }
-
-  const params = new URLSearchParams({ provider: providerId });
-  if (binary.capabilities?.serveAppFetchProfile) {
-    params.set("fetchProfile", "app");
-  }
-  if (binary.capabilities?.interactionModes) {
-    params.set("interaction", options?.interaction ?? "background");
-  }
-  if (options?.mode === "force") {
-    if (!canForceRefreshViaServe(binary)) {
-      throw new Error("CodexBar serve cannot force-refresh.");
-    }
-    params.set("refresh", "true");
-  }
-  return requestCodexBarServeJson(`/usage?${params.toString()}`, CODEXBAR_SERVE_REQUEST_TIMEOUT_SECONDS * 1000);
-}
-
-async function fetchProviderDetailPayload(
-  binary: ResolvedCodexBarBinary,
-  providerId: string,
-  options?: ProviderFetchOptions,
-): Promise<unknown> {
+  const transport = options.includeStatus ? "one-shot" : (options.transport ?? "auto");
   const usageCommandArgs = buildProviderUsageCommandArgs(providerId, {
-    source: options?.source,
-    interaction: options?.interaction,
+    includeStatus: options.includeStatus,
+    source: options.source,
+    interaction: options.interaction,
     capabilities: binary.capabilities,
   });
 
+  if (transport === "one-shot") {
+    return executeCodexBar(binary, usageCommandArgs);
+  }
+
+  if (transport === "serve") {
+    return executeCodexBarServe(binary, providerId, options);
+  }
+
   // Older CLIs without serve force-refresh always use a fresh one-shot command for forced refreshes.
-  if (options?.mode === "force" && !canForceRefreshViaServe(binary)) {
+  if (options.mode === "force" && !canForceRefreshViaServe(binary)) {
     return executeCodexBar(binary, usageCommandArgs);
   }
 
@@ -103,117 +62,29 @@ async function fetchProviderDetailPayload(
   return executeCodexBar(binary, usageCommandArgs);
 }
 
-export async function fetchProviderDetail(
+async function executeCodexBarServe(
   binary: ResolvedCodexBarBinary,
   providerId: string,
-  options?: ProviderFetchOptions,
-): Promise<ProviderDetailData> {
-  const normalizedProviderId = assertFetchableProviderId(providerId);
-  return withProviderFetchErrorHint(binary, async () => {
-    const payload = await fetchProviderDetailPayload(binary, normalizedProviderId, options);
-    // Graft remembered sections (ADR-0007): flaky upstream payloads must not drop meters.
-    const detail = applyProviderUsageSectionMemory(
-      normalizeProviderDetailResponse(payload, normalizedProviderId),
-      binary.keychainAccessPolicy,
-    );
-    return withRequestMetadata(detail, options?.source);
-  });
-}
-
-export async function fetchProviderDetailFromServe(
-  binary: ResolvedCodexBarBinary,
-  providerId: string,
-  options?: ProviderFetchOptions,
-): Promise<ProviderDetailData> {
-  const normalizedProviderId = assertFetchableProviderId(providerId);
-  return withProviderFetchErrorHint(binary, async () => {
-    const payload = await executeCodexBarServe(binary, normalizedProviderId, options);
-    const detail = applyProviderUsageSectionMemory(
-      normalizeProviderDetailResponse(payload, normalizedProviderId),
-      binary.keychainAccessPolicy,
-    );
-    return withRequestMetadata(detail, options?.source);
-  });
-}
-
-export async function fetchProviderDetailFromUsageCommand(
-  binary: ResolvedCodexBarBinary,
-  providerId: string,
-  options?: ProviderFetchOptions,
-): Promise<ProviderDetailData> {
-  const normalizedProviderId = assertFetchableProviderId(providerId);
-  return withProviderFetchErrorHint(binary, async () => {
-    const payload = await executeCodexBar(
-      binary,
-      buildProviderUsageCommandArgs(normalizedProviderId, {
-        source: options?.source,
-        interaction: options?.interaction,
-        capabilities: binary.capabilities,
-      }),
-    );
-    const detail = applyProviderUsageSectionMemory(
-      normalizeProviderDetailResponse(payload, normalizedProviderId),
-      binary.keychainAccessPolicy,
-    );
-    return withRequestMetadata(detail, options?.source);
-  });
-}
-
-export type ProviderUsageWithStatus = {
-  detail: ProviderDetailData;
-  status?: ProviderStatus;
-};
-
-// One-shot usage+status. Used by background refresh when serve is cold.
-export async function fetchProviderUsageWithStatus(
-  binary: ResolvedCodexBarBinary,
-  providerId: string,
-  options?: ProviderFetchOptions,
-): Promise<ProviderUsageWithStatus> {
-  const normalizedProviderId = assertFetchableProviderId(providerId);
-  return withProviderFetchErrorHint(binary, async () => {
-    const payload = await executeCodexBar(
-      binary,
-      buildProviderUsageCommandArgs(normalizedProviderId, {
-        includeStatus: true,
-        source: options?.source,
-        interaction: options?.interaction,
-        capabilities: binary.capabilities,
-      }),
-    );
-    const status = extractProviderStatus(payload, normalizedProviderId);
-    const normalizedDetail = applyProviderUsageSectionMemory(
-      normalizeProviderDetailResponse(payload, normalizedProviderId),
-      binary.keychainAccessPolicy,
-    );
-    const detail = withRequestMetadata(normalizedDetail, options?.source);
-    return { detail, status };
-  });
-}
-
-function assertFetchableProviderId(providerId: string): string {
-  const normalizedProviderId = providerId.trim();
-  if (!normalizedProviderId || isProviderSelectorId(normalizedProviderId)) {
-    throw new CodexBarCliError("execution", "Cannot fetch provider detail without an enabled provider id.");
+  options: FetchUsageOptions,
+): Promise<unknown> {
+  if (!(await isCodexBarServeAttested(binary))) {
+    throw new Error("CodexBar serve is not attested for the current Keychain access policy.");
   }
 
-  return normalizedProviderId;
-}
-
-function normalizeProviderDetailResponse(payload: unknown, providerId: string): ProviderDetailData {
-  const providerError = extractProviderErrorMessage(payload, providerId);
-  if (providerError) {
-    throw new CodexBarCliError("execution", providerError);
+  const params = new URLSearchParams({ provider: providerId });
+  if (binary.capabilities?.serveAppFetchProfile) {
+    params.set("fetchProfile", "app");
   }
-
-  return normalizeProviderDetailPayload(payload, providerId);
-}
-
-export function withRequestMetadata(
-  detail: ProviderDetailData,
-  requestedSource?: ProviderSourceMode,
-): ProviderDetailData {
-  return { ...detail, requestedSource: requestedSource ?? "auto" };
+  if (binary.capabilities?.interactionModes) {
+    params.set("interaction", options.interaction ?? "background");
+  }
+  if (options.mode === "force") {
+    if (!canForceRefreshViaServe(binary)) {
+      throw new Error("CodexBar serve cannot force-refresh.");
+    }
+    params.set("refresh", "true");
+  }
+  return requestCodexBarServeJson(`/usage?${params.toString()}`, CODEXBAR_SERVE_REQUEST_TIMEOUT_SECONDS * 1000);
 }
 
 function buildProviderUsageCommandArgs(
