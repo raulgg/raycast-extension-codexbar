@@ -17,7 +17,7 @@ import {
   DETAIL_TEXT_LAYOUT,
   DETAIL_TYPOGRAPHY,
   getPanelHeight,
-  getRightContentX,
+  CONTENT_RIGHT_X,
   getTextBaselineY,
   getTextBottomY,
 } from "./layout";
@@ -267,7 +267,7 @@ describe("provider markdown", () => {
     expect(textY(parsed, "40% in reserve · Lasts until reset")).toBeGreaterThan(textY(parsed, "Weekly 47% left"));
     const reset = requireText(parsed, "Resets in 11h 47m");
     const pacing = requireText(parsed, "40% in reserve · Lasts until reset");
-    expect(reset.x).toBe(getRightContentX());
+    expect(reset.x).toBe(CONTENT_RIGHT_X);
     expect(reset.textAnchor).toBe("end");
     expect(reset.fill).toBe(DETAIL_PALETTES.light.labelFill);
     expect(pacing.fill).toBe(DETAIL_PALETTES.light.labelFill);
@@ -563,10 +563,8 @@ describe("provider markdown", () => {
     const expectedHeight = getPanelHeight(bar.y + bar.height);
     const viewBoxMatch = svg.match(new RegExp(`viewBox="0 0 ${DETAIL_PANEL.width} (\\d+(?:\\.\\d+)?)"`));
 
-    expect(textY(parsed, "Session 53% left")).toBeGreaterThan(
-      getTextBaselineY(DETAIL_PANEL.paddingTop, DETAIL_TYPOGRAPHY.headerTitleSize),
-    );
-    expect(textY(parsed, "Codex")).toBe(getTextBaselineY(DETAIL_PANEL.paddingTop, DETAIL_TYPOGRAPHY.headerTitleSize));
+    expect(textY(parsed, "Session 53% left")).toBeGreaterThan(getTextBaselineY(0, DETAIL_TYPOGRAPHY.headerTitleSize));
+    expect(textY(parsed, "Codex")).toBe(getTextBaselineY(0, DETAIL_TYPOGRAPHY.headerTitleSize));
     expect(viewBoxMatch?.[1]).toBe(String(expectedHeight));
     expect(markdown).toContain(`raycast-width=${DETAIL_PANEL.width}`);
     expect(markdown).toContain(`raycast-height=${expectedHeight}`);
