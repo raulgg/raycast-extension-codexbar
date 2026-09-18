@@ -1,6 +1,6 @@
 import { CodexBarCliError } from "../cli/exec";
 import type { FetchUsageOptions } from "../cli/fetch";
-import { applyProviderUsageSectionMemory } from "../lib/providerShapeMemory";
+import { applyProviderUsageSectionMemory } from "../cache/sectionMemory";
 import {
   extractProviderErrorMessage,
   extractProviderStatus,
