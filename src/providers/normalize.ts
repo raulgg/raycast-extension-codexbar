@@ -7,6 +7,8 @@ import {
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "./registry";
 import { calculateUsagePacing } from "./usagePacing";
 import { parseProviderStatus } from "./status";
+import { formatCountdown } from "../usage/duration";
+import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "../usage/json";
 import type {
   ProviderDetailData,
   ProviderSection,
@@ -20,26 +22,6 @@ type ProviderCandidate = {
   id?: string;
   payload: RawProviderPayload;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function toRecord(value: unknown): RawProviderPayload | undefined {
-  return isRecord(value) ? value : undefined;
-}
-
-function toString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function toTrimmedString(value: unknown): string | undefined {
-  return toString(value)?.trim();
-}
-
-function toFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
 
 function extractDataConfidence(payload: RawProviderPayload): string | undefined {
   const usage = toRecord(payload.usage);
@@ -104,10 +86,6 @@ function formatCurrency(value: number, currencyCode: string): string {
   }
 }
 
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value));
-}
-
 function normalizePercentFromFraction(value: number): number | undefined {
   if (!Number.isFinite(value)) {
     return undefined;
@@ -131,11 +109,11 @@ function extractUpdatedAt(payload: RawProviderPayload): string | undefined {
   const status = toRecord(payload.status);
 
   return (
-    toString(payload.updatedAt) ??
-    toString(usage?.updatedAt) ??
-    toString(credits?.updatedAt) ??
-    toString(dashboard?.updatedAt) ??
-    toString(status?.updatedAt)
+    toNonBlankString(payload.updatedAt) ??
+    toNonBlankString(usage?.updatedAt) ??
+    toNonBlankString(credits?.updatedAt) ??
+    toNonBlankString(dashboard?.updatedAt) ??
+    toNonBlankString(status?.updatedAt)
   );
 }
 
@@ -143,49 +121,12 @@ function extractResolvedSource(payload: RawProviderPayload): string | undefined 
   return toTrimmedString(payload.source);
 }
 
-function formatCountdown(isoTimestamp: string, now = Date.now()): string | undefined {
-  const target = Date.parse(isoTimestamp);
-  if (Number.isNaN(target)) {
-    return undefined;
-  }
-
-  const diffMs = target - now;
-  if (diffMs <= 0) {
-    return undefined;
-  }
-
-  const dayMs = 24 * 60 * 60 * 1000;
-  const totalMinutes = Math.ceil(diffMs / (60 * 1000));
-  if (diffMs < dayMs) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours === 0) {
-      return `${minutes}m`;
-    }
-
-    if (minutes === 0) {
-      return `${hours}h`;
-    }
-
-    return `${hours}h ${minutes}m`;
-  }
-
-  const days = Math.floor(totalMinutes / (24 * 60));
-  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-
-  if (hours === 0) {
-    return `${days}d`;
-  }
-
-  return `${days}d ${hours}h`;
-}
-
 function buildWindowReset(
   window: RawProviderPayload,
   fallbackResetTimestamp?: string,
   now?: number,
 ): string | undefined {
-  const resetsAt = toString(window.resetsAt) ?? fallbackResetTimestamp;
+  const resetsAt = toNonBlankString(window.resetsAt) ?? fallbackResetTimestamp;
   if (resetsAt) {
     return formatCountdown(resetsAt, now);
   }
@@ -353,13 +294,13 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
         toFiniteNumber(payload.sessionPercentLeft) ??
         normalizePercentFromFraction(toFiniteNumber(payload.remainingFraction) ?? Number.NaN) ??
         toFiniteNumber(payload.remainingPercent),
-      resetTimestamp: toString(payload.sessionResetsAt) ?? toString(payload.resetsAt),
+      resetTimestamp: toNonBlankString(payload.sessionResetsAt) ?? toNonBlankString(payload.resetsAt),
     },
     {
       title: "Secondary" as const,
       record: toRecord(usage?.secondary),
       remainingPercent: toFiniteNumber(payload.weeklyPercentLeft),
-      resetTimestamp: toString(payload.weeklyResetsAt),
+      resetTimestamp: toNonBlankString(payload.weeklyResetsAt),
     },
     {
       title: "Tertiary" as const,
@@ -381,7 +322,7 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
       slot.remainingPercent ?? (usedPercent !== undefined ? Math.max(0, 100 - usedPercent) : undefined);
     if (progressPercent !== undefined) {
       const resolvedUsedPercent = usedPercent ?? Math.max(0, 100 - progressPercent);
-      const resolvedResetsAt = toString(record.resetsAt) ?? slot.resetTimestamp;
+      const resolvedResetsAt = toNonBlankString(record.resetsAt) ?? slot.resetTimestamp;
       if (slot.title === "Primary" || slot.title === "Secondary") {
         resetsAtByTitle[slot.title] = resolvedResetsAt;
       }
@@ -453,7 +394,7 @@ function buildExtraRateWindowSections(
     }
 
     const remainingPercent = Math.max(0, 100 - usedPercent);
-    const resetsAt = toString(window.resetsAt);
+    const resetsAt = toNonBlankString(window.resetsAt);
     const usagePacing =
       pacingAllowed && resetsAt
         ? computeExtraWindowUsagePacing(
@@ -540,7 +481,7 @@ function buildPresentationMeterSections(
       continue;
     }
 
-    const resetsAt = toString(meter.resetsAt);
+    const resetsAt = toNonBlankString(meter.resetsAt);
     const resolvedUsedPercent = usedPercent ?? Math.max(0, 100 - remainingPercent);
     const windowMinutes = toFiniteNumber(meter.windowMinutes);
     const nextRegenPercent = toFiniteNumber(meter.nextRegenPercent);
@@ -883,7 +824,7 @@ function collectFromArray(payload: unknown[]): ProviderCandidate[] {
       continue;
     }
 
-    candidates.push({ id: toString(record.provider) ?? toString(record.id), payload: record });
+    candidates.push({ id: toNonBlankString(record.provider) ?? toNonBlankString(record.id), payload: record });
   }
 
   return candidates;
@@ -909,7 +850,7 @@ function collectCandidates(payload: unknown): ProviderCandidate[] {
     return collectCandidates(data.providers);
   }
 
-  return [{ id: toString(record.provider) ?? toString(record.id), payload: record }];
+  return [{ id: toNonBlankString(record.provider) ?? toNonBlankString(record.id), payload: record }];
 }
 
 function getNestedErrorMessage(payload: RawProviderPayload): string | undefined {
@@ -922,7 +863,7 @@ function getNestedErrorMessage(payload: RawProviderPayload): string | undefined 
     return undefined;
   }
 
-  return toString(error.message) ?? toString(error.detail);
+  return toNonBlankString(error.message) ?? toNonBlankString(error.detail);
 }
 
 // Pulls the `status` object out of a raw usage payload (from `usage --status`)

@@ -2,6 +2,7 @@ import type { Image } from "@raycast/api";
 import { DETAIL_PALETTES } from "./detailMarkdown";
 import { renderedFillPercent } from "./svg";
 import { getProviderProgressPalette } from "../providers/registry";
+import { clampPercent } from "../usage/json";
 
 const ICON_SIZE_PT = 18;
 const ICON_VIEWBOX_PX = 36;
@@ -127,8 +128,4 @@ function buildFillRect(
 
   const radius = rect.height / 2;
   return `<rect x="${rect.x}" y="${rect.y}" width="${fillWidth}" height="${rect.height}" rx="${radius}" fill="${fillColor}"/>`;
-}
-
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value));
 }
