@@ -1,6 +1,6 @@
 import { Cache } from "@raycast/api";
 import type { ProviderDetailData, ProviderSourceMode } from "../providers/types";
-import type { KeychainAccessPolicy } from "./keychainAccessPolicy";
+import { KEYCHAIN_ACCESS_POLICIES, type KeychainAccessPolicy } from "./keychainAccessPolicy";
 
 export const PROVIDER_DETAIL_CONCURRENCY = 4;
 const PROVIDER_DETAIL_FRESHNESS_WINDOW_MS = 10 * 60 * 1000;
@@ -8,7 +8,6 @@ export const PROVIDER_DETAIL_STALE_WINDOW_MS = 60 * 60 * 1000;
 const PROVIDER_DETAIL_SCHEMA_VERSION = "provider-details-v8";
 const LEGACY_PROVIDER_DETAIL_SCHEMA_VERSION = "provider-details-v7";
 const PROVIDER_DETAIL_INDEX_KEY = `${PROVIDER_DETAIL_SCHEMA_VERSION}:index`;
-const KEYCHAIN_ACCESS_POLICIES: KeychainAccessPolicy[] = ["default", "disabled"];
 const providerDetailCache = new Cache({ namespace: "provider-details" });
 const providerDetailFailureCache = new Cache({ namespace: "provider-detail-failures" });
 
@@ -55,15 +54,6 @@ export async function runProviderDetailFetches({
   }
 
   await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
-}
-
-export function shouldRefreshSelectedProvider(
-  result: ProviderDetailState | undefined,
-  completedGeneration: number | undefined,
-  currentGeneration: number,
-  now = Date.now(),
-): boolean {
-  return shouldRefreshProviderAutomatically(result, completedGeneration, currentGeneration, now);
 }
 
 export function shouldRefreshProviderAutomatically(

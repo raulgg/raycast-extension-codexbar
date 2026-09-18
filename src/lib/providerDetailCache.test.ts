@@ -8,7 +8,6 @@ import {
   pruneProviderDetailCaches,
   runProviderDetailFetches,
   shouldRefreshProviderAutomatically,
-  shouldRefreshSelectedProvider,
   shouldSurfaceProviderDetailFailure,
 } from "./providerDetailCache";
 import type { ProviderDetailData, ProviderSection } from "../providers/types";
@@ -105,11 +104,11 @@ describe("providerDetailCache", () => {
     expect(buildCachedProviderResults(["cursor"], "default", now)).toEqual({});
   });
 
-  it("refreshes selected providers when detail is older than ten minutes", () => {
+  it("refreshes a provider when its detail is older than ten minutes", () => {
     const now = Date.parse("2026-04-15T12:10:01Z");
 
     expect(
-      shouldRefreshSelectedProvider(
+      shouldRefreshProviderAutomatically(
         {
           detail: makeDetail("codex", "2026-04-15T12:00:00Z"),
           isLoading: false,
@@ -121,11 +120,11 @@ describe("providerDetailCache", () => {
     ).toBe(true);
   });
 
-  it("keeps selected provider data when detail is ten minutes old or newer", () => {
+  it("keeps a provider's data when its detail is ten minutes old or newer", () => {
     const now = Date.parse("2026-04-15T12:10:00Z");
 
     expect(
-      shouldRefreshSelectedProvider(
+      shouldRefreshProviderAutomatically(
         {
           detail: makeDetail("codex", "2026-04-15T12:00:00Z"),
           isLoading: false,
@@ -137,9 +136,9 @@ describe("providerDetailCache", () => {
     ).toBe(false);
   });
 
-  it("fetches selected providers with no data unless current generation already completed", () => {
-    expect(shouldRefreshSelectedProvider(undefined, undefined, 1)).toBe(true);
-    expect(shouldRefreshSelectedProvider(undefined, 1, 1)).toBe(false);
+  it("fetches a provider with no data unless the current generation already completed", () => {
+    expect(shouldRefreshProviderAutomatically(undefined, undefined, 1)).toBe(true);
+    expect(shouldRefreshProviderAutomatically(undefined, 1, 1)).toBe(false);
   });
 
   it("uses the same ten-minute threshold for automatic foreground refreshes", () => {

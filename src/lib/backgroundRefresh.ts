@@ -2,6 +2,7 @@ import { getMockConfiguredProviders, isCodexBarMockMode } from "../mocks/codexba
 import type { ConfiguredProvider } from "../providers/types";
 import {
   cacheProviderDetail,
+  PROVIDER_DETAIL_CONCURRENCY,
   pruneProviderDetailCaches,
   recordProviderDetailFailure,
   recordProviderDetailSuccess,
@@ -22,8 +23,6 @@ import {
 import { readConfiguredProvidersFromConfig } from "./providerConfig";
 import { getKeychainAccessPolicy } from "../preferences";
 
-const BACKGROUND_PROVIDER_DETAIL_CONCURRENCY = 4;
-
 export type UsageCacheRefreshError = {
   providerId?: string;
   message: string;
@@ -34,7 +33,6 @@ export type UsageCacheRefreshResult =
       status: "completed";
       providerCount: number;
       refreshedCount: number;
-      unchangedCount: number;
       errorCount: number;
       errors: UsageCacheRefreshError[];
       usedServe: boolean;
@@ -82,7 +80,6 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
       status: "completed",
       providerCount: 0,
       refreshedCount: 0,
-      unchangedCount: 0,
       errorCount: 0,
       errors: [],
       usedServe: false,
@@ -96,11 +93,10 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
   const usedServe = serveEnsured && canForceRefreshViaServe(availability.binary);
   const errors: UsageCacheRefreshError[] = [];
   let refreshedCount = 0;
-  const unchangedCount = 0;
 
   await runProviderDetailFetches({
     providerIds,
-    concurrency: BACKGROUND_PROVIDER_DETAIL_CONCURRENCY,
+    concurrency: PROVIDER_DETAIL_CONCURRENCY,
     fetchProvider: async (providerId) => {
       const provider = providersById.get(providerId);
       if (!provider) return;
@@ -128,7 +124,6 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
     status: "completed",
     providerCount: providerIds.length,
     refreshedCount,
-    unchangedCount,
     errorCount: errors.length,
     errors,
     usedServe,

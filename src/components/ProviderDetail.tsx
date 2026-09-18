@@ -3,7 +3,7 @@ import { buildProviderErrorMarkdown, formatRelativeUpdateTime } from "../lib/pre
 import type { ProviderDetailCacheStatus } from "../lib/providerDetailCache";
 import { getHidePersonalInfoPreference } from "../preferences";
 import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "../providers/markdown";
-import type { ConfiguredProvider, ProviderDetailData, ProviderSection, ProviderStatus } from "../providers/types";
+import type { ConfiguredProvider, ProviderDetailData, ProviderStatus } from "../providers/types";
 
 type ProviderDetailProps = {
   provider: ConfiguredProvider;
@@ -43,26 +43,10 @@ export function ProviderDetail({
   return <List.Item.Detail isLoading={isLoading} markdown={markdown} />;
 }
 
-export function redactPersonalInfo(detail: ProviderDetailData): ProviderDetailData {
-  const sections: ProviderSection[] = [];
-
-  for (const section of detail.sections) {
-    if (section.kind !== "info") {
-      sections.push(section);
-      continue;
-    }
-
-    const items = section.items.filter((item) => !item.personal);
-    if (items.length > 0) {
-      sections.push({ ...section, items });
-    }
-  }
-
-  return {
-    ...detail,
-    accountEmail: undefined,
-    sections,
-  };
+// The account email is the only personal field the detail card still renders
+// (account label and organization went with the removed General section).
+function redactPersonalInfo(detail: ProviderDetailData): ProviderDetailData {
+  return { ...detail, accountEmail: undefined };
 }
 
 function getHeaderSubtitle(

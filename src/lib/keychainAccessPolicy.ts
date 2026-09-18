@@ -2,6 +2,9 @@ export const CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV = "CODEXBAR_DISABLE_KEYCHAIN_A
 
 export type KeychainAccessPolicy = "default" | "disabled";
 
+// Every policy value, for caches that keep one entry per policy (ADR-0009).
+export const KEYCHAIN_ACCESS_POLICIES: readonly KeychainAccessPolicy[] = ["default", "disabled"];
+
 export function applyKeychainAccessPolicy(
   environment: NodeJS.ProcessEnv,
   policy: KeychainAccessPolicy,
