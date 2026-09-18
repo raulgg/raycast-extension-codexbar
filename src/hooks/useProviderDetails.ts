@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
-import { fetchProviderDetail } from "../cli/fetch";
+import type { CodexBarClient } from "../services/codexbarClient";
 import {
   buildCachedProviderResults,
   cacheProviderDetail,
@@ -38,12 +38,12 @@ export type InFlightProviderFetch = {
 };
 
 export function useProviderDetails(
-  binary: ResolvedCodexBarBinary | undefined,
+  client: CodexBarClient | undefined,
   providers: ConfiguredProvider[],
   selectedProviderId?: string,
 ): UseProviderDetailsResult {
-  const binaryKey = buildProviderDetailBinaryKey(binary);
-  const keychainAccessPolicy = binary?.keychainAccessPolicy ?? getKeychainAccessPolicy();
+  const binaryKey = buildProviderDetailBinaryKey(client?.binary);
+  const keychainAccessPolicy = client?.binary.keychainAccessPolicy ?? getKeychainAccessPolicy();
   const providerIds = useMemo(() => providers.map((provider) => provider.id), [providers]);
   const providerIdsKey = providers.map((provider) => `${provider.id}\0${provider.source ?? "auto"}`).join("\u0001");
   const providerIdSet = useMemo(() => new Set(providerIds), [providerIdsKey]);
@@ -60,7 +60,7 @@ export function useProviderDetails(
   const displayedResults = useMemo(() => ({ ...optimisticResults, ...results }), [optimisticResults, results]);
   const resultsRef = useRef(displayedResults);
   const optimisticResultsRef = useRef(optimisticResults);
-  const binaryRef = useRef(binary);
+  const clientRef = useRef(client);
   const binaryKeyRef = useRef(binaryKey);
   const providerIdsRef = useRef(providerIdSet);
   const providerSourcesRef = useRef(providerSources);
@@ -70,7 +70,7 @@ export function useProviderDetails(
   const generationRef = useRef(0);
   const nextFetchIdRef = useRef(0);
 
-  binaryRef.current = binary;
+  clientRef.current = client;
   binaryKeyRef.current = binaryKey;
   providerIdsRef.current = providerIdSet;
   providerSourcesRef.current = providerSources;
@@ -82,9 +82,9 @@ export function useProviderDetails(
 
   const fetchOneProvider = useCallback(
     async (providerId: string, generation: number, options?: FetchProviderOptions) => {
-      const currentBinary = binaryRef.current;
+      const currentClient = clientRef.current;
       const currentBinaryKey = binaryKeyRef.current;
-      if (!currentBinary || !currentBinaryKey || !providerId) {
+      if (!currentClient || !currentBinaryKey || !providerId) {
         return;
       }
 
@@ -113,7 +113,7 @@ export function useProviderDetails(
       setProviderLoading(providerId, setResults, optimisticResultsRef.current);
 
       try {
-        const detail = await fetchProviderDetail(currentBinary, providerId, {
+        const detail = await currentClient.fetchProviderDetail(providerId, {
           mode: force ? "force" : "auto",
           source: providerSourcesRef.current.get(providerId),
           interaction: "user",
@@ -134,8 +134,8 @@ export function useProviderDetails(
         }
 
         completedRef.current.set(providerId, completedFetch?.generation ?? generation);
-        recordProviderDetailSuccess(providerId, currentBinary.keychainAccessPolicy);
-        cacheProviderDetail(detail, currentBinary.keychainAccessPolicy);
+        recordProviderDetailSuccess(providerId, currentClient.binary.keychainAccessPolicy);
+        cacheProviderDetail(detail, currentClient.binary.keychainAccessPolicy);
 
         setResults((current) => ({
           ...current,
@@ -159,7 +159,7 @@ export function useProviderDetails(
 
         completedRef.current.set(providerId, completedFetch?.generation ?? generation);
         const previousResult = resultsRef.current[providerId];
-        const failureCount = recordProviderDetailFailure(providerId, currentBinary.keychainAccessPolicy);
+        const failureCount = recordProviderDetailFailure(providerId, currentClient.binary.keychainAccessPolicy);
         const surfacedError = shouldSurfaceProviderDetailFailure(Boolean(previousResult?.detail), failureCount)
           ? toError(error)
           : undefined;
