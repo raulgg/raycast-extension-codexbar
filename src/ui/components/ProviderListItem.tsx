@@ -1,14 +1,14 @@
 import { Action, ActionPanel, Icon, Keyboard, List } from "@raycast/api";
-import type { ProviderDetailCacheStatus } from "../cache/providerDetailCache";
-import type { ConfiguredProvider, ProviderDetailData, ProviderStatus, ProviderUsageSection } from "../usage/types";
-import { formatPercentRemaining } from "../render/format";
-import { buildTwoBarAccessoryIcon } from "../render/accessoryIcon";
-import { getProviderMetadata, resolveDashboardUrl } from "../providers/registry";
-import type { CodexBarClient } from "../services/codexbarClient";
+import type { ProviderDetailCacheStatus } from "../../cache/providerDetailCache";
+import type { ConfiguredProvider, ProviderDetailData, ProviderStatus, ProviderUsageSection } from "../../usage/types";
+import { formatPercentRemaining } from "../../render/format";
+import { buildTwoBarAccessoryIcon } from "../../render/accessoryIcon";
+import { getProviderMetadata, resolveDashboardUrl } from "../../providers/registry";
+import type { CodexBarClient } from "../../services/codexbarClient";
 import { ManageProvidersAction } from "./ManageProvidersAction";
 import { moveProviderActions } from "./moveProviderActions";
 import { ProviderDetail } from "./ProviderDetail";
-import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV, type KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
+import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV, type KeychainAccessPolicy } from "../../cli/keychainAccessPolicy";
 
 type ProviderListItemProps = {
   provider: ConfiguredProvider;

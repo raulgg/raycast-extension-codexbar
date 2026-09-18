@@ -109,9 +109,15 @@ src/
     pacing.ts                 The pace formula and labels. Hand-maintained (not script-diffed).
     status.ts                 Parse the CLI status object into a badge model.
 
-  components/                 UI: UsageList, ProviderListItem, ProviderDetail, ManageProviders, etc.
-  hooks/                      Data hooks: useUsageOverview, useProviderDetails, useProviderStatuses,
-                              useAvailableProviders, useMoveProvider, ...
+  ui/                         Everything React. Talks to CodexBar through services/; imports from
+                              cli/ only for error types, install help, and the Keychain policy.
+    components/               UsageList (the command body), ProviderListItem, ProviderDetail,
+                              ManageProviders + ManageProvidersAction, moveProviderActions,
+                              InstallHelpDetail, CommandErrorDetail.
+    hooks/                    useUsageOverview (client + roster), useProviderDetails (binding over
+                              providerDetailStore), useProviderStatuses, useAvailableProviders,
+                              useMoveProvider, useCodexBarAvailability, useProviderDetailErrorToast,
+                              useRelativeUpdateTime.
 
 scripts/
   check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating.

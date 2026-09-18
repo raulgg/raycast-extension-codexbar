@@ -1,7 +1,7 @@
 import { showToast, Toast } from "@raycast/api";
 import { useCallback, useRef } from "react";
-import type { ProviderMoveDirection } from "../config/providerConfig";
-import type { CodexBarClient } from "../services/codexbarClient";
+import type { ProviderMoveDirection } from "../../config/providerConfig";
+import type { CodexBarClient } from "../../services/codexbarClient";
 
 // Serializes config writes via busyRef so concurrent toggles/reorders don't clobber.
 export function useMoveProvider(

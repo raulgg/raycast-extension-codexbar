@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import type { CodexBarClient } from "../services/codexbarClient";
-import { createProviderDetailStore } from "../services/providerDetailStore";
-import { getKeychainAccessPolicy } from "../preferences";
-import type { ConfiguredProvider } from "../usage/types";
-import type { ProviderDetailResults } from "../cache/providerDetailCache";
+import type { CodexBarClient } from "../../services/codexbarClient";
+import { createProviderDetailStore } from "../../services/providerDetailStore";
+import { getKeychainAccessPolicy } from "../../preferences";
+import type { ConfiguredProvider } from "../../usage/types";
+import type { ProviderDetailResults } from "../../cache/providerDetailCache";
 
 export type {
   ProviderDetailCacheStatus,
   ProviderDetailResults,
   ProviderDetailState,
-} from "../cache/providerDetailCache";
+} from "../../cache/providerDetailCache";
 
 type FetchProviderOptions = {
   force?: boolean;
