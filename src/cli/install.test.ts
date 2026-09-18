@@ -9,7 +9,7 @@ import {
   HOMEBREW_APP_AND_CLI_COMMAND,
   HOMEBREW_CLI_ONLY_COMMAND,
   installCodexBarCli,
-} from "./cliInstall";
+} from "./install";
 
 // installCodexBarCli takes its destination dirs by injection, so these tests
 // drive real temp directories instead of fs mocks.

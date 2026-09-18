@@ -66,7 +66,7 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | 4 | Pacing, gating | `paceCapabilities.ts` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
 | 4b | Pacing, formula and labels | `usagePacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
 | 5 | Supplemental usage shapes | `normalize.ts` mappers | ❌ hand-maintained | descriptor / snapshot shapes |
-| 6 | CLI install routine (the app's Install CLI button) | `cliInstall.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
+| 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. The dark-mode progress fill is
@@ -262,7 +262,7 @@ cases:
 
 When the CodexBar CLI is missing but the CodexBar app is installed, the extension can set up the
 app's bundled CLI itself (ADR-0008). `installCodexBarCli` in
-[`cliInstall.ts`](../src/lib/cliInstall.ts) is a port of the app's own Install CLI
+[`cli/install.ts`](../src/cli/install.ts) is a port of the app's own Install CLI
 button, `installCLI()` in `Sources/CodexBar/PreferencesAdvancedPane.swift`. This is the first place
 the extension mirrors upstream behaviour rather than payload interpretation. The properties that
 must survive any edit:
@@ -280,7 +280,7 @@ must survive any edit:
   `CodexBarCLI not found in app bundle.`
 
 When re-verifying, re-read `installCLI()` and its `isLink` helper in
-`PreferencesAdvancedPane.swift`. [`cliInstall.test.ts`](../src/lib/cliInstall.test.ts) pins each
+`PreferencesAdvancedPane.swift`. [`cli/install.test.ts`](../src/cli/install.test.ts) pins each
 property against real temp dirs, but only Swift says whether the algorithm itself moved.
 
 ## Provider id aliases (hand-maintained)

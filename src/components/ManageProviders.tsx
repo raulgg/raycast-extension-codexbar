@@ -2,7 +2,8 @@ import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@rayca
 import { useCallback, useRef, useState } from "react";
 import { useAvailableProviders } from "../hooks/useAvailableProviders";
 import { useMoveProvider } from "../hooks/useMoveProvider";
-import { CodexBarCliError, type ResolvedCodexBarBinary } from "../lib/codexbar";
+import type { ResolvedCodexBarBinary } from "../cli/binary";
+import { CodexBarCliError } from "../cli/exec";
 import { setProviderEnabled } from "../lib/providerConfig";
 import type { AvailableProvider } from "../providers/types";
 import { moveProviderActions } from "./moveProviderActions";

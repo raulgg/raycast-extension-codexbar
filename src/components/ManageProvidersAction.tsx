@@ -1,5 +1,5 @@
 import { Action, Icon } from "@raycast/api";
-import type { ResolvedCodexBarBinary } from "../lib/codexbar";
+import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { ManageProviders } from "./ManageProviders";
 
 type ManageProvidersActionProps = {
