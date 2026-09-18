@@ -22,6 +22,6 @@
 - Usage payloads that nondeterministically omit supplemental sections (e.g. Claude's scoped extra rate windows) are repaired from a per-provider section memory, keeping meter sets stable across refresh paths
 - When the CodexBar CLI is missing but the CodexBar app is installed, the extension offers to set up the app's bundled CLI itself after an explicit confirmation — a faithful mirror of the app's own Install CLI button (never overwrites existing files, never asks for a password)
 - Without the app, the install help lays out both routes (CodexBar app + CLI, or CLI only) and adapts the instructions to whether Homebrew is installed
-- Detail view with usage meters, pacing, credits, cost, named extra rate windows, recent credit activity, daily credit spend, and a General section (source, version, account, organization, subscription dates)
-- Hide Personal Information preference covering account email, label, and organization
+- Detail view with usage meters, pacing, named extra rate windows, Codex code-review and limit-reset-credit meters, and OpenRouter balance/key usage; account email and plan in the header
+- Hide Personal Information preference that hides the account email in the detail header
 - Optional strict, Provider-wide Keychain isolation for every CodexBar process the extension launches, including policy-scoped Provider caches and graceful background daemon reconciliation

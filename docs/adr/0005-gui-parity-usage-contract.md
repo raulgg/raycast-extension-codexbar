@@ -8,6 +8,8 @@ Serve's `--refresh-interval` is a response cache TTL, not a timer. After it expi
 
 Successful responses are authoritative, including a smaller meter list. A missing promotional or account-scoped meter must disappear when upstream no longer renders it. Fetch failures are different: they retain the last successful snapshot, suppress the first cached-data failure, and surface repeated failures without clearing the meters.
 
+_Narrowed by ADR-0007:_ for supplemental usage meters only, a section missing from an otherwise successful payload is restored from the per-provider section memory for up to 24 hours after its last genuine sighting, because the upstream API omits those nondeterministically. Primary/Secondary/Tertiary meters and info sections remain strictly authoritative per response.
+
 Consequences:
 
 - The upstream GUI owns source order, fallback, enrichment, meter order, and labels.

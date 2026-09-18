@@ -66,7 +66,7 @@ A projection, from the current pace, of when a window's remaining usage will be 
 
 ## Balances & Cost
 
-> **Not currently surfaced.** The detail view focuses on Usage and Supplemental usage only. The terms below describe concepts the CodexBar CLI still reports but that the extension no longer renders; kept as vocabulary for a possible later revisit.
+> **Mostly not surfaced.** The detail view focuses on Usage and Supplemental usage meters. Two small info sections remain: OpenRouter's balance and key usage (under "OpenRouter") and Codex's available limit-reset credits (under "Limit Reset Credits"). Everything else below describes concepts the CodexBar CLI still reports but that the extension no longer renders; kept as vocabulary for a possible later revisit.
 
 **Credits**:
 A spendable balance a Provider draws down over time, independent of any reset window. Replenished by purchase or plan, not by a reset clock.
@@ -109,4 +109,4 @@ _Avoid_: Plan, tier, subscription (upstream models no such standalone field)
 A Provider-specific usage meter that falls outside the Primary/Secondary/Tertiary windows. The extension surfaces: Codex's "Code review" allowance, named **extra rate windows** (upstream `extraRateWindows`, e.g. "Codex Spark"), and OpenRouter key usage (via a per-field mapper table in `normalize.ts`). Upstream also models shapes not yet mapped — `cursorRequests`, `zaiUsage`, `minimaxUsage`, `kiroUsage`, `mistralUsage`, `deepseekUsage`, `deepgramUsage`, `openAIAPIUsage`, `claudeAdminAPIUsage`, and `antigravityPlanInfo` — deferred until their live JSON can be sampled; unmapped shapes render nothing.
 
 **General section** _(removed)_:
-Formerly the detail view's info list (Last Updated, Source, CLI version, account label/organization, subscription renewal/expiry), plus the sibling Recent credit activity and Daily credit spend info sections. All removed — the detail view now renders only Usage and Supplemental usage meters. The "Updated …" time moved to the header subtitle.
+Formerly the detail view's info list (Last Updated, Source, CLI version, account label/organization, subscription renewal/expiry), plus the sibling Recent credit activity and Daily credit spend info sections. All removed — the detail view now renders Usage and Supplemental usage meters, plus the two info sections named under Balances & Cost (OpenRouter, Limit Reset Credits). The "Updated …" time moved to the header subtitle.
