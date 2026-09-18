@@ -88,12 +88,13 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm test` | Run the vitest suite once. |
 | `npm run test:watch` | Vitest in watch mode. |
 | `npm run lint` / `npm run fix-lint` | Raycast ESLint (`--fix` to autofix). |
+| `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
 | `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
 | `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release, then run both guards. |
 | `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. |
 
-Before opening a PR: `npm test && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
+Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
 
 ## Runtime quirks worth knowing
 

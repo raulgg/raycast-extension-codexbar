@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { Color, Icon } from "@raycast/api";
 import { describe, expect, it } from "vitest";
-import { PROVIDER_CATALOG } from "./catalog";
+import { PROVIDER_CATALOG, type ProviderCatalogEntry } from "./catalog";
 import {
   getProviderMetadata,
   getProviderUsageSectionDisplayTitle,
@@ -175,7 +175,7 @@ describe("provider registry", () => {
 
   it("passes catalog iconFallback through instead of substituting Circle", () => {
     for (const id of PROVIDER_IDS) {
-      const fallback = PROVIDER_CATALOG[id].iconFallback;
+      const fallback = (PROVIDER_CATALOG[id] as ProviderCatalogEntry).iconFallback;
       if (!fallback) {
         continue;
       }

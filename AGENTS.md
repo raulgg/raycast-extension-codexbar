@@ -29,8 +29,10 @@ invention.
 - Develop with `npm run dev`. For mock data without a configured CLI, set `DEV_MOCK = true` in
   `src/mocks/codexbar.ts` (development builds only; dead code in production) — remember to revert
   it before committing.
-- Before any PR: `npm test` and `npx ray lint` must pass. CI runs `ray lint`, which pins its own
-  Prettier version — fix formatting with `npm run fix-lint`, not a locally installed prettier.
+- Before any PR: `npm test`, `npm run typecheck`, and `npx ray lint` must pass. Vitest does not
+  type-check, so `typecheck` is what catches a type error in a test file before it breaks
+  `ray build`. CI runs `ray lint`, which pins its own Prettier version — fix formatting with
+  `npm run fix-lint`, not a locally installed prettier.
 - Repo layout, runtime quirks, and the recurring upstream-sync chore:
   [docs/maintaining.md](docs/maintaining.md).
 - The extension is developed here and published through `raycast/extensions`. Where issues and
