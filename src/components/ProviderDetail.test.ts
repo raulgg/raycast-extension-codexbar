@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProviderDetailData } from "../providers/types";
+import type { ProviderDetailData } from "../usage/types";
 
 const { Detail, appearanceMock, hidePersonalInfoMock } = vi.hoisted(() => {
   return {

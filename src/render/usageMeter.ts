@@ -1,6 +1,6 @@
 import { formatPercentRemaining } from "./format";
 import { buildSvgProgressBar, buildSvgRect } from "./svg";
-import { formatUsagePacingLine, paceMarkerKind } from "../providers/usagePacing";
+import { formatUsagePacingLine, paceMarkerKind } from "../usage/pacing";
 import { getProviderProgressPalette } from "../providers/registry";
 import {
   buildText,
@@ -14,7 +14,7 @@ import {
   getTextBottomY,
   type DetailAppearance,
 } from "./layout";
-import type { ProviderSection } from "../providers/types";
+import type { ProviderSection } from "../usage/types";
 
 const PROGRESS_BAR = {
   height: 8,

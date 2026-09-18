@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateUsagePacing } from "./usagePacing";
+import { calculateUsagePacing } from "../usage/pacing";
 import {
   inferredMonthlyWindowMinutes,
   PACE_CAPABILITIES,

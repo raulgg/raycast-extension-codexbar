@@ -19,8 +19,8 @@ import {
   wrapText,
   type DetailAppearance,
 } from "./layout";
-import { getProviderStatusLabel, isRenderableProviderStatusIndicator } from "../providers/status";
-import type { ProviderDetailData, ProviderInfoSection, ProviderSection, ProviderStatus } from "../providers/types";
+import { getProviderStatusLabel, isRenderableProviderStatusIndicator } from "../usage/status";
+import type { ProviderDetailData, ProviderInfoSection, ProviderSection, ProviderStatus } from "../usage/types";
 import { renderLoadingSkeletonSections, renderMetricSection, renderMetricSections } from "./usageMeter";
 
 export type ProviderDetailAppearance = DetailAppearance;

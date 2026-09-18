@@ -3,12 +3,12 @@ import {
   resolveDynamicSlotTitle,
   resolveExtraWindowPace,
   resolveSlotPace,
-} from "./paceCapabilities";
-import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "./registry";
-import { calculateUsagePacing } from "./usagePacing";
+} from "../providers/paceCapabilities";
+import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
+import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
-import { formatCountdown } from "../usage/duration";
-import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "../usage/json";
+import { formatCountdown } from "./duration";
+import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
 import type {
   ProviderDetailData,
   ProviderSection,
