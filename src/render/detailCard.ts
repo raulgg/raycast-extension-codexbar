@@ -1,5 +1,5 @@
-import { formatRelativeUpdateTime } from "../lib/presentation";
-import { buildSvgWarningIcon } from "../lib/svg";
+import { formatRelativeUpdateTime } from "./presentation";
+import { buildSvgWarningIcon } from "./svg";
 import {
   buildHeaderMarkup,
   buildSectionDivider,
@@ -18,9 +18,9 @@ import {
   getTextBottomY,
   wrapText,
   type DetailAppearance,
-} from "../lib/detailMarkdown";
-import { getProviderStatusLabel, isRenderableProviderStatusIndicator } from "./status";
-import type { ProviderDetailData, ProviderInfoSection, ProviderSection, ProviderStatus } from "./types";
+} from "./layout";
+import { getProviderStatusLabel, isRenderableProviderStatusIndicator } from "../providers/status";
+import type { ProviderDetailData, ProviderInfoSection, ProviderSection, ProviderStatus } from "../providers/types";
 import { renderLoadingSkeletonSections, renderMetricSection, renderMetricSections } from "./usageMeter";
 
 export type ProviderDetailAppearance = DetailAppearance;
