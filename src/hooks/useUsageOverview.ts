@@ -1,7 +1,5 @@
 import { useCachedPromise } from "@raycast/utils";
-import type { ResolvedCodexBarBinary } from "../cli/binary";
-import { readConfiguredProvidersFromConfig } from "../lib/providerConfig";
-import { getMockConfiguredProviders, isCodexBarMockMode } from "../mocks/codexbar";
+import type { CodexBarClient } from "../services/codexbarClient";
 import type { ConfiguredProvider } from "../providers/types";
 
 type UseUsageOverviewResult = {
@@ -11,20 +9,10 @@ type UseUsageOverviewResult = {
   revalidate: () => void;
 };
 
-export function useUsageOverview(binary?: ResolvedCodexBarBinary): UseUsageOverviewResult {
+export function useUsageOverview(client?: CodexBarClient): UseUsageOverviewResult {
   const { data, error, isLoading, revalidate } = useCachedPromise(
-    async (resolvedBinary?: ResolvedCodexBarBinary) => {
-      if (!resolvedBinary) {
-        return [];
-      }
-
-      if (resolvedBinary.source === "mock" || isCodexBarMockMode()) {
-        return getMockConfiguredProviders();
-      }
-
-      return readConfiguredProvidersFromConfig();
-    },
-    [binary],
+    async (resolvedClient?: CodexBarClient) => (resolvedClient ? resolvedClient.readConfiguredProviders() : []),
+    [client],
     {
       keepPreviousData: true,
     },

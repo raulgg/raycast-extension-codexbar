@@ -1,4 +1,3 @@
-import { getMockProviderPayload, isCodexBarMockMode } from "../mocks/codexbar";
 import { applyProviderUsageSectionMemory } from "../lib/providerShapeMemory";
 import {
   extractProviderErrorMessage,
@@ -111,13 +110,6 @@ export async function fetchProviderDetail(
 ): Promise<ProviderDetailData> {
   const normalizedProviderId = assertFetchableProviderId(providerId);
   return withProviderFetchErrorHint(binary, async () => {
-    if (binary.source === "mock" || isCodexBarMockMode()) {
-      return withRequestMetadata(
-        normalizeProviderDetailPayload(getMockProviderPayload(normalizedProviderId), normalizedProviderId),
-        options?.source,
-      );
-    }
-
     const payload = await fetchProviderDetailPayload(binary, normalizedProviderId, options);
     // Graft remembered sections (ADR-0007): flaky upstream payloads must not drop meters.
     const detail = applyProviderUsageSectionMemory(
@@ -135,13 +127,6 @@ export async function fetchProviderDetailFromServe(
 ): Promise<ProviderDetailData> {
   const normalizedProviderId = assertFetchableProviderId(providerId);
   return withProviderFetchErrorHint(binary, async () => {
-    if (binary.source === "mock" || isCodexBarMockMode()) {
-      return withRequestMetadata(
-        normalizeProviderDetailPayload(getMockProviderPayload(normalizedProviderId), normalizedProviderId),
-        options?.source,
-      );
-    }
-
     const payload = await executeCodexBarServe(binary, normalizedProviderId, options);
     const detail = applyProviderUsageSectionMemory(
       normalizeProviderDetailResponse(payload, normalizedProviderId),
@@ -158,13 +143,6 @@ export async function fetchProviderDetailFromUsageCommand(
 ): Promise<ProviderDetailData> {
   const normalizedProviderId = assertFetchableProviderId(providerId);
   return withProviderFetchErrorHint(binary, async () => {
-    if (binary.source === "mock" || isCodexBarMockMode()) {
-      return withRequestMetadata(
-        normalizeProviderDetailPayload(getMockProviderPayload(normalizedProviderId), normalizedProviderId),
-        options?.source,
-      );
-    }
-
     const payload = await executeCodexBar(
       binary,
       buildProviderUsageCommandArgs(normalizedProviderId, {
@@ -194,14 +172,6 @@ export async function fetchProviderUsageWithStatus(
 ): Promise<ProviderUsageWithStatus> {
   const normalizedProviderId = assertFetchableProviderId(providerId);
   return withProviderFetchErrorHint(binary, async () => {
-    if (binary.source === "mock" || isCodexBarMockMode()) {
-      const payload = getMockProviderPayload(normalizedProviderId);
-      return {
-        detail: withRequestMetadata(normalizeProviderDetailPayload(payload, normalizedProviderId), options?.source),
-        status: extractProviderStatus(payload, normalizedProviderId),
-      };
-    }
-
     const payload = await executeCodexBar(
       binary,
       buildProviderUsageCommandArgs(normalizedProviderId, {
@@ -239,7 +209,10 @@ function normalizeProviderDetailResponse(payload: unknown, providerId: string): 
   return normalizeProviderDetailPayload(payload, providerId);
 }
 
-function withRequestMetadata(detail: ProviderDetailData, requestedSource?: ProviderSourceMode): ProviderDetailData {
+export function withRequestMetadata(
+  detail: ProviderDetailData,
+  requestedSource?: ProviderSourceMode,
+): ProviderDetailData {
   return { ...detail, requestedSource: requestedSource ?? "auto" };
 }
 

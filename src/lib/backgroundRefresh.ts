@@ -1,4 +1,3 @@
-import { getMockConfiguredProviders, isCodexBarMockMode } from "../mocks/codexbar";
 import type { ConfiguredProvider } from "../providers/types";
 import {
   cacheProviderDetail,
@@ -10,15 +9,9 @@ import {
 } from "./providerDetailCache";
 import { pruneProviderUsageSectionMemory } from "./providerShapeMemory";
 import { cacheProviderStatus, readProviderStatus } from "./providerStatusCache";
-import { canForceRefreshViaServe, getCodexBarAvailability, type ResolvedCodexBarBinary } from "../cli/binary";
-import {
-  fetchProviderDetailFromServe,
-  fetchProviderDetailFromUsageCommand,
-  fetchProviderUsageWithStatus,
-  type ProviderUsageWithStatus,
-} from "../cli/fetch";
-import { ensureCodexBarServe } from "../cli/serve";
-import { readConfiguredProvidersFromConfig } from "./providerConfig";
+import { canForceRefreshViaServe } from "../cli/binary";
+import type { ProviderUsageWithStatus } from "../cli/fetch";
+import { getCodexBarClientAvailability, type CodexBarClient } from "../services/codexbarClient";
 import { getKeychainAccessPolicy } from "../preferences";
 
 export type UsageCacheRefreshError = {
@@ -42,7 +35,7 @@ export type UsageCacheRefreshResult =
     };
 
 export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
-  const availability = await getCodexBarAvailability(getKeychainAccessPolicy());
+  const availability = await getCodexBarClientAvailability(getKeychainAccessPolicy());
   if (availability.status !== "available") {
     return {
       status: "skipped",
@@ -58,9 +51,10 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
     };
   }
 
+  const { client } = availability;
   let providers: ConfiguredProvider[];
   try {
-    providers = await readBackgroundConfiguredProviders(availability.binary);
+    providers = await client.readConfiguredProviders();
   } catch (error) {
     return {
       status: "skipped",
@@ -84,11 +78,8 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
     };
   }
 
-  const serveEnsured =
-    availability.binary.source !== "mock" && !isCodexBarMockMode()
-      ? await ensureCodexBarServe(availability.binary)
-      : false;
-  const usedServe = serveEnsured && canForceRefreshViaServe(availability.binary);
+  const serveEnsured = await client.ensureServe();
+  const usedServe = serveEnsured && canForceRefreshViaServe(client.binary);
   const errors: UsageCacheRefreshError[] = [];
   let refreshedCount = 0;
 
@@ -99,20 +90,16 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
       const provider = providersById.get(providerId);
       if (!provider) return;
       try {
-        const { detail, status } = await fetchProviderDetailAndStatusForBackground(
-          availability.binary,
-          provider,
-          serveEnsured,
-        );
-        cacheProviderDetail(detail, availability.binary.keychainAccessPolicy);
-        recordProviderDetailSuccess(providerId, availability.binary.keychainAccessPolicy);
+        const { detail, status } = await fetchProviderDetailAndStatusForBackground(client, provider, serveEnsured);
+        cacheProviderDetail(detail, client.binary.keychainAccessPolicy);
+        recordProviderDetailSuccess(providerId, client.binary.keychainAccessPolicy);
         refreshedCount += 1;
         // Best effort only; never drop a prior cached status on miss.
         if (status) {
           cacheProviderStatus(providerId, status);
         }
       } catch (error) {
-        recordProviderDetailFailure(providerId, availability.binary.keychainAccessPolicy);
+        recordProviderDetailFailure(providerId, client.binary.keychainAccessPolicy);
         errors.push({ providerId, message: toErrorMessage(error) });
       }
     },
@@ -128,37 +115,29 @@ export async function refreshUsageCache(): Promise<UsageCacheRefreshResult> {
   };
 }
 
-async function readBackgroundConfiguredProviders(binary: ResolvedCodexBarBinary): Promise<ConfiguredProvider[]> {
-  if (binary.source === "mock" || isCodexBarMockMode()) {
-    return getMockConfiguredProviders();
-  }
-
-  return readConfiguredProvidersFromConfig();
-}
-
 // Force-refresh serve detail (ADR-0002). Status is CLI-only (ADR-0003) and
 // refreshed only when the dedicated status cache is empty or past TTL.
 async function fetchProviderDetailAndStatusForBackground(
-  binary: ResolvedCodexBarBinary,
+  client: CodexBarClient,
   provider: ConfiguredProvider,
   preferServe: boolean,
 ): Promise<ProviderUsageWithStatus> {
   const options = { source: provider.source, interaction: "background" as const, mode: "force" as const };
   if (preferServe) {
     try {
-      const detail = await fetchProviderDetailFromServe(binary, provider.id, options);
-      return attachStatusWhenStale(binary, provider, detail);
+      const detail = await client.fetchProviderDetailFromServe(provider.id, options);
+      return attachStatusWhenStale(client, provider, detail);
     } catch {
-      return fetchProviderUsageWithStatusOrDetailOnly(binary, provider);
+      return fetchProviderUsageWithStatusOrDetailOnly(client, provider);
     }
   }
 
-  return fetchProviderUsageWithStatusOrDetailOnly(binary, provider);
+  return fetchProviderUsageWithStatusOrDetailOnly(client, provider);
 }
 
 // Keep serve-sourced detail primary; a failed status one-shot must not drop it.
 async function attachStatusWhenStale(
-  binary: ResolvedCodexBarBinary,
+  client: CodexBarClient,
   provider: ConfiguredProvider,
   detail: ProviderUsageWithStatus["detail"],
 ): Promise<ProviderUsageWithStatus> {
@@ -167,7 +146,7 @@ async function attachStatusWhenStale(
   }
 
   try {
-    const { status } = await fetchProviderUsageWithStatus(binary, provider.id, {
+    const { status } = await client.fetchProviderUsageWithStatus(provider.id, {
       source: provider.source,
       interaction: "background",
     });
@@ -179,16 +158,16 @@ async function attachStatusWhenStale(
 
 // Combined --status may fail on old CLIs; fall back to plain detail so status errors never drop usage.
 async function fetchProviderUsageWithStatusOrDetailOnly(
-  binary: ResolvedCodexBarBinary,
+  client: CodexBarClient,
   provider: ConfiguredProvider,
 ): Promise<ProviderUsageWithStatus> {
   try {
-    return await fetchProviderUsageWithStatus(binary, provider.id, {
+    return await client.fetchProviderUsageWithStatus(provider.id, {
       source: provider.source,
       interaction: "background",
     });
   } catch {
-    const detail = await fetchProviderDetailFromUsageCommand(binary, provider.id, {
+    const detail = await client.fetchProviderDetailFromUsageCommand(provider.id, {
       source: provider.source,
       interaction: "background",
     });
