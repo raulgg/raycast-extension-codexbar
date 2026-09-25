@@ -95,8 +95,13 @@ src/
   usage/                      Raw payload -> domain model. Pure: no Raycast, no IO.
     types.ts                  Shared domain types (ProviderDetailData, sections, pacing, status).
     json.ts, duration.ts      Coercion and duration-text helpers shared across the tree.
-    normalize.ts              Raw payload -> ProviderSection[]. Dynamic label overrides
-                              (resolveDynamicSlotTitle), pacing defaults, supplemental mappers.
+    normalize.ts              Raw payload -> ProviderSection[]: envelope, slots, extra rate
+                              windows, presentation meters, dynamic label overrides.
+    identity.ts               Account email and plan text for the detail header.
+    providerRules/            Provider-specific interpretation, one file per provider: codex
+                              (weekly caps session, code review, reset credits), claude (plan
+                              fields), kilo (pass text), antigravity (hide adornment copies),
+                              openrouter (supplemental mapper table).
     pacing.ts                 The pace formula and labels. Hand-maintained (not script-diffed).
     status.ts                 Parse the CLI status object into a badge model.
 

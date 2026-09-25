@@ -9,11 +9,18 @@ import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../pro
 import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
+import { extractAccountEmail, formatPlanText } from "./identity";
 import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
+import { applyAntigravityDetailRules } from "./providerRules/antigravity";
+import {
+  applyCodexWeeklySessionCap,
+  buildCodexCodeReviewSection,
+  buildCodexResetCreditSection,
+} from "./providerRules/codex";
+import { buildSupplementalMapperSections } from "./providerRules/openrouter";
 import type {
   ProviderDetailData,
   ProviderSection,
-  ProviderSectionItem,
   ProviderStatus,
   ProviderSupplementalUsageSection,
   ProviderUsagePacing,
@@ -58,35 +65,6 @@ function usageHasDetailRow(usage: RawProviderPayload | undefined, label: string)
   }
 
   return false;
-}
-
-function firstString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    const stringValue = toTrimmedString(value);
-    if (stringValue) {
-      return stringValue;
-    }
-  }
-
-  return undefined;
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
-  }).format(value);
-}
-
-function formatCurrency(value: number, currencyCode: string): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currencyCode,
-      maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
-    }).format(value);
-  } catch {
-    return `${formatNumber(value)} ${currencyCode}`;
-  }
 }
 
 function normalizePercentFromFraction(value: number): number | undefined {
@@ -210,91 +188,6 @@ function buildSupplementalMeter(
     usagePacing: computeMeterPacing("extra", input, context),
     nextRegenPercent: input.nextRegenPercent,
   };
-}
-
-// CodexConsumerProjection.weeklyCapsSession: weekly is the binding cap while remaining
-// is 0 and the weekly reset is still in the future (or unknown).
-function codexWeeklyCapsSession(
-  weeklyRemainingPercent: number,
-  weeklyResetsAt: string | undefined,
-  now: number,
-): boolean {
-  if (weeklyRemainingPercent > 0) {
-    return false;
-  }
-
-  if (!weeklyResetsAt) {
-    return true;
-  }
-
-  const resetMs = Date.parse(weeklyResetsAt);
-  if (Number.isNaN(resetMs)) {
-    return true;
-  }
-
-  return resetMs > now;
-}
-
-// CodexConsumerProjection.bindingReset: when session still has headroom, retarget to
-// weekly's reset; when both are exhausted, prefer the later of the two known resets.
-function codexBindingResetsAt(
-  sessionRemainingPercent: number,
-  sessionResetsAt: string | undefined,
-  weeklyResetsAt: string | undefined,
-  now: number,
-): string | undefined {
-  const sessionResetMs = sessionResetsAt ? Date.parse(sessionResetsAt) : Number.NaN;
-  const sessionResetFuture = !sessionResetsAt || Number.isNaN(sessionResetMs) ? true : sessionResetMs > now;
-  const sessionIsExhausted = sessionRemainingPercent <= 0 && sessionResetFuture;
-
-  if (!sessionIsExhausted) {
-    return weeklyResetsAt;
-  }
-
-  if (!sessionResetsAt || !weeklyResetsAt) {
-    return undefined;
-  }
-
-  const weeklyResetMs = Date.parse(weeklyResetsAt);
-  if (Number.isNaN(sessionResetMs) || Number.isNaN(weeklyResetMs)) {
-    return undefined;
-  }
-
-  return sessionResetMs > weeklyResetMs ? sessionResetsAt : weeklyResetsAt;
-}
-
-function applyCodexWeeklySessionCap(
-  sections: ProviderSection[],
-  resetsAtByTitle: Partial<Record<"Primary" | "Secondary", string | undefined>>,
-  now: number,
-): ProviderSection[] {
-  const primaryIndex = sections.findIndex((section) => section.kind === "usage" && section.title === "Primary");
-  const secondaryIndex = sections.findIndex((section) => section.kind === "usage" && section.title === "Secondary");
-  if (primaryIndex < 0 || secondaryIndex < 0) {
-    return sections;
-  }
-
-  const primary = sections[primaryIndex];
-  const secondary = sections[secondaryIndex];
-  if (primary.kind !== "usage" || secondary.kind !== "usage") {
-    return sections;
-  }
-
-  const weeklyResetsAt = resetsAtByTitle.Secondary;
-  if (!codexWeeklyCapsSession(secondary.remainingPercent, weeklyResetsAt, now)) {
-    return sections;
-  }
-
-  const bindingResetsAt = codexBindingResetsAt(primary.remainingPercent, resetsAtByTitle.Primary, weeklyResetsAt, now);
-
-  const next = sections.slice();
-  next[primaryIndex] = {
-    ...primary,
-    remainingPercent: 0,
-    resetsIn: bindingResetsAt ? formatCountdown(bindingResetsAt, now) : undefined,
-    usagePacing: undefined,
-  };
-  return next;
 }
 
 function buildUsageSections(providerId: string, payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
@@ -422,25 +315,6 @@ function buildExtraRateWindowSections(
   return sections;
 }
 
-// MenuCardView+ModelHelpers.antigravityMetrics: extras with this prefix are the real
-// meters. Primary and Secondary are copies for the list adornment, so skip them on the card.
-const ANTIGRAVITY_QUOTA_SUMMARY_WINDOW_ID_PREFIX = "antigravity-quota-summary-";
-
-function hasAntigravityQuotaSummaryWindows(payload: RawProviderPayload): boolean {
-  const extraRateWindows = toRecord(payload.usage)?.extraRateWindows;
-  if (!Array.isArray(extraRateWindows)) {
-    return false;
-  }
-
-  return extraRateWindows.some((entry) =>
-    toTrimmedString(toRecord(entry)?.id)?.startsWith(ANTIGRAVITY_QUOTA_SUMMARY_WINDOW_ID_PREFIX),
-  );
-}
-
-function hideAntigravityRepresentativeSlots(sections: ProviderSection[]): ProviderSection[] {
-  return sections.map((section) => (section.kind === "usage" ? { ...section, includeInDetail: false } : section));
-}
-
 type PresentationMeterKind = "primary" | "secondary" | "tertiary" | "supplemental";
 
 const PRESENTATION_SLOT_TITLES: Record<Exclude<PresentationMeterKind, "supplemental">, SlotTitle> = {
@@ -503,277 +377,6 @@ function buildPresentationMeterSections(
   }
 
   return { schemaVersion, sections };
-}
-
-const SUPPLEMENTAL_USAGE_MAPPERS: Record<string, (record: RawProviderPayload, now: number) => ProviderSection[]> = {
-  openRouterUsage: (record) => {
-    const sections: ProviderSection[] = [];
-    const usedPercent = toFiniteNumber(record.usedPercent);
-    if (usedPercent !== undefined) {
-      sections.push({
-        kind: "supplementalUsage",
-        title: "Credits used",
-        remainingPercent: clampPercent(100 - usedPercent),
-      });
-    }
-
-    const items: ProviderSectionItem[] = [];
-    const balance = toFiniteNumber(record.balance);
-    if (balance !== undefined) {
-      items.push({ label: "Balance", value: formatCurrency(balance, "USD") });
-    }
-
-    const keyUsage = toFiniteNumber(record.keyUsage);
-    const keyLimit = toFiniteNumber(record.keyLimit);
-    if (keyUsage !== undefined && keyLimit !== undefined && keyLimit > 0) {
-      items.push({
-        label: "Key usage",
-        value: `${formatCurrency(keyUsage, "USD")} / ${formatCurrency(keyLimit, "USD")}`,
-      });
-    }
-
-    if (items.length > 0) {
-      sections.push({ kind: "info", title: "OpenRouter", items });
-    }
-
-    return sections;
-  },
-};
-
-function buildProviderSpecificUsageSections(payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
-  const usage = toRecord(payload.usage);
-  if (!usage) {
-    return [];
-  }
-
-  const sections: ProviderSection[] = [];
-  for (const [fieldName, mapper] of Object.entries(SUPPLEMENTAL_USAGE_MAPPERS)) {
-    const record = toRecord(usage[fieldName]);
-    if (record) {
-      sections.push(...mapper(record, now));
-    }
-  }
-
-  return sections;
-}
-
-type CodexResetCredit = {
-  expiresAt?: string;
-  expiresAtMs?: number;
-};
-
-function normalizeCodexResetCredits(payload: RawProviderPayload, now = Date.now()): CodexResetCredit[] {
-  const usage = toRecord(payload.usage);
-  const codexResetCredits = toRecord(usage?.codexResetCredits);
-  const credits = Array.isArray(codexResetCredits?.credits) ? codexResetCredits.credits : [];
-  const availableCredits: CodexResetCredit[] = [];
-
-  for (const credit of credits) {
-    const record = toRecord(credit);
-    if (!record || record.status !== "available") {
-      continue;
-    }
-
-    const expiresAt = firstString(record.expires_at, record.expiresAt);
-    if (!expiresAt) {
-      availableCredits.push({});
-      continue;
-    }
-
-    const expiresAtMs = Date.parse(expiresAt);
-    if (Number.isNaN(expiresAtMs) || expiresAtMs <= now) {
-      continue;
-    }
-
-    availableCredits.push({ expiresAt, expiresAtMs });
-  }
-
-  return availableCredits.sort((left, right) => {
-    if (left.expiresAtMs === undefined && right.expiresAtMs === undefined) {
-      return 0;
-    }
-
-    if (left.expiresAtMs === undefined) {
-      return 1;
-    }
-
-    if (right.expiresAtMs === undefined) {
-      return -1;
-    }
-
-    return left.expiresAtMs - right.expiresAtMs;
-  });
-}
-
-function formatCodexResetCreditCount(count: number): string {
-  return count === 1 ? "1 available" : `${count} available`;
-}
-
-function formatCodexResetCreditExpiry(credit: CodexResetCredit, now: number): string {
-  return credit.expiresAt ? (formatCountdown(credit.expiresAt, now) ?? "No expiry") : "No expiry";
-}
-
-function buildCodexResetCreditSection(
-  providerId: string,
-  payload: RawProviderPayload,
-  now = Date.now(),
-): ProviderSection[] {
-  if (providerId !== "codex") {
-    return [];
-  }
-
-  const credits = normalizeCodexResetCredits(payload, now);
-  if (credits.length === 0) {
-    return [];
-  }
-
-  const items: ProviderSectionItem[] = [
-    { label: "Available", value: formatCodexResetCreditCount(credits.length) },
-    { label: "Next expiry", value: formatCodexResetCreditExpiry(credits[0], now) },
-  ];
-
-  if (credits.length > 1) {
-    items.push({
-      label: "Expiries",
-      value: credits.map((credit) => formatCodexResetCreditExpiry(credit, now)).join(", "),
-    });
-  }
-
-  return [{ kind: "info", title: "Limit Reset Credits", items }];
-}
-
-function buildSupplementalUsageSections(payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
-  const dashboard = toRecord(payload.openaiDashboard);
-  const sections: ProviderSection[] = [];
-
-  const codeReviewRemainingPercent = toFiniteNumber(dashboard?.codeReviewRemainingPercent);
-  if (codeReviewRemainingPercent !== undefined) {
-    const codeReviewResetsAt = toNonBlankString(toRecord(dashboard?.codeReviewLimit)?.resetsAt);
-    sections.push({
-      kind: "supplementalUsage",
-      title: "Code review",
-      remainingPercent: clampPercent(codeReviewRemainingPercent),
-      resetsIn: codeReviewResetsAt ? formatCountdown(codeReviewResetsAt, now) : undefined,
-    });
-  }
-
-  return sections;
-}
-
-function extractAccountEmail(payload: RawProviderPayload): string | undefined {
-  const usage = toRecord(payload.usage);
-  const usageIdentity = toRecord(usage?.identity);
-  const identity = toRecord(payload.identity);
-  const account = toRecord(payload.account);
-
-  return firstString(
-    payload.accountEmail,
-    identity?.accountEmail,
-    usage?.accountEmail,
-    usageIdentity?.accountEmail,
-    account?.accountEmail,
-    account?.email,
-  );
-}
-
-function extractRawPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
-  const usage = toRecord(payload.usage);
-  const usageIdentity = toRecord(usage?.identity);
-  const identity = toRecord(payload.identity);
-  const account = toRecord(payload.account);
-  const dashboard = toRecord(payload.openaiDashboard);
-
-  if (providerId === "claude") {
-    const claudePlan = firstString(
-      payload.plan,
-      identity?.plan,
-      usage?.plan,
-      usageIdentity?.plan,
-      account?.plan,
-      payload.subscriptionType,
-      identity?.subscriptionType,
-      usage?.subscriptionType,
-      usageIdentity?.subscriptionType,
-      account?.subscriptionType,
-      payload.rateLimitTier,
-      identity?.rateLimitTier,
-      usage?.rateLimitTier,
-      usageIdentity?.rateLimitTier,
-      account?.rateLimitTier,
-    );
-    if (claudePlan) {
-      return claudePlan;
-    }
-  }
-
-  return firstString(
-    payload.loginMethod,
-    identity?.loginMethod,
-    usage?.loginMethod,
-    usageIdentity?.loginMethod,
-    account?.loginMethod,
-    account?.plan,
-    dashboard?.accountPlan,
-  );
-}
-
-function formatSlugLabel(raw: string): string {
-  const acronymMap = new Map<string, string>([
-    ["api", "API"],
-    ["cli", "CLI"],
-    ["oauth", "OAuth"],
-    ["sso", "SSO"],
-    ["usd", "USD"],
-    ["openai", "OpenAI"],
-  ]);
-
-  return raw
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((part) => {
-      const normalized = part.toLowerCase();
-      const acronym = acronymMap.get(normalized);
-      if (acronym) {
-        return acronym;
-      }
-
-      return `${normalized[0]?.toUpperCase() ?? ""}${normalized.slice(1)}`;
-    })
-    .join(" ");
-}
-
-function extractKiloPass(rawPlanText: string): string | undefined {
-  const parts = rawPlanText
-    .split("·")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length === 0) {
-    return undefined;
-  }
-
-  const firstPart = parts[0];
-  if (firstPart.toLowerCase().startsWith("auto top-up:")) {
-    return undefined;
-  }
-
-  return firstPart;
-}
-
-function formatPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
-  const rawPlanText = extractRawPlanText(providerId, payload);
-  if (!rawPlanText) {
-    return undefined;
-  }
-
-  const providerScopedPlanText = providerId === "kilo" ? (extractKiloPass(rawPlanText) ?? rawPlanText) : rawPlanText;
-  if (
-    /^[a-z0-9_-]+$/i.test(providerScopedPlanText) &&
-    providerScopedPlanText === providerScopedPlanText.toLowerCase()
-  ) {
-    return formatSlugLabel(providerScopedPlanText);
-  }
-
-  return providerScopedPlanText;
 }
 
 function collectFromArray(payload: unknown[]): ProviderCandidate[] {
@@ -867,14 +470,11 @@ function normalizePayload(providerId: string, payload: RawProviderPayload, now =
   const rawSections = presentation?.sections ?? [
     ...buildUsageSections(metadata.id, payload, now),
     ...buildExtraRateWindowSections(metadata.id, payload, now),
-    ...buildSupplementalUsageSections(payload, now),
-    ...buildProviderSpecificUsageSections(payload, now),
+    ...buildCodexCodeReviewSection(payload, now),
+    ...buildSupplementalMapperSections(payload, now),
     ...buildCodexResetCreditSection(metadata.id, payload, now),
   ];
-  const sections =
-    presentation === undefined && metadata.id === "antigravity" && hasAntigravityQuotaSummaryWindows(payload)
-      ? hideAntigravityRepresentativeSlots(rawSections)
-      : rawSections;
+  const sections = applyAntigravityDetailRules(metadata.id, payload, presentation !== undefined, rawSections);
 
   return {
     id: metadata.id,
