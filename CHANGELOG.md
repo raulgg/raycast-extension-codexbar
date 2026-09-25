@@ -13,6 +13,8 @@
 - OpenRouter dashboard opens Activity; Amp, Ollama, OpenCode Go, and Cursor extra-window pacing match CodexBar v0.66.0
 - Antigravity session pacing follows a 300-minute window, matching CodexBar v0.66.0
 - Mistral, Qwen Cloud, and StepFun usage-bar titles follow the CodexBar app's rate-window labelers
+- Helmcode accounts in the NaN Builders organization open `https://cloud.nan.builders/dashboard`
+- A white brand color still paints a visible usage meter in light mode
 - Grok weekly credits window shows the same pace marker as the CodexBar app
 - Pace ticks use the CodexBar app's red (deficit) and green (reserve) colors, and hide when a window is on pace
 - Pace ticks punch a gap through the usage meter so the color stays visible on similar brand fills

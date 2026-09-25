@@ -287,6 +287,12 @@ describe("provider registry", () => {
     }
   });
 
+  it("lifts a white brand off a light background and leaves its dark fill white", () => {
+    expect(getProviderMetadata("vercel").progressPalette.darkFill).toBe("#FFFFFF");
+    expect(getProviderMetadata("vercel").progressPalette.lightFill).not.toBe("#FFFFFF");
+    expect(getProviderMetadata("alibaba").progressPalette.lightFill).toBe("#FF6A00");
+  });
+
   it("falls back to a title-cased label for unknown providers", () => {
     expect(getProviderMetadata("my-provider_name")).toEqual({
       id: "my-provider_name",
@@ -376,6 +382,12 @@ describe("provider registry", () => {
 
     it("keeps the plain dashboard for providers without a subscription dashboard", () => {
       expect(resolveDashboardUrl("cursor", "pro")).toBe("https://cursor.com/dashboard?tab=usage");
+    });
+
+    it("sends Helmcode NaN Builders accounts to nan.builders and everyone else to helmcode.com", () => {
+      expect(resolveDashboardUrl("helmcode", undefined, "NaN Builders")).toBe("https://cloud.nan.builders/dashboard");
+      expect(resolveDashboardUrl("helmcode", undefined, "Helmcode")).toBe("https://cloud.helmcode.com/dashboard");
+      expect(resolveDashboardUrl("helmcode")).toBe("https://cloud.helmcode.com/dashboard");
     });
 
     it("resolves Claude via alias ids as well", () => {

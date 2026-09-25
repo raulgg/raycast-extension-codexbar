@@ -296,6 +296,15 @@ describe("provider normalization", () => {
         .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
 
     expect(usageTitles({ primary: { usedPercent: 10 } })).toEqual(["Included API"]);
+
+    const sessionOnly = normalizeProviderDetailPayload(
+      { provider: "mistral", sessionPercentLeft: 40 },
+      "mistral",
+      now,
+    ).sections.filter((section) => section.kind === "usage");
+    expect(sessionOnly.map((section) => (section.kind === "usage" ? section.displayTitle : section.title))).toEqual([
+      "Balance",
+    ]);
   });
 
   it("relabels a 30-day Qwen Cloud primary as Monthly", () => {
@@ -322,6 +331,19 @@ describe("provider normalization", () => {
       "Weekly Window",
     ]);
     expect(usageTitles({ primary: { usedPercent: 10 }, secondary: {} })).toEqual(["5h Window"]);
+  });
+
+  it("keeps Helmcode's account organization for the dashboard host switch", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "helmcode",
+        usage: { identity: { accountOrganization: "NaN Builders" }, primary: { usedPercent: 10 } },
+      },
+      "helmcode",
+      Date.parse("2026-03-23T10:30:00Z"),
+    );
+
+    expect(detail.accountOrganization).toBe("NaN Builders");
   });
 
   it("relabels amp windows as Other usage / Orb usage when a secondary window is present", () => {

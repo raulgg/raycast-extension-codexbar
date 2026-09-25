@@ -100,11 +100,59 @@ function mixHexColors(baseColor: string, targetColor: string, ratio: number): st
   );
 }
 
+// Bright brands such as Alibaba orange sit under 3:1 against white and must stay
+// as cataloged. Only a fill that is effectively the background gets lifted.
+const NEAR_BACKGROUND_CONTRAST = 1.2;
+const VISIBLE_PROGRESS_CONTRAST = 3;
+
+function channelLuminance(value: number): number {
+  const srgb = value / 255;
+  return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(hex: string): number {
+  const [red, green, blue] = parseHexColor(hex);
+  return 0.2126 * channelLuminance(red) + 0.7152 * channelLuminance(green) + 0.0722 * channelLuminance(blue);
+}
+
+function contrastRatio(fill: string, background: string): number {
+  const fillLuminance = relativeLuminance(fill);
+  const backgroundLuminance = relativeLuminance(background);
+  const lighter = Math.max(fillLuminance, backgroundLuminance);
+  const darker = Math.min(fillLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// A fill under 1.2:1 against the appearance background is mixed away from it
+// until the contrast reaches 3:1. Brighter fills, including the dark-mode
+// 20% white mix, are returned unchanged.
+function floorFillAgainstBackground(fill: string, background: string, awayFrom: string): string {
+  if (contrastRatio(fill, background) >= NEAR_BACKGROUND_CONTRAST) {
+    return fill;
+  }
+
+  let best = awayFrom;
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 16; step += 1) {
+    const ratio = (low + high) / 2;
+    const mixed = mixHexColors(fill, awayFrom, ratio);
+    if (contrastRatio(mixed, background) >= VISIBLE_PROGRESS_CONTRAST) {
+      best = mixed;
+      high = ratio;
+    } else {
+      low = ratio;
+    }
+  }
+
+  return best;
+}
+
 function buildProgressPalette(brandColor: string): ProviderProgressPalette {
-  const lightFill = normalizeHexColor(brandColor);
+  const brand = normalizeHexColor(brandColor);
   return {
-    lightFill,
-    darkFill: mixHexColors(lightFill, "#FFFFFF", 0.2),
+    lightFill: floorFillAgainstBackground(brand, "#FFFFFF", "#000000"),
+    darkFill: floorFillAgainstBackground(mixHexColors(brand, "#FFFFFF", 0.2), "#000000", "#FFFFFF"),
   };
 }
 
@@ -233,8 +281,15 @@ export function isClaudeSubscriptionLoginMethod(text: string | undefined): boole
   return plan === undefined ? false : CLAUDE_SUBSCRIPTION_PLANS.has(plan);
 }
 
+const NAN_BUILDERS_ORGANIZATION = "NaN Builders";
+const NAN_BUILDERS_DASHBOARD_URL = "https://cloud.nan.builders/dashboard";
+
 // Picks the "Open Usage Dashboard" target.
-export function resolveDashboardUrl(providerId: string, planText?: string): string | undefined {
+export function resolveDashboardUrl(
+  providerId: string,
+  planText?: string,
+  accountOrganization?: string,
+): string | undefined {
   const metadata = getProviderMetadata(providerId);
   // Claude serves two audiences: API accounts get the console billing page, subscription
   // plans get claude.ai usage (upstream StatusItemController+Actions.swift:273-277 plan switch).
@@ -242,6 +297,11 @@ export function resolveDashboardUrl(providerId: string, planText?: string): stri
     return isClaudeSubscriptionLoginMethod(planText)
       ? (metadata.subscriptionDashboardUrl ?? metadata.dashboardUrl)
       : metadata.dashboardUrl;
+  }
+  // HelmcodeProviderDescriptor.dashboardURL(snapshot:) switches host when the
+  // account organization is NaN Builders. The catalog URL stays the helmcode.com default.
+  if (resolveProviderId(providerId) === "helmcode" && accountOrganization === NAN_BUILDERS_ORGANIZATION) {
+    return NAN_BUILDERS_DASHBOARD_URL;
   }
   // Other dual-URL providers have no plan detection, and the usage this extension meters
   // is their subscription usage — so the subscription dashboard is the better target when

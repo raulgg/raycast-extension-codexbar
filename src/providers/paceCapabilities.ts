@@ -372,23 +372,31 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
   },
 };
 
-type DynamicTitleOptions = {
+export type DynamicWindow = {
+  // Swift `snapshot.* != nil`, before a missing record is replaced with {}.
+  present: boolean;
+  // Finite usedPercent. Factory, Amp, and sub2api relabel from this, not `present`.
+  usedPercent?: number;
   windowMinutes?: number;
   resetsAt?: string;
   resetDescription?: string;
-  factoryHasTertiary: boolean;
-  hasPrimary: boolean;
-  hasSecondary: boolean;
-  hasSecondaryWindow: boolean;
+};
+
+type DynamicTitleOptions = {
+  windows: Record<SlotTitle, DynamicWindow>;
   hasAgentDetailRow: boolean;
   now: number;
 };
+
+function windowRenders(window: DynamicWindow): boolean {
+  return window.usedPercent !== undefined;
+}
 
 type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions) => string | undefined;
 
 export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
   factory(slotTitle, options) {
-    if (!options.factoryHasTertiary) {
+    if (!windowRenders(options.windows.Tertiary)) {
       return undefined;
     }
 
@@ -399,15 +407,16 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
       return undefined;
     }
 
-    if (options.windowMinutes === 5 * 60) {
+    const windowMinutes = options.windows[slotTitle].windowMinutes;
+    if (windowMinutes === 5 * 60) {
       return "Session";
     }
 
-    if (options.windowMinutes === 7 * 24 * 60) {
+    if (windowMinutes === 7 * 24 * 60) {
       return "Weekly";
     }
 
-    if (options.windowMinutes === 30 * 24 * 60) {
+    if (windowMinutes === 30 * 24 * 60) {
       return "Monthly";
     }
 
@@ -418,23 +427,25 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
       return undefined;
     }
 
-    const durationMs = grokWindowDurationMs(options.windowMinutes, options.resetsAt, options.now);
+    const window = options.windows.Primary;
+    const durationMs = grokWindowDurationMs(window.windowMinutes, window.resetsAt, options.now);
     const dynamicTitle = grokPrimaryDisplayTitle(durationMs);
     if (dynamicTitle) {
       return dynamicTitle;
     }
 
-    if (options.windowMinutes === undefined && options.resetsAt) {
+    if (window.windowMinutes === undefined && window.resetsAt) {
       return "Weekly";
     }
 
     return undefined;
   },
   doubao(slotTitle, options) {
+    const window = options.windows.Primary;
     if (
       slotTitle === "Primary" &&
-      options.windowMinutes === undefined &&
-      options.resetDescription?.toLowerCase().includes("request")
+      window.windowMinutes === undefined &&
+      window.resetDescription?.toLowerCase().includes("request")
     ) {
       return "Requests";
     }
@@ -446,7 +457,7 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
       return "Agent usage";
     }
 
-    if (!options.hasSecondary) {
+    if (!windowRenders(options.windows.Secondary)) {
       return undefined;
     }
 
@@ -461,46 +472,47 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
     return undefined;
   },
   ollama(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
+    if (slotTitle === "Primary" && options.windows.Primary.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
       return "Monthly";
     }
 
     return undefined;
   },
   alibabatokenplan(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windowMinutes === 5 * 60) {
+    const windowMinutes = options.windows[slotTitle].windowMinutes;
+    if (slotTitle === "Primary" && windowMinutes === 5 * 60) {
       return "5-hour";
     }
 
-    if (slotTitle === "Secondary" && options.windowMinutes === 7 * 24 * 60) {
+    if (slotTitle === "Secondary" && windowMinutes === 7 * 24 * 60) {
       return "7-day";
     }
 
     return undefined;
   },
   sub2api(slotTitle, options) {
-    if (slotTitle === "Primary" && options.hasSecondary) {
+    if (slotTitle === "Primary" && windowRenders(options.windows.Secondary)) {
       return "Daily quota";
     }
 
     return undefined;
   },
   mistral(slotTitle, options) {
-    if (slotTitle === "Primary" && options.hasPrimary) {
+    if (slotTitle === "Primary" && options.windows.Primary.present) {
       return "Included API";
     }
 
     return undefined;
   },
   qwencloud(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
+    if (slotTitle === "Primary" && options.windows.Primary.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
       return "Monthly";
     }
 
     return undefined;
   },
   stepfun(slotTitle, options) {
-    if (slotTitle === "Primary" && options.hasPrimary && !options.hasSecondaryWindow) {
+    if (slotTitle === "Primary" && options.windows.Primary.present && !options.windows.Secondary.present) {
       return "Credit";
     }
 

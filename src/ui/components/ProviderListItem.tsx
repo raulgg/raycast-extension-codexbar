@@ -45,7 +45,7 @@ export function ProviderListItem({
   const statusPageUrl = getProviderMetadata(provider.id).statusPageUrl ?? status?.url;
   // When detail (and thus planText) hasn't loaded yet, this falls back to the
   // plain dashboardUrl; for Claude subscription plans it resolves to claude.ai.
-  const dashboardUrl = resolveDashboardUrl(provider.id, detail?.planText);
+  const dashboardUrl = resolveDashboardUrl(provider.id, detail?.planText, detail?.accountOrganization);
 
   return (
     <List.Item

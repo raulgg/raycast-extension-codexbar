@@ -102,6 +102,8 @@ export type ProviderDetailData = {
   fetchedAt: string;
   updatedAt?: string;
   accountEmail?: string;
+  // Not shown. Helmcode's dashboard host depends on it.
+  accountOrganization?: string;
   planText?: string;
   source?: string;
   requestedSource?: ProviderSourceMode;

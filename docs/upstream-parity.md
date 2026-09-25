@@ -71,9 +71,11 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. The dark-mode progress fill is
-`brandColor` mixed 20% toward white (`buildProgressPalette`), so it follows the brand color
-automatically. A Provider config `accentColor` replaces `brandColor` before that mix. The catalog
-value stays the shipped default that `upstream:check` compares. Don't hand-edit derived values.
+`brandColor` mixed 20% toward white (`buildProgressPalette`). A Provider config `accentColor`
+replaces `brandColor` before that mix. The catalog value stays the shipped default that
+`upstream:check` compares. A fill that is effectively the appearance background (under 1.2:1) is
+mixed away from it until the contrast reaches 3:1, so a white brand stays visible in light mode.
+Brighter catalog colors are left alone. Don't hand-edit derived values.
 
 ---
 
@@ -82,7 +84,11 @@ value stays the shipped default that `upstream:check` compares. Don't hand-edit 
 `catalog.ts` `PROVIDER_CATALOG` holds one entry per provider id: `name`, `brandColor`,
 `usageSectionLabels` (Primary/Secondary/Tertiary display titles, see CONTEXT.md "Display title"),
 `dashboardUrl`, `subscriptionDashboardUrl`, `statusPageUrl`, `iconSlug`, and optional `iconFallback`.
-`registry.ts` is the Raycast adapter over that catalog (icons, palettes, lookups).
+`registry.ts` is the Raycast adapter over that catalog (icons, palettes, lookups). Helmcode's
+catalog URL stays `https://cloud.helmcode.com/dashboard`, which is what the descriptor metadata
+stores. The menu action uses `HelmcodeProviderDescriptor.dashboardURL(snapshot:)` and opens
+`https://cloud.nan.builders/dashboard` when `identity.accountOrganization` is `NaN Builders`.
+`resolveDashboardUrl` makes that switch from the payload organization.
 
 `npm run upstream:check` imports the catalog and diffs it against each upstream
 `…ProviderDescriptor.swift`. It exits non-zero on:
