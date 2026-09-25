@@ -90,9 +90,10 @@ function buildProgressBar(
   appearance: DetailAppearance,
   providerId: string,
   marker?: ProgressMarker,
+  accentColor?: string,
 ): string {
   const palette = DETAIL_PALETTES[appearance];
-  const progressPalette = getProviderProgressPalette(providerId);
+  const progressPalette = getProviderProgressPalette(providerId, accentColor);
   const progressFill = appearance === "dark" ? progressPalette.darkFill : progressPalette.lightFill;
 
   return buildSvgProgressBar({
@@ -129,6 +130,7 @@ function renderUsageMeter({
   appearance,
   startY,
   marker,
+  accentColor,
 }: {
   title: string;
   remainingPercent: number;
@@ -139,6 +141,7 @@ function renderUsageMeter({
   appearance: DetailAppearance;
   startY: number;
   marker?: ProgressMarker;
+  accentColor?: string;
 }): { markup: string[]; contentBottomY: number } {
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
@@ -153,7 +156,16 @@ function renderUsageMeter({
       DETAIL_TYPOGRAPHY.sectionTitleSize,
       DETAIL_FONT_WEIGHT.bold,
     ),
-    buildProgressBar(remainingPercent, CONTENT_LEFT_X, progressY, CONTENT_WIDTH, appearance, providerId, marker),
+    buildProgressBar(
+      remainingPercent,
+      CONTENT_LEFT_X,
+      progressY,
+      CONTENT_WIDTH,
+      appearance,
+      providerId,
+      marker,
+      accentColor,
+    ),
   ];
 
   if (resetsIn) {
@@ -200,6 +212,7 @@ export function renderMetricSection(
   providerId: string,
   appearance: DetailAppearance,
   startY: number,
+  accentColor?: string,
 ): { markup: string[]; contentBottomY: number } {
   if (section.kind !== "usage" && section.kind !== "supplementalUsage") {
     throw new Error(`Unsupported metric section kind: ${section.kind}`);
@@ -229,6 +242,7 @@ export function renderMetricSection(
     appearance,
     startY,
     marker,
+    accentColor,
   });
 }
 
@@ -287,13 +301,14 @@ export function renderMetricSections(
   providerId: string,
   appearance: DetailAppearance,
   startY: number,
+  accentColor?: string,
 ): { markup: string[]; contentBottomY: number } {
   const markup: string[] = [];
   let currentY = startY;
   let contentBottomY = startY;
 
   for (const [index, section] of sections.entries()) {
-    const rendered = renderMetricSection(section, providerId, appearance, currentY);
+    const rendered = renderMetricSection(section, providerId, appearance, currentY, accentColor);
     markup.push(...rendered.markup);
     contentBottomY = rendered.contentBottomY;
     currentY = rendered.contentBottomY + USAGE_LAYOUT.bottomSpacing;
