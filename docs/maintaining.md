@@ -62,6 +62,10 @@ src/
     providerDetail.ts         loadProviderDetail: raw payload -> ProviderDetailData. The only
                               place normalize, payload-error rejection, section memory
                               (ADR-0007), and the Keychain error hint are composed.
+    providerDetailStore.ts    Framework-free scheduler behind the Usage Overview: per-provider
+                              dedupe and force chaining, once-per-open refresh, stale-context
+                              discard, optimistic cached results. useProviderDetails is a thin
+                              useSyncExternalStore binding over it.
     backgroundRefresh.ts      Orchestration for refresh-usage-cache.
 
   config/
