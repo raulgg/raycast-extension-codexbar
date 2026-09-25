@@ -336,6 +336,19 @@ describe("providerDetailCache", () => {
     expect(recordProviderDetailFailure("codex", "disabled")).toBe(1);
   });
 
+  it("evicts a cached detail that parses but is not a detail object", () => {
+    const cache = new Cache({ namespace: "provider-details" });
+    const now = Date.parse("2026-04-15T12:05:00Z");
+    cache.set("provider-details-v8:default:codex", JSON.stringify({ id: "codex", fetchedAt: "2026-04-15T12:00:00Z" }));
+
+    expect(buildCachedProviderResults(["codex"], "default", now)).toEqual({});
+    expect(cache.get("provider-details-v8:default:codex")).toBeUndefined();
+
+    cache.set("provider-details-v8:default:codex", JSON.stringify({ id: "codex", sections: [null] }));
+    expect(() => pruneProviderDetailCaches(["codex"], now)).not.toThrow();
+    expect(cache.get("provider-details-v8:default:codex")).toBeUndefined();
+  });
+
   it("physically removes expired details from both policy scopes", () => {
     const cache = new Cache({ namespace: "provider-details" });
     const fetchedAt = "2026-04-15T12:00:00Z";
