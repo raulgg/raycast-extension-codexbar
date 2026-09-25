@@ -1,5 +1,5 @@
 import { Cache } from "@raycast/api";
-import { KEYCHAIN_ACCESS_POLICIES, type KeychainAccessPolicy } from "../lib/keychainAccessPolicy";
+import { KEYCHAIN_ACCESS_POLICIES, type KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 
 // Raycast's Cache has no key enumeration, so stores that keep one entry per
 // (Keychain policy, provider) also keep an index of provider ids to make

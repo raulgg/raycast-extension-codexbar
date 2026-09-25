@@ -20,14 +20,14 @@ vi.mock("@raycast/api", () => {
   };
 });
 
-vi.mock("../lib/codexbar", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/codexbar")>()),
+vi.mock("../cli/binary", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../cli/binary")>()),
   resolveCodexBarBinary: resolveCodexBarBinaryMock,
   smokeTestCodexBar: smokeTestCodexBarMock,
 }));
 
 import { judgeCliSetup } from "./InstallHelpDetail";
-import { CodexBarCliError } from "../lib/codexbar";
+import { CodexBarCliError } from "../cli/exec";
 
 const RESOLVED_BINARY = {
   command: "/usr/local/bin/codexbar",
