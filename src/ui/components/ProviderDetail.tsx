@@ -1,10 +1,10 @@
 import { environment, List } from "@raycast/api";
-import { buildProviderErrorMarkdown } from "../render/errorCard";
-import { formatRelativeUpdateTime } from "../render/format";
-import type { ProviderDetailCacheStatus } from "../cache/providerDetailCache";
-import { getHidePersonalInfoPreference } from "../preferences";
-import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "../render/detailCard";
-import type { ConfiguredProvider, ProviderDetailData, ProviderStatus } from "../usage/types";
+import { buildProviderErrorMarkdown } from "../../render/errorCard";
+import { formatRelativeUpdateTime } from "../../render/format";
+import type { ProviderDetailCacheStatus } from "../../cache/providerDetailCache";
+import { getHidePersonalInfoPreference } from "../../preferences";
+import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "../../render/detailCard";
+import type { ConfiguredProvider, ProviderDetailData, ProviderStatus } from "../../usage/types";
 
 type ProviderDetailProps = {
   provider: ConfiguredProvider;
