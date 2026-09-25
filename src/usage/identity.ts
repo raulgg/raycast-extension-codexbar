@@ -6,6 +6,21 @@ import type { RawProviderPayload } from "./types";
 // Account identity shown in the detail header: the account email and the plan
 // tier read from upstream's single loginMethod field (see CONTEXT.md).
 
+export function extractAccountOrganization(payload: RawProviderPayload): string | undefined {
+  const usage = toRecord(payload.usage);
+  const usageIdentity = toRecord(usage?.identity);
+  const identity = toRecord(payload.identity);
+  const account = toRecord(payload.account);
+
+  return firstString(
+    usageIdentity?.accountOrganization,
+    usage?.accountOrganization,
+    identity?.accountOrganization,
+    account?.accountOrganization,
+    payload.accountOrganization,
+  );
+}
+
 export function extractAccountEmail(payload: RawProviderPayload): string | undefined {
   const usage = toRecord(payload.usage);
   const usageIdentity = toRecord(usage?.identity);

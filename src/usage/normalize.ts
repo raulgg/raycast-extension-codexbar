@@ -3,13 +3,14 @@ import {
   resolveDynamicSlotTitle,
   resolveExtraWindowPace,
   resolveSlotPace,
+  type DynamicWindow,
   type SlotTitle,
 } from "../providers/paceCapabilities";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
 import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
-import { extractAccountEmail, formatPlanText } from "./identity";
+import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
 import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
 import { applyAntigravityDetailRules } from "./providerRules/antigravity";
 import {
@@ -190,6 +191,16 @@ function buildSupplementalMeter(
   };
 }
 
+function dynamicWindow(record: Record<string, unknown> | undefined, resetTimestamp?: string): DynamicWindow {
+  return {
+    present: record !== undefined,
+    usedPercent: toFiniteNumber(record?.usedPercent),
+    windowMinutes: toFiniteNumber(record?.windowMinutes),
+    resetsAt: toNonBlankString(record?.resetsAt) ?? resetTimestamp,
+    resetDescription: toTrimmedString(record?.resetDescription),
+  };
+}
+
 function buildUsageSections(providerId: string, payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
   const usage = toRecord(payload.usage);
   const sections: ProviderSection[] = [];
@@ -217,9 +228,11 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
       resetTimestamp: undefined,
     },
   ];
-  // A present window is one that will render — upstream's `snapshot.* != nil` check.
-  const factoryHasTertiary = toFiniteNumber(toRecord(usage?.tertiary)?.usedPercent) !== undefined;
-  const hasSecondary = toFiniteNumber(toRecord(usage?.secondary)?.usedPercent) !== undefined;
+  const windows: Record<SlotTitle, DynamicWindow> = {
+    Primary: dynamicWindow(slotFallbacks[0].record, slotFallbacks[0].resetTimestamp),
+    Secondary: dynamicWindow(slotFallbacks[1].record, slotFallbacks[1].resetTimestamp),
+    Tertiary: dynamicWindow(slotFallbacks[2].record, slotFallbacks[2].resetTimestamp),
+  };
   const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
   const context = meterContext(providerId, payload, now);
 
@@ -240,11 +253,7 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
     const resetDescription = toTrimmedString(record.resetDescription);
     const displayTitle =
       resolveDynamicSlotTitle(providerId, slot.title, {
-        windowMinutes,
-        resetsAt: resolvedResetsAt,
-        resetDescription,
-        factoryHasTertiary,
-        hasSecondary,
+        windows,
         hasAgentDetailRow,
         now,
       }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title);
@@ -465,6 +474,7 @@ function normalizePayload(providerId: string, payload: RawProviderPayload, now =
   const updatedAt = extractUpdatedAt(payload);
   const fetchedAt = new Date(now).toISOString();
   const accountEmail = extractAccountEmail(payload);
+  const accountOrganization = extractAccountOrganization(payload);
   const planText = formatPlanText(metadata.id, payload);
   const presentation = buildPresentationMeterSections(metadata.id, payload, now);
   const rawSections = presentation?.sections ?? [
@@ -482,6 +492,7 @@ function normalizePayload(providerId: string, payload: RawProviderPayload, now =
     fetchedAt,
     updatedAt,
     accountEmail,
+    accountOrganization,
     planText,
     source: extractResolvedSource(payload),
     presentationSchemaVersion: presentation?.schemaVersion,

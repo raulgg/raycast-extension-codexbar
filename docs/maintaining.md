@@ -214,12 +214,15 @@ Upstream ships often. A periodic sync pass:
    `paceCapabilities.ts` row (GUI fields only, plus a `CUSTOM_PACE_RULES` fingerprint for `.custom`
    closures), or mark presentation-only paths in `UNPORTABLE_PRESENTATION_PACE` /
    `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the `-- --check` and let the sync script
-   write them.
+   write them. Removed provider → delete the catalog entry and every leftover that names it
+   (aliases, mocks, dynamic titles, pace rows, tests, and `assets/provider-icons/<slug>.svg`).
+   The icon script reports a stale SVG and leaves the file in place.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.
-5. **Cite the ref.** In commit messages / plan notes / code comments, name the upstream file and SHA
-   you verified against, so the next sync can tell what's already been checked.
+5. **Cite the ref.** In `docs/upstream-parity.md`, the commit message, or a plan note, name the
+   upstream file and SHA you verified against. A source comment should name the Swift symbol and
+   point at that doc. Do not stamp a release or SHA into a comment whose only change would be the pin.
 6. **Test and lint**, then commit.
 
 The `plans/*.local.md` files (gitignored) capture larger in-flight parity efforts (missing providers,

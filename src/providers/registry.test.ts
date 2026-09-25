@@ -57,6 +57,12 @@ describe("provider registry", () => {
     expect(resolveProviderId("bob")).toBe("ibmbob");
     expect(resolveProviderId("sub-2-api")).toBe("sub2api");
     expect(resolveProviderId("kiro-cli")).toBe("kiro");
+    expect(resolveProviderId("hf")).toBe("huggingface");
+    expect(resolveProviderId("gk")).toBe("gitkraken");
+    expect(resolveProviderId("muse-code")).toBe("muse");
+    expect(resolveProviderId("hermes")).toBe("nous");
+    expect(resolveProviderId("r8")).toBe("replicate");
+    expect(resolveProviderId("helm-code")).toBe("helmcode");
   });
 
   it("uses harvested upstream metadata for new providers", () => {
@@ -74,6 +80,18 @@ describe("provider registry", () => {
       name: "Alibaba Token Plan",
       brandColor: "#FF6A00",
       usageSectionLabels: { primary: "Credits", secondary: "Usage" },
+    });
+    expect(getProviderMetadata("huggingface")).toMatchObject({
+      name: "Hugging Face",
+      brandColor: "#FFD21E",
+      usageSectionLabels: { primary: "Inference", secondary: "ZeroGPU" },
+      dashboardUrl: "https://huggingface.co/settings/billing",
+      statusPageUrl: "https://status.huggingface.co",
+    });
+    expect(getProviderMetadata("llmman")).toMatchObject({
+      name: "llmman",
+      brandColor: "#6CC5B0",
+      dashboardUrl: "http://127.0.0.1:17434",
     });
     expect(getProviderMetadata("devin")).toMatchObject({
       name: "Devin",
@@ -269,6 +287,12 @@ describe("provider registry", () => {
     }
   });
 
+  it("lifts a white brand off a light background and leaves its dark fill white", () => {
+    expect(getProviderMetadata("vercel").progressPalette.darkFill).toBe("#FFFFFF");
+    expect(getProviderMetadata("vercel").progressPalette.lightFill).not.toBe("#FFFFFF");
+    expect(getProviderMetadata("alibaba").progressPalette.lightFill).toBe("#FF6A00");
+  });
+
   it("falls back to a title-cased label for unknown providers", () => {
     expect(getProviderMetadata("my-provider_name")).toEqual({
       id: "my-provider_name",
@@ -358,6 +382,12 @@ describe("provider registry", () => {
 
     it("keeps the plain dashboard for providers without a subscription dashboard", () => {
       expect(resolveDashboardUrl("cursor", "pro")).toBe("https://cursor.com/dashboard?tab=usage");
+    });
+
+    it("sends Helmcode NaN Builders accounts to nan.builders and everyone else to helmcode.com", () => {
+      expect(resolveDashboardUrl("helmcode", undefined, "NaN Builders")).toBe("https://cloud.nan.builders/dashboard");
+      expect(resolveDashboardUrl("helmcode", undefined, "Helmcode")).toBe("https://cloud.helmcode.com/dashboard");
+      expect(resolveDashboardUrl("helmcode")).toBe("https://cloud.helmcode.com/dashboard");
     });
 
     it("resolves Claude via alias ids as well", () => {

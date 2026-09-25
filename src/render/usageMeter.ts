@@ -29,7 +29,7 @@ const PROGRESS_MARKER = {
   punchGutter: 3,
 } as const;
 
-// SwiftUI Color.red / Color.green (UsageProgressBar.swift, CodexBar v0.60.4, 937b2081).
+// SwiftUI Color.red / Color.green from UsageProgressBar.swift.
 const PACE_MARKER_FILLS = {
   deficit: { light: "#FF383C", dark: "#FF4245" },
   reserve: { light: "#34C759", dark: "#30D158" },

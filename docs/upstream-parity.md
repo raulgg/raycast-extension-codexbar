@@ -30,9 +30,10 @@ Upstream is the public repo `steipete/CodexBar`. It changes fast. A new provider
 
 1. **Read the upstream Swift directly** and treat it as authoritative. Not memory, and not how the
    app behaved previously.
-2. **Cite what you verified against.** When you record a parity finding (in a plan, a code comment,
-   or the tables below), name the upstream file and, where you can, the commit SHA. A parity claim
-   with no ref rots. A claim with a ref can be re-checked.
+2. **Cite what you verified against.** When you record a parity finding in a plan or in the tables
+   below, name the upstream file and the commit SHA. A parity claim with no ref rots. A source
+   comment should name the Swift symbol and point here. The lockfile and these tables already hold
+   the SHA, so a comment does not need its own release pin.
 
 ### Which ref? The SHA in `codexbar-upstream.lock`
 
@@ -70,9 +71,11 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. The dark-mode progress fill is
-`brandColor` mixed 20% toward white (`buildProgressPalette`), so it follows the brand color
-automatically. A Provider config `accentColor` replaces `brandColor` before that mix. The catalog
-value stays the shipped default that `upstream:check` compares. Don't hand-edit derived values.
+`brandColor` mixed 20% toward white (`buildProgressPalette`). A Provider config `accentColor`
+replaces `brandColor` before that mix. The catalog value stays the shipped default that
+`upstream:check` compares. A fill that is effectively the appearance background (under 1.2:1) is
+mixed away from it until the contrast reaches 3:1, so a white brand stays visible in light mode.
+Brighter catalog colors are left alone. Don't hand-edit derived values.
 
 ---
 
@@ -81,7 +84,11 @@ value stays the shipped default that `upstream:check` compares. Don't hand-edit 
 `catalog.ts` `PROVIDER_CATALOG` holds one entry per provider id: `name`, `brandColor`,
 `usageSectionLabels` (Primary/Secondary/Tertiary display titles, see CONTEXT.md "Display title"),
 `dashboardUrl`, `subscriptionDashboardUrl`, `statusPageUrl`, `iconSlug`, and optional `iconFallback`.
-`registry.ts` is the Raycast adapter over that catalog (icons, palettes, lookups).
+`registry.ts` is the Raycast adapter over that catalog (icons, palettes, lookups). Helmcode's
+catalog URL stays `https://cloud.helmcode.com/dashboard`, which is what the descriptor metadata
+stores. The menu action uses `HelmcodeProviderDescriptor.dashboardURL(snapshot:)` and opens
+`https://cloud.nan.builders/dashboard` when `identity.accountOrganization` is `NaN Builders`.
+`resolveDashboardUrl` makes that switch from the payload organization.
 
 `npm run upstream:check` imports the catalog and diffs it against each upstream
 `…ProviderDescriptor.swift`. It exits non-zero on:
@@ -133,15 +140,18 @@ from payload contents. We port these into `DYNAMIC_SLOT_TITLES` (`paceCapabiliti
 - **grok.** Relabels its primary bar by billing-window length (`windowMinutes`, else the distance to
   `resetsAt`). Untyped windows with only `resetsAt` fall back to "Weekly" (`displayLabel`, #2929).
 - **doubao.** Relabels a windowless "requests"-style primary as "Requests".
-- **crof.** Relabels a lone primary as "Credits", or "Requests" when a secondary window is present.
 - **amp.** An "Agent" detail row relabels primary as "Agent usage". Dual-window accounts become
   "Other usage" / "Orb usage". A lone primary without Agent keeps "Amp Free".
 - **alibabatokenplan.** A 5-hour primary becomes "5-hour", a 7-day secondary becomes "7-day".
 - **sub2api.** A present secondary window relabels primary as "Daily quota". MenuCardView shortens
   secondary/tertiary. We keep the descriptor's Weekly quota / Monthly quota.
 - **ollama.** A monthly-sentinel primary becomes "Monthly".
+- **mistral.** A present primary window is labeled "Included API" (`rateWindowLabeler`).
+- **qwencloud.** A 30-day primary becomes "Monthly" (`rateWindowLabeler`).
+- **stepfun.** A primary with no secondary window is labeled "Credit" (`rateWindowLabels`).
 
-`upstream:check` scans the renderer files for override call sites and cross-checks them against
+`upstream:check` scans the renderer files for override call sites, plus any descriptor that
+defines `primaryLabel` or sets `rateWindowLabeler:`, and cross-checks them against
 `DYNAMIC_SLOT_TITLES` and `UNPORTABLE_DYNAMIC_TITLES` in `paceCapabilities.ts` (imported, the same
 map `normalize.ts` uses). `cursor` is unportable. MenuCardView keys on
 `snapshot.detailRow(label: "Request quota")`, which the CLI JSON does not expose.
@@ -176,13 +186,19 @@ Every catalog `iconSlug` maps to `assets/provider-icons/<slug>.svg`, harvested f
 - `npm run upstream:sync-icons -- --check` does the same but writes nothing and exits non-zero if an
   icon is out of date or a local SVG has no catalog `iconSlug` pointing at it.
 
+The script writes and compares icons. It does not delete them. When `upstream:check` reports a
+provider with no upstream descriptor, remove that provider and delete every leftover that still
+names it: the catalog entry, `PROVIDER_ID_ALIASES`, mock builders in `src/cli/mockPayloads.ts`,
+`DYNAMIC_SLOT_TITLES` and pace rows, tests, and `assets/provider-icons/<slug>.svg`. `--check`
+exits non-zero on that SVG until the file is gone.
+
 Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don't matter. The
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that
 contain `..`, a leading `/`, or a path separator fail the script.
 
 ## Surface 4. Pacing (`upstream:check`)
 
-*Verified against upstream `v0.60.4` (`937b2081`).*
+*Verified against upstream `v0.66.0` (`e665cbf6`). Formula unchanged since `v0.60.4` (`937b2081`).*
 
 Eligibility lives in [`paceCapabilities.ts`](../src/providers/paceCapabilities.ts), a table that
 mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsagePacing` in
@@ -216,14 +232,17 @@ Presentation-only paths (`usesAbacusPace`, `usesSyntheticRollingRegen`), Codex
 dynamic labels are.
 
 Do not session-pace OpenCode Go's 5-hour primary. `sessionPaceWindowRule` is `.unsupported` in
-the GUI even though the CLI `resolvedKind` lane would allow it.
+the GUI even though the CLI `resolvedKind` lane would allow it. Antigravity session pace is
+`.windowDuration(minutes: 300)` as of `v0.66.0` (`e665cbf6`). A primary with no `windowMinutes`
+is not session-paced.
 
 ### One deliberate divergence we keep
 
 **Tick geometry.** Upstream's pace tip is a Canvas three-stripe punch (`UsageProgressBar.swift`).
 We keep a simple 3×12 rounded rect. We punch a transparent gutter through the bar around that tick
 so the color stays readable on similar brand fills. Color and hide-when-on-pace match the app
-(`v0.60.4`, `937b2081`). Deficit is SwiftUI `Color.red`, reserve is `Color.green`.
+(`v0.66.0`, `e665cbf6`; `UsageProgressBar.swift` unchanged since `v0.60.4`). Deficit is SwiftUI
+`Color.red`, reserve is `Color.green`.
 
 ### Out of scope. Not the plain pace marker
 
@@ -259,7 +278,7 @@ cases:
 
 ## Surface 6. CLI install routine (hand-maintained)
 
-*Verified against upstream `v0.60.4` (`937b2081`). Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
+*Verified against upstream `v0.66.0` (`e665cbf6`). Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
 
 When the CodexBar CLI is missing but the CodexBar app is installed, the extension can set up the
 app's bundled CLI itself (ADR-0008). `installCodexBarCli` in

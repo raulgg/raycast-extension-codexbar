@@ -55,10 +55,6 @@ const PACE_RENDERER_PATHS = [
 
 // Custom Swift closures, keyed provider.field. fingerprint is the expanded Swift body.
 const CUSTOM_PACE_RULES = {
-  "antigravity.sessionPaceWindowRule": {
-    id: "antigravitySession",
-    fingerprint: "window, _ in window.windowMinutes == nil || window.windowMinutes == 300",
-  },
   "claude.sessionPaceWindowRule": {
     id: "claudeSessionAlways",
     fingerprint: "_, _ in true",
@@ -157,6 +153,20 @@ const ALLOWED_DIVERGENCES = {
       reason: "upstream builds dashboard from WAYFINDER_GATEWAY_URL; ours is the empty-env default (http://127.0.0.1:8088/router)",
     },
   },
+  kimi: {
+    dashboardUrl: {
+      ours: "https://www.kimi.com/code/console",
+      upstream: "expr:KimiRegion.china.consoleURL.absoluteString",
+      reason: "upstream computes the URL per region; ours is the resolved .china constant (www.kimi.com/code/console)",
+    },
+  },
+  llmman: {
+    dashboardUrl: {
+      ours: "http://127.0.0.1:17434",
+      upstream: "expr:LLMManSettingsReader.defaultBaseURL.absoluteString",
+      reason: "upstream reads the local llmman serve URL; ours is LLMManSettingsReader.defaultBaseURL",
+    },
+  },
 };
 
 export const DEFAULT_POLICY = {
@@ -219,7 +229,7 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
 
   const dynamicOverrides = parseDynamicOverrideProviders(rendererFiles);
   for (const metadata of upstreamById.values()) {
-    if (metadata.definesDynamicPrimaryLabel) {
+    if (metadata.definesDynamicPrimaryLabel || metadata.definesRateWindowLabeler) {
       dynamicOverrides.add(metadata.id);
     }
   }

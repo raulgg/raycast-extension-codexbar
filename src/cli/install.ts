@@ -4,9 +4,9 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 // `installCodexBarCli` is a faithful port of the CodexBar app's own Install CLI
-// button — `installCLI()` in `Sources/CodexBar/PreferencesAdvancedPane.swift` @
-// v0.60.4 (937b2081), see docs/upstream-parity.md surface 6 and ADR-0008. The
-// refusals below are load-bearing, not oversights.
+// button, `installCLI()` in `Sources/CodexBar/PreferencesAdvancedPane.swift`.
+// See docs/upstream-parity.md surface 6 and ADR-0008. The refusals below are
+// load-bearing, not oversights.
 
 const CODEXBAR_APP_HELPER_RELATIVE_PATH = "Contents/Helpers/CodexBarCLI";
 const DEFAULT_APP_BUNDLE_PATHS = ["/Applications/CodexBar.app", join(homedir(), "Applications", "CodexBar.app")];

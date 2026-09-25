@@ -121,6 +121,7 @@ export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
     // Descriptors that define a contextual label helper participate in dynamic
     // relabelling even before any renderer references them.
     definesDynamicPrimaryLabel: /static func primaryLabel\(/.test(swiftSource),
+    definesRateWindowLabeler: /rateWindowLabeler\s*:/.test(swiftSource),
   };
 }
 
