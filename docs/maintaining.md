@@ -59,6 +59,8 @@ src/
                               CodexBar installation (config, roster, serve, usage fetches). The real
                               client wraps cli/ + providerConfig; the mock client answers from
                               mockPayloads. Chosen once in getCodexBarClientAvailability.
+                              useCachedPromise stores loadCodexBarAvailabilitySnapshot (plain JSON).
+                              The hook rebuilds the client with hydrateCodexBarClientAvailability.
     providerDetail.ts         loadProviderDetail: raw payload -> ProviderDetailData. The only
                               place normalize, payload-error rejection, section memory
                               (ADR-0007), and the Keychain error hint are composed.
