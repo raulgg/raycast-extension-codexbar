@@ -3,6 +3,7 @@ import {
   resolveDynamicSlotTitle,
   resolveExtraWindowPace,
   resolveSlotPace,
+  type SlotTitle,
 } from "../providers/paceCapabilities";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
 import { calculateUsagePacing } from "./pacing";
@@ -14,7 +15,9 @@ import type {
   ProviderSection,
   ProviderSectionItem,
   ProviderStatus,
+  ProviderSupplementalUsageSection,
   ProviderUsagePacing,
+  ProviderUsageSection,
   RawProviderPayload,
 } from "./types";
 
@@ -121,80 +124,92 @@ function extractResolvedSource(payload: RawProviderPayload): string | undefined 
   return toTrimmedString(payload.source);
 }
 
-function buildWindowReset(
-  window: RawProviderPayload,
-  fallbackResetTimestamp?: string,
-  now?: number,
-): string | undefined {
-  const resetsAt = toNonBlankString(window.resetsAt) ?? fallbackResetTimestamp;
-  if (resetsAt) {
-    return formatCountdown(resetsAt, now);
-  }
-
-  return undefined;
-}
-
-type UsagePacingInput = {
+// Every meter the card renders is built here, whatever payload shape it came
+// from: raw Primary/Secondary/Tertiary slots, named extra rate windows, or
+// versioned presentation meters. Pacing eligibility follows the slot for usage
+// meters and the extra-window rule for supplemental ones.
+type MeterInput = {
   usedPercent: number;
   remainingPercent: number;
-  resetsAt: string;
+  resetsAt?: string;
   windowMinutes?: number;
   resetDescription?: string;
+  nextRegenPercent?: number;
 };
 
-function computeResolvedUsagePacing(
-  resolved: ReturnType<typeof resolveSlotPace>,
-  input: UsagePacingInput,
-  now: number,
+type MeterContext = {
+  providerId: string;
+  pacingAllowed: boolean;
+  now: number;
+};
+
+function meterContext(providerId: string, payload: RawProviderPayload, now: number): MeterContext {
+  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload), now };
+}
+
+function computeMeterPacing(
+  slot: SlotTitle | "extra",
+  input: MeterInput,
+  { providerId, pacingAllowed, now }: MeterContext,
 ): ProviderUsagePacing | undefined {
+  if (!pacingAllowed || !input.resetsAt) {
+    return undefined;
+  }
+
+  const window = {
+    windowMinutes: input.windowMinutes,
+    resetsAt: input.resetsAt,
+    resetDescription: input.resetDescription,
+  };
+  const resolved =
+    slot === "extra" ? resolveExtraWindowPace(providerId, window) : resolveSlotPace(providerId, slot, window, now);
   if (!resolved) {
     return undefined;
   }
 
   const pacing = calculateUsagePacing(
-    { ...input, windowMinutes: resolved.windowMinutes },
+    {
+      usedPercent: input.usedPercent,
+      remainingPercent: input.remainingPercent,
+      resetsAt: input.resetsAt,
+      windowMinutes: resolved.windowMinutes,
+    },
     now,
     resolved.defaultWindowMinutes,
   );
   return pacing ? { ...pacing, context: resolved.context } : undefined;
 }
 
-function computeExtraWindowUsagePacing(
-  providerId: string,
-  input: UsagePacingInput,
-  now: number,
-): ProviderUsagePacing | undefined {
-  return computeResolvedUsagePacing(
-    resolveExtraWindowPace(providerId, {
-      windowMinutes: input.windowMinutes,
-      resetsAt: input.resetsAt,
-      resetDescription: input.resetDescription,
-    }),
-    input,
-    now,
-  );
+function buildUsageMeter(
+  slot: SlotTitle,
+  displayTitle: string,
+  input: MeterInput,
+  context: MeterContext,
+): ProviderUsageSection {
+  return {
+    kind: "usage",
+    title: slot,
+    displayTitle,
+    remainingPercent: clampPercent(input.remainingPercent),
+    resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
+    usagePacing: computeMeterPacing(slot, input, context),
+    nextRegenPercent: input.nextRegenPercent,
+  };
 }
 
-function computeSlotUsagePacing(
-  providerId: string,
-  slotTitle: "Primary" | "Secondary" | "Tertiary",
-  input: UsagePacingInput,
-  now: number,
-): ProviderUsagePacing | undefined {
-  return computeResolvedUsagePacing(
-    resolveSlotPace(
-      providerId,
-      slotTitle,
-      {
-        windowMinutes: input.windowMinutes,
-        resetsAt: input.resetsAt,
-        resetDescription: input.resetDescription,
-      },
-      now,
-    ),
-    input,
-    now,
-  );
+function buildSupplementalMeter(
+  title: string,
+  input: MeterInput,
+  context: MeterContext,
+): ProviderSupplementalUsageSection {
+  return {
+    kind: "supplementalUsage",
+    title,
+    remainingPercent: clampPercent(input.remainingPercent),
+    resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
+    usagePacing: computeMeterPacing("extra", input, context),
+    nextRegenPercent: input.nextRegenPercent,
+  };
 }
 
 // CodexConsumerProjection.weeklyCapsSession: weekly is the binding cap while remaining
@@ -313,53 +328,48 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
   const factoryHasTertiary = toFiniteNumber(toRecord(usage?.tertiary)?.usedPercent) !== undefined;
   const hasSecondary = toFiniteNumber(toRecord(usage?.secondary)?.usedPercent) !== undefined;
   const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
-  const pacingAllowed = allowsUsagePacing(providerId, payload);
+  const context = meterContext(providerId, payload, now);
 
   for (const slot of slotFallbacks) {
     const record = slot.record ?? {};
     const usedPercent = toFiniteNumber(record.usedPercent);
     const progressPercent =
       slot.remainingPercent ?? (usedPercent !== undefined ? Math.max(0, 100 - usedPercent) : undefined);
-    if (progressPercent !== undefined) {
-      const resolvedUsedPercent = usedPercent ?? Math.max(0, 100 - progressPercent);
-      const resolvedResetsAt = toNonBlankString(record.resetsAt) ?? slot.resetTimestamp;
-      if (slot.title === "Primary" || slot.title === "Secondary") {
-        resetsAtByTitle[slot.title] = resolvedResetsAt;
-      }
-      const usagePacing =
-        pacingAllowed && resolvedResetsAt
-          ? computeSlotUsagePacing(
-              providerId,
-              slot.title,
-              {
-                usedPercent: resolvedUsedPercent,
-                remainingPercent: progressPercent,
-                resetsAt: resolvedResetsAt,
-                windowMinutes: toFiniteNumber(record.windowMinutes),
-                resetDescription: toTrimmedString(record.resetDescription),
-              },
-              now,
-            )
-          : undefined;
-      sections.push({
-        kind: "usage",
-        title: slot.title,
-        displayTitle:
-          resolveDynamicSlotTitle(providerId, slot.title, {
-            windowMinutes: toFiniteNumber(record.windowMinutes),
-            resetsAt: resolvedResetsAt,
-            resetDescription: toTrimmedString(record.resetDescription),
-            factoryHasTertiary,
-            hasSecondary,
-            hasAgentDetailRow,
-            now,
-          }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title),
-        remainingPercent: clampPercent(progressPercent),
-        resetsIn: buildWindowReset(record, slot.resetTimestamp, now),
-        usagePacing,
-        nextRegenPercent: toFiniteNumber(record.nextRegenPercent),
-      });
+    if (progressPercent === undefined) {
+      continue;
     }
+
+    const resolvedResetsAt = toNonBlankString(record.resetsAt) ?? slot.resetTimestamp;
+    if (slot.title === "Primary" || slot.title === "Secondary") {
+      resetsAtByTitle[slot.title] = resolvedResetsAt;
+    }
+    const windowMinutes = toFiniteNumber(record.windowMinutes);
+    const resetDescription = toTrimmedString(record.resetDescription);
+    const displayTitle =
+      resolveDynamicSlotTitle(providerId, slot.title, {
+        windowMinutes,
+        resetsAt: resolvedResetsAt,
+        resetDescription,
+        factoryHasTertiary,
+        hasSecondary,
+        hasAgentDetailRow,
+        now,
+      }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title);
+    sections.push(
+      buildUsageMeter(
+        slot.title,
+        displayTitle,
+        {
+          usedPercent: usedPercent ?? Math.max(0, 100 - progressPercent),
+          remainingPercent: progressPercent,
+          resetsAt: resolvedResetsAt,
+          windowMinutes,
+          resetDescription,
+          nextRegenPercent: toFiniteNumber(record.nextRegenPercent),
+        },
+        context,
+      ),
+    );
   }
 
   // Raw path only (presentation meters never call this). Codex weekly-empty caps session.
@@ -378,7 +388,7 @@ function buildExtraRateWindowSections(
   const usage = toRecord(payload.usage);
   const extraRateWindows = Array.isArray(usage?.extraRateWindows) ? usage.extraRateWindows : [];
   const sections: ProviderSection[] = [];
-  const pacingAllowed = allowsUsagePacing(providerId, payload);
+  const context = meterContext(providerId, payload, now);
 
   for (const entry of extraRateWindows) {
     const record = toRecord(entry);
@@ -393,31 +403,20 @@ function buildExtraRateWindowSections(
       continue;
     }
 
-    const remainingPercent = Math.max(0, 100 - usedPercent);
-    const resetsAt = toNonBlankString(window.resetsAt);
-    const usagePacing =
-      pacingAllowed && resetsAt
-        ? computeExtraWindowUsagePacing(
-            providerId,
-            {
-              usedPercent,
-              remainingPercent,
-              resetsAt,
-              windowMinutes: toFiniteNumber(window.windowMinutes),
-              resetDescription: toTrimmedString(window.resetDescription),
-            },
-            now,
-          )
-        : undefined;
-
-    sections.push({
-      kind: "supplementalUsage",
-      title,
-      remainingPercent: clampPercent(remainingPercent),
-      resetsIn: buildWindowReset(window, undefined, now),
-      usagePacing,
-      nextRegenPercent: toFiniteNumber(window.nextRegenPercent),
-    });
+    sections.push(
+      buildSupplementalMeter(
+        title,
+        {
+          usedPercent,
+          remainingPercent: Math.max(0, 100 - usedPercent),
+          resetsAt: toNonBlankString(window.resetsAt),
+          windowMinutes: toFiniteNumber(window.windowMinutes),
+          resetDescription: toTrimmedString(window.resetDescription),
+          nextRegenPercent: toFiniteNumber(window.nextRegenPercent),
+        },
+        context,
+      ),
+    );
   }
 
   return sections;
@@ -444,6 +443,12 @@ function hideAntigravityRepresentativeSlots(sections: ProviderSection[]): Provid
 
 type PresentationMeterKind = "primary" | "secondary" | "tertiary" | "supplemental";
 
+const PRESENTATION_SLOT_TITLES: Record<Exclude<PresentationMeterKind, "supplemental">, SlotTitle> = {
+  primary: "Primary",
+  secondary: "Secondary",
+  tertiary: "Tertiary",
+};
+
 function toPresentationMeterKind(value: unknown): PresentationMeterKind | undefined {
   if (value === "primary" || value === "secondary" || value === "tertiary" || value === "supplemental") {
     return value;
@@ -464,7 +469,7 @@ function buildPresentationMeterSections(
   }
 
   const sections: ProviderSection[] = [];
-  const pacingAllowed = allowsUsagePacing(providerId, payload);
+  const context = meterContext(providerId, payload, now);
   for (const entry of presentation.meters) {
     const meter = toRecord(entry);
     const kind = toPresentationMeterKind(meter?.kind);
@@ -481,64 +486,20 @@ function buildPresentationMeterSections(
       continue;
     }
 
-    const resetsAt = toNonBlankString(meter.resetsAt);
-    const resolvedUsedPercent = usedPercent ?? Math.max(0, 100 - remainingPercent);
-    const windowMinutes = toFiniteNumber(meter.windowMinutes);
-    const nextRegenPercent = toFiniteNumber(meter.nextRegenPercent);
+    const input: MeterInput = {
+      usedPercent: usedPercent ?? Math.max(0, 100 - remainingPercent),
+      remainingPercent,
+      resetsAt: toNonBlankString(meter.resetsAt),
+      windowMinutes: toFiniteNumber(meter.windowMinutes),
+      resetDescription: toTrimmedString(meter.resetDescription),
+      nextRegenPercent: toFiniteNumber(meter.nextRegenPercent),
+    };
 
-    if (kind === "primary" || kind === "secondary" || kind === "tertiary") {
-      const title = kind === "primary" ? "Primary" : kind === "secondary" ? "Secondary" : "Tertiary";
-      const usagePacing =
-        pacingAllowed && resetsAt
-          ? computeSlotUsagePacing(
-              providerId,
-              title,
-              {
-                usedPercent: resolvedUsedPercent,
-                remainingPercent,
-                resetsAt,
-                windowMinutes,
-                resetDescription: toTrimmedString(meter.resetDescription),
-              },
-              now,
-            )
-          : undefined;
-      sections.push({
-        kind: "usage",
-        title,
-        displayTitle: label,
-        remainingPercent: clampPercent(remainingPercent),
-        resetsIn: resetsAt ? formatCountdown(resetsAt, now) : undefined,
-        usagePacing,
-        nextRegenPercent,
-      });
-      continue;
-    }
-
-    if (kind === "supplemental") {
-      const usagePacing =
-        pacingAllowed && resetsAt
-          ? computeExtraWindowUsagePacing(
-              providerId,
-              {
-                usedPercent: resolvedUsedPercent,
-                remainingPercent,
-                resetsAt,
-                windowMinutes,
-                resetDescription: toTrimmedString(meter.resetDescription),
-              },
-              now,
-            )
-          : undefined;
-      sections.push({
-        kind: "supplementalUsage",
-        title: label,
-        remainingPercent: clampPercent(remainingPercent),
-        resetsIn: resetsAt ? formatCountdown(resetsAt, now) : undefined,
-        usagePacing,
-        nextRegenPercent,
-      });
-    }
+    sections.push(
+      kind === "supplemental"
+        ? buildSupplementalMeter(label, input, context)
+        : buildUsageMeter(PRESENTATION_SLOT_TITLES[kind], label, input, context),
+    );
   }
 
   return { schemaVersion, sections };
@@ -687,12 +648,12 @@ function buildSupplementalUsageSections(payload: RawProviderPayload, now = Date.
 
   const codeReviewRemainingPercent = toFiniteNumber(dashboard?.codeReviewRemainingPercent);
   if (codeReviewRemainingPercent !== undefined) {
-    const codeReviewLimit = toRecord(dashboard?.codeReviewLimit);
+    const codeReviewResetsAt = toNonBlankString(toRecord(dashboard?.codeReviewLimit)?.resetsAt);
     sections.push({
       kind: "supplementalUsage",
       title: "Code review",
       remainingPercent: clampPercent(codeReviewRemainingPercent),
-      resetsIn: codeReviewLimit ? buildWindowReset(codeReviewLimit, undefined, now) : undefined,
+      resetsIn: codeReviewResetsAt ? formatCountdown(codeReviewResetsAt, now) : undefined,
     });
   }
 
