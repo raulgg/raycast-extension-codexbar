@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DETAIL_TYPOGRAPHY } from "./detailMarkdown";
+import { DETAIL_TYPOGRAPHY } from "./layout";
 import {
   buildProviderErrorMarkdown,
   formatLocalDateTime,
