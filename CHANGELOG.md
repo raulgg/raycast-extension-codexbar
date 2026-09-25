@@ -2,6 +2,7 @@
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
+- Usage Overview keeps working after Raycast restores its cached CodexBar CLI check
 - Extension icon matches the official CodexBar app icon
 - Usage meters and list quota bars use a Provider's accent color from `~/.codexbar/config.json` when the CodexBar app has customized it
 - Antigravity detail hides Gemini Models and Claude and GPT when quota-summary extras are present
