@@ -2,7 +2,9 @@
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
+- Usage Overview keeps working after Raycast restores its cached CodexBar CLI check
 - Extension icon matches the official CodexBar app icon
+- Usage meters and list quota bars use a Provider's accent color from `~/.codexbar/config.json` when the CodexBar app has customized it
 - Antigravity detail hides Gemini Models and Claude and GPT when quota-summary extras are present
 - Refresh Usage Cache runs every 10 minutes and requests a live serve copy (`refresh=true`)
 - Usage Overview does not start serve or enable the background command. If serve is down it uses a one-shot CLI fetch

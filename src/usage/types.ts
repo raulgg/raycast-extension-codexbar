@@ -11,6 +11,7 @@ export type ConfiguredProvider = {
   icon: Image.ImageLike;
   keywords?: string[];
   source?: ProviderSourceMode;
+  accentColor?: string;
 };
 
 // A Provider the installed CodexBar CLI knows about and can toggle on/off, as

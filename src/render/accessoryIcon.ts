@@ -33,16 +33,17 @@ export function buildTwoBarAccessoryIcon(
   providerId: string,
   topRemainingPercent: number,
   bottomRemainingPercent?: number,
+  accentColor?: string,
 ): Image {
   const top = clampPercent(topRemainingPercent);
   const bottom = bottomRemainingPercent === undefined ? undefined : clampPercent(bottomRemainingPercent);
-  const cacheKey = `${providerId}:${top}:${bottom ?? "missing"}`;
+  const cacheKey = `${providerId}:${top}:${bottom ?? "missing"}:${accentColor ?? ""}`;
   const cached = twoBarAccessoryIconCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const progressPalette = getProviderProgressPalette(providerId);
+  const progressPalette = getProviderProgressPalette(providerId, accentColor);
   const icon: Image = {
     source: {
       light: buildIconDataUri({

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG, type ProviderCatalogEntry } from "./catalog";
 import {
   getProviderMetadata,
+  getProviderProgressPalette,
   getProviderUsageSectionDisplayTitle,
   isClaudeSubscriptionLoginMethod,
   isKnownProviderId,
@@ -200,6 +201,19 @@ describe("provider registry", () => {
 
       expect(getProviderMetadata(id).icon).toMatchObject({ fallback });
     }
+  });
+
+  it("paints a valid accent over the catalog color and ignores anything else", () => {
+    expect(getProviderProgressPalette("grok", "#000000")).toEqual({
+      lightFill: "#000000",
+      darkFill: "#333333",
+    });
+    expect(getProviderProgressPalette("grok", "  #000000 ")).toEqual({
+      lightFill: "#000000",
+      darkFill: "#333333",
+    });
+    expect(getProviderProgressPalette("grok", "#fff")).toEqual(getProviderProgressPalette("grok"));
+    expect(getProviderProgressPalette("grok", "not a color")).toEqual(getProviderProgressPalette("grok"));
   });
 
   it("returns friendly metadata for known providers", () => {

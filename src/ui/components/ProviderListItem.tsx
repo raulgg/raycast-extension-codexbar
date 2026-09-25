@@ -59,6 +59,7 @@ export function ProviderListItem({
         detailError,
         isDetailLoading,
         detailCacheStatus,
+        provider.accentColor,
       )}
       detail={
         <ProviderDetail
@@ -117,6 +118,7 @@ export function buildProviderListItemAccessories(
   error: Error | undefined,
   isLoading: boolean,
   cacheStatus?: ProviderDetailCacheStatus,
+  accentColor?: string,
 ): List.Item.Accessory[] | undefined {
   if (cacheStatus === "stale" && detail) {
     return isLoading
@@ -144,7 +146,12 @@ export function buildProviderListItemAccessories(
         tooltip,
       },
       {
-        icon: buildTwoBarAccessoryIcon(providerId, leadingUsage.remainingPercent, trailingUsage?.remainingPercent),
+        icon: buildTwoBarAccessoryIcon(
+          providerId,
+          leadingUsage.remainingPercent,
+          trailingUsage?.remainingPercent,
+          accentColor,
+        ),
         tooltip,
       },
     ];
