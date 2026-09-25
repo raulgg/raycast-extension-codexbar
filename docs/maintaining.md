@@ -77,9 +77,13 @@ src/
                               them (24-h TTL). (ADR-0007)
     providerStatusCache.ts    Dedicated status cache (provider-status:<id>, 30-min TTL). (ADR-0003)
 
-  lib/
+  render/                     The SVG detail card and list accessory icon. Pure string builders.
+    svg.ts                    SVG primitives: text, rect, line, progress bar with pace tick.
+    layout.ts                 Panel constants, palettes, typography, header and divider markup.
     presentation.ts           Formatting helpers (percentages, relative times) + error card.
-    detailMarkdown.ts, svg.ts, twoBarAccessoryIcon.ts   Rendering helpers.
+    usageMeter.ts             Usage-meter widget (title row, bar, pacing footer) for the detail card.
+    detailCard.ts             Detail-card composer: header, meters, info, status, markdown wrap.
+    accessoryIcon.ts          Two-bar list accessory icon.
 
   providers/
     catalog.ts                Raycast-free provider metadata + aliases. Imported by upstream:check.
@@ -89,8 +93,6 @@ src/
     normalize.ts              Raw payload -> ProviderSection[]. Dynamic label overrides
                               (resolveDynamicSlotTitle), pacing defaults, supplemental mappers.
     usagePacing.ts            The pace formula and labels. Hand-maintained (not script-diffed).
-    usageMeter.ts             Usage-meter widget (title row, bar, pacing footer) for the detail card.
-    markdown.ts               Detail-card composer: header, meters, info, status, markdown wrap.
     status.ts                 Parse the CLI status object into a badge model.
     types.ts                  Shared types.
 

@@ -1,7 +1,7 @@
-import { formatPercentRemaining } from "../lib/presentation";
-import { buildSvgProgressBar, buildSvgRect } from "../lib/svg";
-import { formatUsagePacingLine, paceMarkerKind } from "./usagePacing";
-import { getProviderProgressPalette } from "./registry";
+import { formatPercentRemaining } from "./presentation";
+import { buildSvgProgressBar, buildSvgRect } from "./svg";
+import { formatUsagePacingLine, paceMarkerKind } from "../providers/usagePacing";
+import { getProviderProgressPalette } from "../providers/registry";
 import {
   buildText,
   DETAIL_FONT_WEIGHT,
@@ -13,8 +13,8 @@ import {
   getRightContentX,
   getTextBottomY,
   type DetailAppearance,
-} from "../lib/detailMarkdown";
-import type { ProviderSection } from "./types";
+} from "./layout";
+import type { ProviderSection } from "../providers/types";
 
 const TYPOGRAPHY = DETAIL_TYPOGRAPHY;
 const FONT_WEIGHT = DETAIL_FONT_WEIGHT;
