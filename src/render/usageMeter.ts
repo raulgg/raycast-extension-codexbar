@@ -1,4 +1,4 @@
-import { formatPercentRemaining } from "./presentation";
+import { formatPercentRemaining } from "./format";
 import { buildSvgProgressBar, buildSvgRect } from "./svg";
 import { formatUsagePacingLine, paceMarkerKind } from "../providers/usagePacing";
 import { getProviderProgressPalette } from "../providers/registry";
@@ -8,16 +8,14 @@ import {
   DETAIL_PALETTES,
   DETAIL_TEXT_LAYOUT,
   DETAIL_TYPOGRAPHY,
-  getContentWidth,
-  getLeftContentX,
-  getRightContentX,
+  CONTENT_WIDTH,
+  CONTENT_LEFT_X,
+  CONTENT_RIGHT_X,
   getTextBottomY,
   type DetailAppearance,
 } from "./layout";
 import type { ProviderSection } from "../providers/types";
 
-const TYPOGRAPHY = DETAIL_TYPOGRAPHY;
-const FONT_WEIGHT = DETAIL_FONT_WEIGHT;
 const PROGRESS_BAR = {
   height: 8,
   radius: 4,
@@ -61,8 +59,6 @@ const USAGE_LAYOUT = {
   sectionGap: 8,
 } as const;
 
-const PANEL_PALETTES = DETAIL_PALETTES;
-
 function getUsageProgressY(titleY: number): number {
   return titleY + USAGE_LAYOUT.titleToProgressOffset;
 }
@@ -95,7 +91,7 @@ function buildProgressBar(
   providerId: string,
   marker?: ProgressMarker,
 ): string {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const progressPalette = getProviderProgressPalette(providerId);
   const progressFill = appearance === "dark" ? progressPalette.darkFill : progressPalette.lightFill;
 
@@ -144,31 +140,31 @@ function renderUsageMeter({
   startY: number;
   marker?: ProgressMarker;
 }): { markup: string[]; contentBottomY: number } {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
   const footerLines = [pacingLine, regenLine].filter((line): line is string => line !== undefined);
   const markup = [
     buildText(
       titleText,
-      getLeftContentX(),
+      CONTENT_LEFT_X,
       startY,
       palette.sectionTitleFill,
-      TYPOGRAPHY.sectionTitleSize,
-      FONT_WEIGHT.bold,
+      DETAIL_TYPOGRAPHY.sectionTitleSize,
+      DETAIL_FONT_WEIGHT.bold,
     ),
-    buildProgressBar(remainingPercent, getLeftContentX(), progressY, getContentWidth(), appearance, providerId, marker),
+    buildProgressBar(remainingPercent, CONTENT_LEFT_X, progressY, CONTENT_WIDTH, appearance, providerId, marker),
   ];
 
   if (resetsIn) {
     markup.push(
       buildText(
         `Resets in ${resetsIn}`,
-        getRightContentX(),
+        CONTENT_RIGHT_X,
         startY,
         palette.labelFill,
-        TYPOGRAPHY.rowLabelSize,
-        FONT_WEIGHT.medium,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
         "end",
       ),
     );
@@ -181,7 +177,14 @@ function renderUsageMeter({
   let footerY = getUsageFooterY(progressY);
   for (const [index, line] of footerLines.entries()) {
     markup.push(
-      buildText(line, getLeftContentX(), footerY, palette.labelFill, TYPOGRAPHY.rowLabelSize, FONT_WEIGHT.medium),
+      buildText(
+        line,
+        CONTENT_LEFT_X,
+        footerY,
+        palette.labelFill,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
+      ),
     );
 
     if (index < footerLines.length - 1) {
@@ -189,7 +192,7 @@ function renderUsageMeter({
     }
   }
 
-  return { markup, contentBottomY: getTextBottomY(footerY, TYPOGRAPHY.rowLabelSize) };
+  return { markup, contentBottomY: getTextBottomY(footerY, DETAIL_TYPOGRAPHY.rowLabelSize) };
 }
 
 export function renderMetricSection(
@@ -233,14 +236,14 @@ function renderLoadingSkeletonSection(
   appearance: DetailAppearance,
   startY: number,
 ): { markup: string[]; contentBottomY: number } {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const footerY = getUsageFooterY(progressY);
-  const resetX = getRightContentX() - LOADING_SKELETON_LAYOUT.resetWidth;
+  const resetX = CONTENT_RIGHT_X - LOADING_SKELETON_LAYOUT.resetWidth;
   const markup = [
     buildSvgRect({
-      x: getLeftContentX(),
-      y: getCenteredPlaceholderY(startY, TYPOGRAPHY.sectionTitleSize, LOADING_SKELETON_LAYOUT.titleHeight),
+      x: CONTENT_LEFT_X,
+      y: getCenteredPlaceholderY(startY, DETAIL_TYPOGRAPHY.sectionTitleSize, LOADING_SKELETON_LAYOUT.titleHeight),
       width: LOADING_SKELETON_LAYOUT.titleWidth,
       height: LOADING_SKELETON_LAYOUT.titleHeight,
       radius: LOADING_SKELETON_LAYOUT.titleRadius,
@@ -249,7 +252,7 @@ function renderLoadingSkeletonSection(
     }),
     buildSvgRect({
       x: resetX,
-      y: getCenteredPlaceholderY(startY, TYPOGRAPHY.rowLabelSize, LOADING_SKELETON_LAYOUT.footerHeight),
+      y: getCenteredPlaceholderY(startY, DETAIL_TYPOGRAPHY.rowLabelSize, LOADING_SKELETON_LAYOUT.footerHeight),
       width: LOADING_SKELETON_LAYOUT.resetWidth,
       height: LOADING_SKELETON_LAYOUT.footerHeight,
       radius: LOADING_SKELETON_LAYOUT.footerRadius,
@@ -257,17 +260,17 @@ function renderLoadingSkeletonSection(
       fillOpacity: palette.progressTrackOpacity,
     }),
     buildSvgRect({
-      x: getLeftContentX(),
+      x: CONTENT_LEFT_X,
       y: progressY,
-      width: getContentWidth(),
+      width: CONTENT_WIDTH,
       height: PROGRESS_BAR.height,
       radius: PROGRESS_BAR.radius,
       fill: palette.progressTrackFill,
       fillOpacity: palette.progressTrackOpacity,
     }),
     buildSvgRect({
-      x: getLeftContentX(),
-      y: getCenteredPlaceholderY(footerY, TYPOGRAPHY.rowLabelSize, LOADING_SKELETON_LAYOUT.footerHeight),
+      x: CONTENT_LEFT_X,
+      y: getCenteredPlaceholderY(footerY, DETAIL_TYPOGRAPHY.rowLabelSize, LOADING_SKELETON_LAYOUT.footerHeight),
       width: LOADING_SKELETON_LAYOUT.footerWidth,
       height: LOADING_SKELETON_LAYOUT.footerHeight,
       radius: LOADING_SKELETON_LAYOUT.footerRadius,
@@ -276,7 +279,7 @@ function renderLoadingSkeletonSection(
     }),
   ];
 
-  return { markup, contentBottomY: getTextBottomY(footerY, TYPOGRAPHY.rowLabelSize) };
+  return { markup, contentBottomY: getTextBottomY(footerY, DETAIL_TYPOGRAPHY.rowLabelSize) };
 }
 
 export function renderMetricSections(

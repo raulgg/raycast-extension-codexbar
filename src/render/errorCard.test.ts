@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+import { DETAIL_TYPOGRAPHY } from "./layout";
+import { buildProviderErrorMarkdown } from "./errorCard";
+import { extractSvgMarkup, parseSvg, textY } from "../../test/svg-markdown";
+
+describe("buildProviderErrorMarkdown", () => {
+  it("builds markdown blocks for errors", () => {
+    const markdown = buildProviderErrorMarkdown("Load failed", new Error("boom"));
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(markdown).toContain("data:image/svg+xml;base64,");
+    expect(svg).toContain(">Load failed<");
+    expect(svg).toContain(">boom<");
+    expect(svg).toContain(`font-size="${DETAIL_TYPOGRAPHY.headerTitleSize}"`);
+    expect(svg).toContain('fill="#111827"');
+    expect(svg).toContain('stroke="#E5E7EB"');
+    expect(svg).toContain('fill="#FF6B6B"');
+  });
+
+  it("builds dark markdown blocks for errors", () => {
+    const markdown = buildProviderErrorMarkdown("Load failed", new Error("boom"), "dark");
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(svg).toContain('fill="#F3F4F6"');
+    expect(svg).toContain('stroke="#374151"');
+    expect(svg).toContain('fill="#FF6B6B"');
+  });
+
+  it("escapes html in error messages", () => {
+    const [svg] = extractSvgMarkup(buildProviderErrorMarkdown("Load failed", new Error('<boom> & "bad"')));
+
+    expect(svg).toContain("&lt;boom&gt; &amp; &quot;bad&quot;");
+  });
+
+  it("preserves paragraph breaks in error messages", () => {
+    const [svg] = extractSvgMarkup(
+      buildProviderErrorMarkdown("Load failed", new Error("Original error.\n\nWhat happened.\n\nWhat to do next.")),
+    );
+    const parsed = parseSvg(svg);
+    const originalY = textY(parsed, "Original error.");
+    const explanationY = textY(parsed, "What happened.");
+    const recoveryY = textY(parsed, "What to do next.");
+
+    expect(explanationY - originalY).toBeGreaterThan(24);
+    expect(recoveryY - explanationY).toBeGreaterThan(24);
+  });
+});

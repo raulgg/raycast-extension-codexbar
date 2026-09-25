@@ -1,19 +1,6 @@
-import {
-  buildHeaderMarkup,
-  buildSectionDivider,
-  buildSvgDocument,
-  buildSvgImageMarkdown,
-  buildText,
-  type DetailAppearance,
-  DETAIL_FONT_WEIGHT,
-  DETAIL_PALETTES,
-  getPanelHeight,
-  getSectionDividerY,
-  getSectionTitleY,
-  getTextBottomY,
-  wrapText,
-} from "./layout";
 import { clampPercent } from "../usage/json";
+
+// Text formatting shared by the list row and the detail card. No SVG here.
 
 export function formatPercentRemaining(value: number): string {
   const clamped = clampPercent(value);
@@ -103,42 +90,4 @@ export function getRelativeUpdateTimeRefreshDelay(isoTimestamp?: string, now = D
 function getNextBucketDelay(ageMs: number, bucketMs: number): number {
   const remainder = ageMs % bucketMs;
   return remainder === 0 ? bucketMs : bucketMs - remainder;
-}
-
-export function buildProviderErrorMarkdown(
-  title: string,
-  error: Error,
-  appearance: DetailAppearance = "light",
-): string {
-  const paragraphs = (error.message || "Unknown error")
-    .split(/\r?\n[ \t]*(?:\r?\n)+/)
-    .map((paragraph) => wrapText(paragraph, 64));
-  const messageFontSize = 14;
-  const messageLineAdvance = 24;
-  const messageParagraphSpacing = 12;
-  const palette = DETAIL_PALETTES[appearance];
-  const header = buildHeaderMarkup(title, appearance);
-  const markup = [
-    ...header.markup,
-    buildSectionDivider(getSectionDividerY(header.contentBottomY), palette.dividerStroke),
-  ];
-  let currentY = getSectionTitleY(header.contentBottomY);
-  let lastLineY = currentY;
-
-  for (const [paragraphIndex, lines] of paragraphs.entries()) {
-    for (const line of lines) {
-      markup.push(buildText(line, 0, currentY, "#FF6B6B", messageFontSize, DETAIL_FONT_WEIGHT.medium));
-      lastLineY = currentY;
-      currentY += messageLineAdvance;
-    }
-
-    if (paragraphIndex < paragraphs.length - 1) {
-      currentY += messageParagraphSpacing;
-    }
-  }
-
-  const height = getPanelHeight(getTextBottomY(lastLineY, messageFontSize));
-  const svg = buildSvgDocument(markup, height);
-
-  return buildSvgImageMarkdown(title, svg, height);
 }

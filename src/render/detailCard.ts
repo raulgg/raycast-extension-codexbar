@@ -1,4 +1,4 @@
-import { formatRelativeUpdateTime } from "./presentation";
+import { formatRelativeUpdateTime } from "./format";
 import { buildSvgWarningIcon } from "./svg";
 import {
   buildHeaderMarkup,
@@ -9,9 +9,9 @@ import {
   DETAIL_FONT_WEIGHT,
   DETAIL_PALETTES,
   DETAIL_TYPOGRAPHY,
-  getLeftContentX,
+  CONTENT_LEFT_X,
   getPanelHeight,
-  getRightContentX,
+  CONTENT_RIGHT_X,
   getSectionDividerY,
   getSectionTitleY,
   getTextBaselineY,
@@ -30,9 +30,6 @@ type ProviderDetailMarkdownOptions = {
   status?: ProviderStatus;
 };
 
-const TYPOGRAPHY = DETAIL_TYPOGRAPHY;
-const FONT_WEIGHT = DETAIL_FONT_WEIGHT;
-
 const GENERIC_SECTION_LAYOUT = {
   titleToRowsOffset: 22,
   emptyStateHeight: 16,
@@ -48,14 +45,12 @@ const STATUS_FOOTER_LAYOUT = {
   iconTopAboveBaseline: 12,
 } as const;
 
-const PANEL_PALETTES = DETAIL_PALETTES;
-
 const STATUS_FOOTER_ICON_FILL: Record<DetailAppearance, string> = {
   light: "#F59E0B",
   dark: "#FBBF24",
 };
 
-function getHeaderSubtitle(updatedAt?: string, now?: number): string | undefined {
+function formatUpdatedSubtitle(updatedAt?: string, now?: number): string | undefined {
   const formatted = formatRelativeUpdateTime(updatedAt, { now });
   return formatted ? `Updated ${formatted}` : undefined;
 }
@@ -113,16 +108,16 @@ function renderStatusFooter(
   appearance: ProviderDetailAppearance,
   startY: number,
 ): { markup: string[]; contentBottomY: number } {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const lines = wrapText(formatStatusFooterText(status), STATUS_FOOTER_LAYOUT.maxLineLength);
   const markup: string[] = [];
-  let currentY = getTextBaselineY(startY + STATUS_FOOTER_LAYOUT.textTopSpacing, TYPOGRAPHY.rowLabelSize);
-  const textX = getLeftContentX() + STATUS_FOOTER_LAYOUT.iconSize + STATUS_FOOTER_LAYOUT.iconToTextGap;
+  let currentY = getTextBaselineY(startY + STATUS_FOOTER_LAYOUT.textTopSpacing, DETAIL_TYPOGRAPHY.rowLabelSize);
+  const textX = CONTENT_LEFT_X + STATUS_FOOTER_LAYOUT.iconSize + STATUS_FOOTER_LAYOUT.iconToTextGap;
   const iconY = currentY - STATUS_FOOTER_LAYOUT.iconTopAboveBaseline;
 
   markup.push(
     buildSvgWarningIcon({
-      x: getLeftContentX(),
+      x: CONTENT_LEFT_X,
       y: iconY,
       size: STATUS_FOOTER_LAYOUT.iconSize,
       fill: STATUS_FOOTER_ICON_FILL[appearance],
@@ -130,13 +125,15 @@ function renderStatusFooter(
   );
 
   for (const line of lines) {
-    markup.push(buildText(line, textX, currentY, palette.labelFill, TYPOGRAPHY.rowLabelSize, FONT_WEIGHT.medium));
+    markup.push(
+      buildText(line, textX, currentY, palette.labelFill, DETAIL_TYPOGRAPHY.rowLabelSize, DETAIL_FONT_WEIGHT.medium),
+    );
     currentY += STATUS_FOOTER_LAYOUT.lineGap;
   }
 
   return {
     markup,
-    contentBottomY: getTextBottomY(currentY - STATUS_FOOTER_LAYOUT.lineGap, TYPOGRAPHY.rowLabelSize),
+    contentBottomY: getTextBottomY(currentY - STATUS_FOOTER_LAYOUT.lineGap, DETAIL_TYPOGRAPHY.rowLabelSize),
   };
 }
 
@@ -145,15 +142,15 @@ function renderGenericSection(
   appearance: ProviderDetailAppearance,
   startY: number,
 ): { markup: string[]; contentBottomY: number } {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const markup: string[] = [
     buildText(
       section.title,
-      getLeftContentX(),
+      CONTENT_LEFT_X,
       startY,
       palette.sectionTitleFill,
-      TYPOGRAPHY.sectionTitleSize,
-      FONT_WEIGHT.bold,
+      DETAIL_TYPOGRAPHY.sectionTitleSize,
+      DETAIL_FONT_WEIGHT.bold,
     ),
   ];
   let currentY = getGenericSectionRowsStartY(startY);
@@ -162,16 +159,16 @@ function renderGenericSection(
     markup.push(
       buildText(
         "No data available",
-        getLeftContentX(),
+        CONTENT_LEFT_X,
         currentY,
         palette.labelFill,
-        TYPOGRAPHY.rowLabelSize,
-        FONT_WEIGHT.medium,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
       ),
     );
     return {
       markup,
-      contentBottomY: getTextBottomY(getGenericSectionEmptyNextY(currentY), TYPOGRAPHY.rowLabelSize),
+      contentBottomY: getTextBottomY(getGenericSectionEmptyNextY(currentY), DETAIL_TYPOGRAPHY.rowLabelSize),
     };
   }
 
@@ -179,19 +176,19 @@ function renderGenericSection(
     markup.push(
       buildText(
         item.label,
-        getLeftContentX(),
+        CONTENT_LEFT_X,
         currentY,
         palette.labelFill,
-        TYPOGRAPHY.rowLabelSize,
-        FONT_WEIGHT.medium,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
       ),
       buildText(
         item.value,
-        getRightContentX(),
+        CONTENT_RIGHT_X,
         currentY,
         palette.valueFill,
-        TYPOGRAPHY.rowValueSize,
-        FONT_WEIGHT.semibold,
+        DETAIL_TYPOGRAPHY.rowValueSize,
+        DETAIL_FONT_WEIGHT.semibold,
         "end",
       ),
     );
@@ -201,7 +198,7 @@ function renderGenericSection(
     }
   }
 
-  return { markup, contentBottomY: getTextBottomY(currentY, TYPOGRAPHY.rowLabelSize) };
+  return { markup, contentBottomY: getTextBottomY(currentY, DETAIL_TYPOGRAPHY.rowLabelSize) };
 }
 
 function renderStandaloneSection(
@@ -223,7 +220,7 @@ export function buildProviderDetailMarkdown(
   options?: ProviderDetailMarkdownOptions,
 ): string {
   const sections = detail.sections.filter((section) => section.kind !== "info" || section.items.length > 0);
-  const subtitle = options?.subtitle ?? getHeaderSubtitle(detail.updatedAt, options?.now);
+  const subtitle = options?.subtitle ?? formatUpdatedSubtitle(detail.updatedAt, options?.now);
   const hasHeaderContent = Boolean(subtitle || detail.accountEmail || detail.planText);
   const status =
     options?.status && isRenderableProviderStatusIndicator(options.status.indicator) ? options.status : undefined;
@@ -231,7 +228,7 @@ export function buildProviderDetailMarkdown(
     return "No data available";
   }
 
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const { metricSections, otherSections } = splitRenderableSections(sections);
   const header = buildHeaderMarkup(
     detail.name,
@@ -281,7 +278,7 @@ export function buildProviderLoadingMarkdown(
   detail: Pick<ProviderDetailData, "name">,
   appearance: ProviderDetailAppearance = "light",
 ): string {
-  const palette = PANEL_PALETTES[appearance];
+  const palette = DETAIL_PALETTES[appearance];
   const header = buildHeaderMarkup(detail.name, appearance, { subtitle: "Updating..." }, `${detail.name} detail`);
   const markup = [
     ...header.markup,

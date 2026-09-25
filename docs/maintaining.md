@@ -80,7 +80,8 @@ src/
   render/                     The SVG detail card and list accessory icon. Pure string builders.
     svg.ts                    SVG primitives: text, rect, line, progress bar with pace tick.
     layout.ts                 Panel constants, palettes, typography, header and divider markup.
-    presentation.ts           Formatting helpers (percentages, relative times) + error card.
+    format.ts                 Text formatting (remaining percent, relative update time). No SVG.
+    errorCard.ts              The detail-panel card shown when a Provider's fetch failed.
     usageMeter.ts             Usage-meter widget (title row, bar, pacing footer) for the detail card.
     detailCard.ts             Detail-card composer: header, meters, info, status, markdown wrap.
     accessoryIcon.ts          Two-bar list accessory icon.
