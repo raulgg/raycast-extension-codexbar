@@ -1,5 +1,10 @@
+import { useMemo } from "react";
 import { useCachedPromise } from "@raycast/utils";
-import { getCodexBarClientAvailability, type CodexBarClientAvailability } from "../../services/codexbarClient";
+import {
+  hydrateCodexBarClientAvailability,
+  loadCodexBarAvailabilitySnapshot,
+  type CodexBarClientAvailability,
+} from "../../services/codexbarClient";
 import { getKeychainAccessPolicy } from "../../preferences";
 
 type UseCodexBarAvailabilityResult = {
@@ -12,7 +17,7 @@ type UseCodexBarAvailabilityResult = {
 export function useCodexBarAvailability(): UseCodexBarAvailabilityResult {
   const keychainAccessPolicy = getKeychainAccessPolicy();
   const { data, error, isLoading, revalidate } = useCachedPromise(
-    getCodexBarClientAvailability,
+    loadCodexBarAvailabilitySnapshot,
     [keychainAccessPolicy],
     {
       // Never expose a client resolved under the previous policy while a
@@ -20,9 +25,13 @@ export function useCodexBarAvailability(): UseCodexBarAvailabilityResult {
       keepPreviousData: false,
     },
   );
+  const availability = useMemo(
+    () => (data === undefined ? undefined : hydrateCodexBarClientAvailability(data)),
+    [data],
+  );
 
   return {
-    availability: data,
+    availability,
     isLoading,
     error,
     revalidate,

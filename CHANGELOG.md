@@ -2,6 +2,7 @@
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
+- Usage Overview keeps working after Raycast restores its cached CodexBar CLI check
 - Extension icon matches the official CodexBar app icon
 - Antigravity detail hides Gemini Models and Claude and GPT when quota-summary extras are present
 - Refresh Usage Cache runs every 10 minutes and requests a live serve copy (`refresh=true`)
