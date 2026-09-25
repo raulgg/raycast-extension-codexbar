@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("./components/UsageList", () => ({
+vi.mock("./ui/components/UsageList", () => ({
   UsageList: () => null,
 }));
 
-import { UsageList } from "./components/UsageList";
+import { UsageList } from "./ui/components/UsageList";
 import Command from "./usage-overview";
 
 const overviewSource = readFileSync(resolve(__dirname, "usage-overview.tsx"), "utf8");
