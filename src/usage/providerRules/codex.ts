@@ -173,7 +173,14 @@ export function buildCodexResetCreditSection(
     });
   }
 
-  return [{ kind: "info", title: "Limit Reset Credits", items }];
+  return [
+    {
+      kind: "info",
+      title: "Limit Reset Credits",
+      items,
+      usageItemId: "section:codex-reset-credits",
+    },
+  ];
 }
 
 export function buildCodexCodeReviewSection(payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
@@ -188,6 +195,7 @@ export function buildCodexCodeReviewSection(payload: RawProviderPayload, now = D
       title: "Code review",
       remainingPercent: clampPercent(codeReviewRemainingPercent),
       resetsIn: codeReviewResetsAt ? formatCountdown(codeReviewResetsAt, now) : undefined,
+      usageItemId: "metric:code-review",
     });
   }
 

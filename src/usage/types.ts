@@ -12,6 +12,7 @@ export type ConfiguredProvider = {
   keywords?: string[];
   source?: ProviderSourceMode;
   accentColor?: string;
+  hiddenUsageItemIDs?: string[];
 };
 
 // A Provider the installed CodexBar CLI knows about and can toggle on/off, as
@@ -77,6 +78,7 @@ export type ProviderUsageSection = {
   usagePacing?: ProviderUsagePacing;
   nextRegenPercent?: number;
   includeInDetail?: boolean;
+  usageItemId?: string;
 };
 
 export type ProviderSupplementalUsageSection = {
@@ -86,12 +88,14 @@ export type ProviderSupplementalUsageSection = {
   resetsIn?: string;
   usagePacing?: ProviderUsagePacing;
   nextRegenPercent?: number;
+  usageItemId?: string;
 };
 
 export type ProviderInfoSection = {
   kind: "info";
   title: string;
   items: ProviderSectionItem[];
+  usageItemId?: string;
 };
 
 export type ProviderSection = ProviderUsageSection | ProviderSupplementalUsageSection | ProviderInfoSection;

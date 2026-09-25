@@ -1112,6 +1112,71 @@ describe("codexbar runtime helpers", () => {
     expect(providers).toEqual([expect.objectContaining({ id: "groq", accentColor: "#60BA7E" })]);
   });
 
+  it("keeps hidden usage item ids and drops blank or non-string entries", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          {
+            id: "cursor",
+            enabled: true,
+            hiddenUsageItemIDs: [" metric:primary ", "", "metric:primary", 4, "metric:cursor-grok-bot"],
+          },
+          { id: "codex", enabled: true, hiddenUsageItemIDs: [] },
+          { id: "grok", enabled: true, hiddenUsageItemIDs: "metric:primary" },
+        ],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers.map((provider) => [provider.id, provider.hiddenUsageItemIDs])).toEqual([
+      ["cursor", ["metric:primary", "metric:cursor-grok-bot"]],
+      ["codex", undefined],
+      ["grok", undefined],
+    ]);
+  });
+
+  it("reads hidden usage item ids from an object-shaped provider entry", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: {
+          cursor: { enabled: true, hiddenUsageItemIDs: ["metric:primary"] },
+        },
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers).toEqual([expect.objectContaining({ id: "cursor", hiddenUsageItemIDs: ["metric:primary"] })]);
+  });
+
+  it("carries hidden usage item ids from an alias onto the canonical provider", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [{ id: "groqcloud", enabled: true, hiddenUsageItemIDs: ["metric:secondary"] }],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers).toEqual([expect.objectContaining({ id: "groq", hiddenUsageItemIDs: ["metric:secondary"] })]);
+  });
+
+  it("keeps the first hidden usage item ids when an alias repeats a provider", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          { id: "groq", enabled: true, hiddenUsageItemIDs: ["metric:primary"] },
+          { id: "groqcloud", enabled: true, hiddenUsageItemIDs: ["metric:secondary"] },
+        ],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers).toEqual([expect.objectContaining({ id: "groq", hiddenUsageItemIDs: ["metric:primary"] })]);
+  });
+
   it("keeps the first accent when an alias repeats a provider", async () => {
     readFileMock.mockResolvedValue(
       JSON.stringify({
@@ -1202,7 +1267,13 @@ describe("codexbar runtime helpers", () => {
       moveConfiguredProviderInRawConfig(
         JSON.stringify({
           providers: [
-            { id: "codex", enabled: true, accentColor: "#000000", cookieHeader: "session=1" },
+            {
+              id: "codex",
+              enabled: true,
+              accentColor: "#000000",
+              cookieHeader: "session=1",
+              hiddenUsageItemIDs: ["metric:primary"],
+            },
             { id: "cursor", enabled: true },
           ],
         }),
@@ -1214,7 +1285,13 @@ describe("codexbar runtime helpers", () => {
         {
           providers: [
             { id: "cursor", enabled: true },
-            { id: "codex", enabled: true, accentColor: "#000000", cookieHeader: "session=1" },
+            {
+              id: "codex",
+              enabled: true,
+              accentColor: "#000000",
+              cookieHeader: "session=1",
+              hiddenUsageItemIDs: ["metric:primary"],
+            },
           ],
         },
         null,

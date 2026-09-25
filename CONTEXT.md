@@ -86,7 +86,11 @@ A Provider the user has enabled in their CodexBar config. The extension shows ex
 _Avoid_: Enabled provider, active provider
 
 **Provider config**:
-The CodexBar config file (`~/.codexbar/config.json`), owned by the CodexBar app. It lists which Providers are enabled, their order, and any accent color the user has set. The extension reads that file, paints usage meters from the accent color, and writes Provider order back to it.
+The CodexBar config file (`~/.codexbar/config.json`), owned by the CodexBar app. It lists which Providers are enabled, their order, any accent color the user has set, and which usage items are hidden. The extension reads that file, paints usage meters from the accent color, omits hidden usage items, and writes Provider order back to it.
+
+**Hidden usage item**:
+A reset window, supplemental usage meter, or info section the user has chosen not to show for one Provider. The choice is stored on that Provider in the Provider config and applies in the CodexBar app and in this extension.
+_Avoid_: collapsed meter, disabled quota
 
 **Accent color**:
 A user override of a Provider's shipped brand color, stored on that Provider in the Provider config. When it is set, the extension paints that Provider's usage meters with it. When it is absent, the shipped brand color is used.

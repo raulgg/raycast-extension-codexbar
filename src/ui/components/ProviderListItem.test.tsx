@@ -257,6 +257,41 @@ describe("ProviderListItem", () => {
     });
   });
 
+  it("hides the primary bar when the provider config hides metric:primary", () => {
+    const accessories = buildProviderListItemAccessories(
+      "cursor",
+      {
+        id: "cursor",
+        name: "Cursor",
+        fetchedAt: "2026-09-25T20:02:05Z",
+        sections: [
+          { kind: "usage", title: "Primary", displayTitle: "Total", remainingPercent: 94 },
+          { kind: "usage", title: "Secondary", displayTitle: "Cursor", remainingPercent: 96 },
+          { kind: "usage", title: "Tertiary", displayTitle: "Third Party", remainingPercent: 24 },
+        ],
+      },
+      undefined,
+      false,
+      undefined,
+      undefined,
+      ["metric:primary"],
+    );
+
+    expect(accessories?.[0]).toEqual({
+      text: "96%",
+      tooltip: "Cursor: 96% remaining",
+    });
+  });
+
+  it("drops the usage adornment when primary and secondary are both hidden", () => {
+    expect(
+      buildProviderListItemAccessories("codex", makeDetail(82, 41), undefined, false, undefined, undefined, [
+        "metric:primary",
+        "metric:secondary",
+      ]),
+    ).toBeUndefined();
+  });
+
   it("shows both primary and secondary usage in text, tooltip, and icon", () => {
     const accessories = buildProviderListItemAccessories("codex", makeDetail(82, 41), undefined, false);
 

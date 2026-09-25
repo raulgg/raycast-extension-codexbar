@@ -28,6 +28,39 @@ function getTextTopY(baselineY: number, fontSize: number): number {
 }
 
 describe("provider markdown", () => {
+  it("omits usage items hidden in the provider config", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "cursor",
+        name: "Cursor",
+        updatedAt: "2026-09-25T20:02:05Z",
+        sections: [
+          { kind: "usage", title: "Primary", displayTitle: "Total", remainingPercent: 94 },
+          { kind: "usage", title: "Secondary", displayTitle: "Cursor", remainingPercent: 96 },
+          {
+            kind: "supplementalUsage",
+            title: "Grok Bot",
+            remainingPercent: 64,
+            usageItemId: "metric:cursor-grok-bot",
+          },
+          {
+            kind: "info",
+            title: "Limit Reset Credits",
+            items: [{ label: "Available", value: "1 available" }],
+          },
+        ],
+      },
+      "light",
+      { hiddenUsageItemIDs: ["metric:primary", "metric:cursor-grok-bot", "section:codex-reset-credits"] },
+    );
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(svg).toContain(">Cursor 96% left<");
+    expect(svg).not.toContain(">Total 94% left<");
+    expect(svg).not.toContain(">Grok Bot");
+    expect(svg).not.toContain(">Limit Reset Credits<");
+  });
+
   it("renders codex usage and generic sections with semantic content", () => {
     const now = Date.parse("2026-03-23T10:30:00Z");
     const markdown = buildProviderDetailMarkdown(

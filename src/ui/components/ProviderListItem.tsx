@@ -9,6 +9,7 @@ import { ManageProvidersAction } from "./ManageProvidersAction";
 import { moveProviderActions } from "./moveProviderActions";
 import { ProviderDetail } from "./ProviderDetail";
 import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV, type KeychainAccessPolicy } from "../../cli/keychainAccessPolicy";
+import { omitHiddenUsageItems } from "../../usage/usageItemVisibility";
 
 type ProviderListItemProps = {
   provider: ConfiguredProvider;
@@ -60,6 +61,7 @@ export function ProviderListItem({
         isDetailLoading,
         detailCacheStatus,
         provider.accentColor,
+        provider.hiddenUsageItemIDs,
       )}
       detail={
         <ProviderDetail
@@ -119,6 +121,7 @@ export function buildProviderListItemAccessories(
   isLoading: boolean,
   cacheStatus?: ProviderDetailCacheStatus,
   accentColor?: string,
+  hiddenUsageItemIDs?: readonly string[],
 ): List.Item.Accessory[] | undefined {
   if (cacheStatus === "stale" && detail) {
     return isLoading
@@ -126,8 +129,11 @@ export function buildProviderListItemAccessories(
       : [{ icon: Icon.Warning, tooltip: formatProviderDetailStaleTooltip() }];
   }
 
-  const primaryUsage = getUsageSection(detail, "Primary");
-  const secondaryUsage = getUsageSection(detail, "Secondary");
+  const visibleDetail = detail
+    ? { ...detail, sections: omitHiddenUsageItems(detail.sections, hiddenUsageItemIDs) }
+    : undefined;
+  const primaryUsage = getUsageSection(visibleDetail, "Primary");
+  const secondaryUsage = getUsageSection(visibleDetail, "Secondary");
   const leadingUsage = primaryUsage ?? secondaryUsage;
   if (leadingUsage) {
     const trailingUsage = primaryUsage ? secondaryUsage : undefined;

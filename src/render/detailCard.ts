@@ -21,6 +21,7 @@ import {
 } from "./layout";
 import { getProviderStatusLabel, isRenderableProviderStatusIndicator } from "../usage/status";
 import type { ProviderDetailData, ProviderInfoSection, ProviderSection, ProviderStatus } from "../usage/types";
+import { omitHiddenUsageItems } from "../usage/usageItemVisibility";
 import { renderLoadingSkeletonSections, renderMetricSection, renderMetricSections } from "./usageMeter";
 
 export type ProviderDetailAppearance = DetailAppearance;
@@ -29,6 +30,7 @@ type ProviderDetailMarkdownOptions = {
   now?: number;
   status?: ProviderStatus;
   accentColor?: string;
+  hiddenUsageItemIDs?: readonly string[];
 };
 
 const GENERIC_SECTION_LAYOUT = {
@@ -221,7 +223,9 @@ export function buildProviderDetailMarkdown(
   appearance: ProviderDetailAppearance = "light",
   options?: ProviderDetailMarkdownOptions,
 ): string {
-  const sections = detail.sections.filter((section) => section.kind !== "info" || section.items.length > 0);
+  const sections = omitHiddenUsageItems(detail.sections, options?.hiddenUsageItemIDs).filter(
+    (section) => section.kind !== "info" || section.items.length > 0,
+  );
   const subtitle = options?.subtitle ?? formatUpdatedSubtitle(detail.updatedAt, options?.now);
   const hasHeaderContent = Boolean(subtitle || detail.accountEmail || detail.planText);
   const status =
