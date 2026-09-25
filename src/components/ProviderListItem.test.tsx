@@ -58,7 +58,7 @@ import {
   ProviderListItem,
 } from "./ProviderListItem";
 import { getProviderProgressPalette } from "../providers/registry";
-import type { ProviderDetailData } from "../providers/types";
+import type { ProviderDetailData } from "../usage/types";
 
 function makeDetail(remainingPercent: number, secondaryRemainingPercent?: number): ProviderDetailData {
   return {

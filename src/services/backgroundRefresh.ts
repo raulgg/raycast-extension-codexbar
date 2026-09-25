@@ -1,4 +1,4 @@
-import type { ConfiguredProvider } from "../providers/types";
+import type { ConfiguredProvider } from "../usage/types";
 import {
   cacheProviderDetail,
   PROVIDER_DETAIL_CONCURRENCY,

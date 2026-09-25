@@ -1,6 +1,6 @@
 import { Cache } from "@raycast/api";
-import { isProviderStatusFresh } from "../providers/status";
-import type { ProviderStatus } from "../providers/types";
+import { isProviderStatusFresh } from "../usage/status";
+import type { ProviderStatus } from "../usage/types";
 
 // Separate status cache (ADR-0003): serve usage writes carry no status.
 const PROVIDER_STATUS_SCHEMA_VERSION = "provider-status-v1";

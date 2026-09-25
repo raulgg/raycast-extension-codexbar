@@ -15,7 +15,7 @@ import {
   setProviderEnabled,
   type ProviderMoveDirection,
 } from "../config/providerConfig";
-import type { AvailableProvider, ConfiguredProvider } from "../providers/types";
+import type { AvailableProvider, ConfiguredProvider } from "../usage/types";
 
 // Everything the extension asks of a CodexBar installation, behind one object.
 // The real client wraps the CLI process boundary and the shared config file;

@@ -1,6 +1,6 @@
 import { useCachedPromise } from "@raycast/utils";
 import type { CodexBarClient } from "../services/codexbarClient";
-import type { AvailableProvider } from "../providers/types";
+import type { AvailableProvider } from "../usage/types";
 
 type UseAvailableProvidersResult = {
   providers: AvailableProvider[];
