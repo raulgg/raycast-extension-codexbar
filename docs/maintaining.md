@@ -62,16 +62,22 @@ src/
     providerDetail.ts         loadProviderDetail: raw payload -> ProviderDetailData. The only
                               place normalize, payload-error rejection, section memory
                               (ADR-0007), and the Keychain error hint are composed.
+    backgroundRefresh.ts      Orchestration for refresh-usage-cache.
 
-  lib/
+  config/
     providerConfig.ts         Read ~/.codexbar/config.json; enable/disable via CLI; reorder via
                               direct file write. (ADR-0001/0004)
+
+  cache/                      Raycast Cache stores.
+    indexedCache.ts           Shared plumbing: schema-versioned per-policy keys, provider index,
+                              legacy sweeps, prune loop.
     providerDetailCache.ts    Provider detail cache (per Keychain policy, 10-min fresh / 60-min
                               stale), failure counters, and the fetch worker pool. (ADR-0005)
-    providerShapeMemory.ts    Remembered supplemental sections restored when a payload drops
+    sectionMemory.ts          Remembered supplemental sections restored when a payload drops
                               them (24-h TTL). (ADR-0007)
     providerStatusCache.ts    Dedicated status cache (provider-status:<id>, 30-min TTL). (ADR-0003)
-    backgroundRefresh.ts      Orchestration for refresh-usage-cache.
+
+  lib/
     presentation.ts           Formatting helpers (percentages, relative times) + error card.
     detailMarkdown.ts, svg.ts, twoBarAccessoryIcon.ts   Rendering helpers.
 

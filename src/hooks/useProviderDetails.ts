@@ -13,12 +13,16 @@ import {
   shouldRefreshProviderAutomatically,
   shouldSurfaceProviderDetailFailure,
   type ProviderDetailResults,
-} from "../lib/providerDetailCache";
-import { pruneProviderUsageSectionMemory } from "../lib/providerShapeMemory";
+} from "../cache/providerDetailCache";
+import { pruneProviderUsageSectionMemory } from "../cache/sectionMemory";
 import { getKeychainAccessPolicy } from "../preferences";
 import type { ConfiguredProvider } from "../providers/types";
 
-export type { ProviderDetailCacheStatus, ProviderDetailResults, ProviderDetailState } from "../lib/providerDetailCache";
+export type {
+  ProviderDetailCacheStatus,
+  ProviderDetailResults,
+  ProviderDetailState,
+} from "../cache/providerDetailCache";
 
 type FetchProviderOptions = {
   force?: boolean;

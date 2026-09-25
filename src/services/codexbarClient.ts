@@ -14,7 +14,7 @@ import {
   readConfiguredProvidersFromConfig,
   setProviderEnabled,
   type ProviderMoveDirection,
-} from "../lib/providerConfig";
+} from "../config/providerConfig";
 import type { AvailableProvider, ConfiguredProvider } from "../providers/types";
 
 // Everything the extension asks of a CodexBar installation, behind one object.
