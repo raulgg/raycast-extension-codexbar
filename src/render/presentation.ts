@@ -12,7 +12,7 @@ import {
   getSectionTitleY,
   getTextBottomY,
   wrapText,
-} from "./detailMarkdown";
+} from "./layout";
 import { clampPercent } from "../usage/json";
 
 export function formatPercentRemaining(value: number): string {

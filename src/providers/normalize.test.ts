@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractSvgMarkup } from "../../test/svg-markdown";
-import { buildProviderDetailMarkdown } from "./markdown";
+import { buildProviderDetailMarkdown } from "../render/detailCard";
 import { extractProviderErrorMessage, normalizeProviderDetailPayload } from "./normalize";
 import type { ProviderSection, ProviderUsagePacing } from "./types";
 

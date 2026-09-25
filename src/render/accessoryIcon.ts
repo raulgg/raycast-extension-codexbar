@@ -1,5 +1,5 @@
 import type { Image } from "@raycast/api";
-import { DETAIL_PALETTES } from "./detailMarkdown";
+import { DETAIL_PALETTES } from "./layout";
 import { renderedFillPercent } from "./svg";
 import { getProviderProgressPalette } from "../providers/registry";
 import { clampPercent } from "../usage/json";
