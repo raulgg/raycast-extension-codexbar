@@ -11,14 +11,16 @@ export { escapeSvgText } from "./svg";
 
 export type DetailAppearance = "light" | "dark";
 
+// The detail card is a 440pt-wide SVG with no outer padding: content spans the
+// full width and starts at the top edge.
 export const DETAIL_PANEL = {
   width: 440,
-  paddingTop: 0,
-  paddingRight: 0,
-  paddingBottom: 0,
-  paddingLeft: 0,
   minimumHeight: 64,
 } as const;
+
+export const CONTENT_LEFT_X = 0;
+export const CONTENT_RIGHT_X = DETAIL_PANEL.width;
+export const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
 
 export const DETAIL_TYPOGRAPHY = {
   headerTitleSize: 16,
@@ -39,9 +41,7 @@ export const DETAIL_FONT_WEIGHT = {
   bold: 600,
 } as const;
 
-export const DETAIL_HEADER_LAYOUT = {
-  titleToSubtitleOffset: 18,
-} as const;
+const HEADER_TITLE_TO_SUBTITLE_OFFSET = 18;
 
 export const DETAIL_SECTION_LAYOUT = {
   dividerPaddingY: 16,
@@ -105,7 +105,7 @@ export const DETAIL_PALETTES: Record<
   },
 };
 
-export function escapeMarkdown(value: string): string {
+function escapeMarkdown(value: string): string {
   const normalized = value.replace(/\r?\n/g, " ").trim();
   let escaped = "";
 
@@ -140,22 +140,6 @@ export function buildText(
   });
 }
 
-export function getLeftContentX(): number {
-  return DETAIL_PANEL.paddingLeft;
-}
-
-export function getRightContentX(): number {
-  return DETAIL_PANEL.width - DETAIL_PANEL.paddingRight;
-}
-
-export function getContentWidth(): number {
-  return getRightContentX() - getLeftContentX();
-}
-
-export function getHeaderSubtitleY(titleY: number): number {
-  return titleY + DETAIL_HEADER_LAYOUT.titleToSubtitleOffset;
-}
-
 export function getTextBottomY(baselineY: number, fontSize: number): number {
   return baselineY + Math.ceil(fontSize * DETAIL_TEXT_LAYOUT.bottomInsetRatio);
 }
@@ -174,14 +158,14 @@ export function getSectionTitleY(contentBottomY: number): number {
 }
 
 export function getPanelHeight(contentBottomY: number): number {
-  return Math.max(DETAIL_PANEL.minimumHeight, contentBottomY + DETAIL_PANEL.paddingBottom);
+  return Math.max(DETAIL_PANEL.minimumHeight, contentBottomY);
 }
 
 export function buildSectionDivider(y: number, stroke: string): string {
   return buildSvgLine({
-    x1: getLeftContentX(),
+    x1: CONTENT_LEFT_X,
     y1: y,
-    x2: getRightContentX(),
+    x2: CONTENT_RIGHT_X,
     y2: y,
     stroke,
     strokeWidth: DETAIL_SVG_LAYOUT.dividerStrokeWidth,
@@ -208,13 +192,13 @@ export function buildHeaderMarkup(
   documentTitle?: string,
 ): { markup: string[]; contentBottomY: number } {
   const palette = DETAIL_PALETTES[appearance];
-  const titleY = getTextBaselineY(DETAIL_PANEL.paddingTop, DETAIL_TYPOGRAPHY.headerTitleSize);
+  const titleY = getTextBaselineY(0, DETAIL_TYPOGRAPHY.headerTitleSize);
   const markup: string[] = [
     `<rect x="0" y="0" width="${DETAIL_PANEL.width}" height="${DETAIL_SVG_LAYOUT.transparentCanvasHeight}" fill="transparent"/>`,
     `<title>${escapeSvgText(documentTitle ?? title)}</title>`,
     buildText(
       title,
-      getLeftContentX(),
+      CONTENT_LEFT_X,
       titleY,
       palette.titleFill,
       DETAIL_TYPOGRAPHY.headerTitleSize,
@@ -228,7 +212,7 @@ export function buildHeaderMarkup(
     markup.push(
       buildText(
         trailingTitle,
-        getRightContentX(),
+        CONTENT_RIGHT_X,
         titleY,
         palette.subtitleFill,
         DETAIL_TYPOGRAPHY.headerSubtitleSize,
@@ -242,12 +226,12 @@ export function buildHeaderMarkup(
   const subtitle = options?.subtitle;
   const trailingSubtitle = options?.trailingSubtitle;
   if (subtitle || trailingSubtitle) {
-    const subtitleY = getHeaderSubtitleY(titleY);
+    const subtitleY = titleY + HEADER_TITLE_TO_SUBTITLE_OFFSET;
     if (subtitle) {
       markup.push(
         buildText(
           subtitle,
-          getLeftContentX(),
+          CONTENT_LEFT_X,
           subtitleY,
           palette.subtitleFill,
           DETAIL_TYPOGRAPHY.headerSubtitleSize,
@@ -260,7 +244,7 @@ export function buildHeaderMarkup(
       markup.push(
         buildText(
           trailingSubtitle,
-          getRightContentX(),
+          CONTENT_RIGHT_X,
           subtitleY,
           palette.subtitleFill,
           DETAIL_TYPOGRAPHY.headerSubtitleSize,

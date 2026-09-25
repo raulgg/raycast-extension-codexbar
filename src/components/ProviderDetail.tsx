@@ -1,5 +1,6 @@
 import { environment, List } from "@raycast/api";
-import { buildProviderErrorMarkdown, formatRelativeUpdateTime } from "../render/presentation";
+import { buildProviderErrorMarkdown } from "../render/errorCard";
+import { formatRelativeUpdateTime } from "../render/format";
 import type { ProviderDetailCacheStatus } from "../cache/providerDetailCache";
 import { getHidePersonalInfoPreference } from "../preferences";
 import { buildProviderDetailMarkdown, buildProviderLoadingMarkdown } from "../render/detailCard";
@@ -27,7 +28,7 @@ export function ProviderDetail({
   const hidePersonalInfo = getHidePersonalInfoPreference();
   const detailMarkdown = detail
     ? buildProviderDetailMarkdown(hidePersonalInfo ? redactPersonalInfo(detail) : detail, environment.appearance, {
-        subtitle: getHeaderSubtitle(detail, isLoading, cacheStatus, relativeTimeNow),
+        subtitle: buildDetailSubtitle(detail, isLoading, cacheStatus, relativeTimeNow),
         now: relativeTimeNow,
         status,
       }).trim()
@@ -49,7 +50,7 @@ function redactPersonalInfo(detail: ProviderDetailData): ProviderDetailData {
   return { ...detail, accountEmail: undefined };
 }
 
-function getHeaderSubtitle(
+function buildDetailSubtitle(
   detail: ProviderDetailData,
   isLoading: boolean,
   cacheStatus?: ProviderDetailCacheStatus,
