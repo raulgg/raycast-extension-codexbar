@@ -37,7 +37,9 @@ vi.mock("node:http", () => ({
 
 import { getCodexBarAvailability, resolveCodexBarBinary, type ResolvedCodexBarBinary } from "./binary";
 import { classifyExecFailure, CodexBarCliError, extractJsonPayload } from "./exec";
-import { fetchProviderDetail, fetchProviderDetailFromServe, fetchProviderUsageWithStatus } from "./fetch";
+import type { FetchUsageOptions } from "./fetch";
+import { createCodexBarClient } from "../services/codexbarClient";
+import { loadProviderDetail } from "../services/providerDetail";
 import { ensureCodexBarServe, parseProcessElapsedMs } from "./serve";
 import {
   moveConfiguredProviderInConfig,
@@ -47,6 +49,22 @@ import {
 import { SECTION_MEMORY_TTL_MS } from "../lib/providerShapeMemory";
 import { recordCodexBarServeRuntime } from "./serveState";
 import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV } from "./keychainAccessPolicy";
+
+// The fetch pipeline is exercised end to end (CLI process -> raw payload ->
+// normalized detail) through the same composition production uses.
+function fetchProviderDetail(binary: ResolvedCodexBarBinary, providerId: string, options?: FetchUsageOptions) {
+  return loadProviderDetail(createCodexBarClient(binary), providerId, options).then(({ detail }) => detail);
+}
+
+function fetchProviderDetailFromServe(binary: ResolvedCodexBarBinary, providerId: string, options?: FetchUsageOptions) {
+  return loadProviderDetail(createCodexBarClient(binary), providerId, { ...options, transport: "serve" }).then(
+    ({ detail }) => detail,
+  );
+}
+
+function fetchProviderUsageWithStatus(binary: ResolvedCodexBarBinary, providerId: string, options?: FetchUsageOptions) {
+  return loadProviderDetail(createCodexBarClient(binary), providerId, { ...options, includeStatus: true });
+}
 
 function mockAccessForPaths(paths: string[]) {
   accessMock.mockImplementation((targetPath: string) => {

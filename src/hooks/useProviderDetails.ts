@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
 import type { CodexBarClient } from "../services/codexbarClient";
+import { loadProviderDetail } from "../services/providerDetail";
 import {
   buildCachedProviderResults,
   cacheProviderDetail,
@@ -113,7 +114,7 @@ export function useProviderDetails(
       setProviderLoading(providerId, setResults, optimisticResultsRef.current);
 
       try {
-        const detail = await currentClient.fetchProviderDetail(providerId, {
+        const { detail } = await loadProviderDetail(currentClient, providerId, {
           mode: force ? "force" : "auto",
           source: providerSourcesRef.current.get(providerId),
           interaction: "user",
