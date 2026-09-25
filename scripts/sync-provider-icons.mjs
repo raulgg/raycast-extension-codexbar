@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -42,6 +42,14 @@ function normalizeSvgRootDimensions(svg) {
 
 function collectIconSlugsFromCatalog(catalog) {
   return Object.values(catalog).map((entry) => assertSafeIconSlug(entry.iconSlug));
+}
+
+export function listStaleIconSlugs(fileNames, catalogSlugs) {
+  const wanted = new Set(catalogSlugs);
+  return fileNames
+    .map((fileName) => /^(.+)\.svg$/.exec(fileName)?.[1])
+    .filter((slug) => slug && !wanted.has(slug))
+    .sort();
 }
 
 async function readLocalIcon(slug) {
@@ -136,11 +144,7 @@ async function main() {
   const unchanged = results.filter((result) => !result.changed).map((result) => result.slug);
 
   const localFiles = await readdir(ASSETS_DIR);
-  const localSlugs = localFiles
-    .map((fileName) => fileName.match(/^(.+)\.svg$/))
-    .filter(Boolean)
-    .map((match) => match[1]);
-  const staleSlugs = localSlugs.filter((slug) => !uniqueSlugs.includes(slug)).sort();
+  const staleSlugs = listStaleIconSlugs(localFiles, uniqueSlugs);
 
   console.log(`Synced ${uniqueSlugs.length} provider icons from ${source.label}.`);
 
@@ -158,6 +162,12 @@ async function main() {
 
   if (staleSlugs.length > 0) {
     console.warn(`Stale local icons: ${staleSlugs.join(", ")}`);
+    if (!CHECK_ONLY) {
+      for (const slug of staleSlugs) {
+        await rm(path.join(ASSETS_DIR, `${assertSafeIconSlug(slug)}.svg`));
+      }
+      console.log(`Deleted stale icons (${staleSlugs.length}): ${staleSlugs.join(", ")}`);
+    }
   }
 
   if (CHECK_ONLY && (changed.length > 0 || staleSlugs.length > 0)) {
