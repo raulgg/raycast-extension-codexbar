@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchProviderDetail, type ResolvedCodexBarBinary } from "../lib/codexbar";
+import type { ResolvedCodexBarBinary } from "../cli/binary";
+import { fetchProviderDetail } from "../cli/fetch";
 import {
   buildCachedProviderResults,
   cacheProviderDetail,

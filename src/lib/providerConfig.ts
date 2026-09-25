@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { getProviderMetadata, isKnownProviderId, isProviderSelectorId, resolveProviderId } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, ProviderSourceMode } from "../providers/types";
 import { getMockAvailableProviders, isCodexBarMockMode } from "../mocks/codexbar";
-import { CodexBarCliError, executeCodexBar, type ResolvedCodexBarBinary } from "./codexbar";
+import type { ResolvedCodexBarBinary } from "../cli/binary";
+import { CodexBarCliError, executeCodexBar } from "../cli/exec";
 
 // Shared CodexBar config (~/.codexbar/config.json) + CLI roster helpers.
 // See ADR-0001 (reorder) and ADR-0004 (mixed write ownership).

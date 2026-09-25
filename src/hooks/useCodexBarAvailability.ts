@@ -1,5 +1,5 @@
 import { useCachedPromise } from "@raycast/utils";
-import { getCodexBarAvailability, type CodexBarAvailability } from "../lib/codexbar";
+import { getCodexBarAvailability, type CodexBarAvailability } from "../cli/binary";
 import { getKeychainAccessPolicy } from "../preferences";
 
 type UseCodexBarAvailabilityResult = {

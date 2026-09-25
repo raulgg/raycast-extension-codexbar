@@ -23,7 +23,7 @@ import {
   describeManageProvidersError,
   getProviderMoveGating,
 } from "./ManageProviders";
-import { CodexBarCliError } from "../lib/codexbar";
+import { CodexBarCliError } from "../cli/exec";
 import type { AvailableProvider } from "../providers/types";
 
 function makeProvider(overrides: Partial<AvailableProvider> & Pick<AvailableProvider, "id">): AvailableProvider {

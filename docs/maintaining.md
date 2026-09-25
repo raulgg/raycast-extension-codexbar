@@ -37,15 +37,22 @@ src/
   refresh-usage-cache.ts      Command: no-view, 10-min interval. Warms caches + serve. (ADR-0002/0003)
   preferences.ts              Typed access to Raycast preferences (Hide Personal Information).
 
-  lib/
-    codexbar.ts               CLI discovery, one-shot exec, serve HTTP client, health check,
-                              serve attestation/restart, JSON extraction, error classification.
-                              The whole CLI boundary. (ADR-0002/0005/0006)
-    codexBarServeState.ts     Cache record of the serve daemon we started (pid, start time,
+  cli/                        The CodexBar CLI process boundary.
+    exec.ts                   execFile wrapper, child env, JSON extraction, error classification,
+                              CodexBarCliError.
+    binary.ts                 CLI discovery (PATH + fallbacks), --version smoke test, capability
+                              negotiation, getCodexBarAvailability. (ADR-0005/0008)
+    serve.ts                  Serve HTTP client, health check, process attestation (lsof/ps),
+                              start/stop/restart. (ADR-0002/0006/0009)
+    serveState.ts             Cache record of the serve daemon we started (pid, start time,
                               Keychain policy) so a later run can attest it. (ADR-0006/0009)
+    fetch.ts                  Provider usage fetchers (serve or one-shot) and the usage command
+                              arguments. (ADR-0005)
     keychainAccessPolicy.ts   The "default" | "disabled" policy and the env var that enforces it
                               on every CodexBar child process. (ADR-0009)
-    cliInstall.ts             Install help state + the port of the app's Install CLI button. (ADR-0008)
+    install.ts                Install help state + the port of the app's Install CLI button. (ADR-0008)
+
+  lib/
     providerConfig.ts         Read ~/.codexbar/config.json; enable/disable via CLI; reorder via
                               direct file write. (ADR-0001/0004)
     providerDetailCache.ts    Provider detail cache (per Keychain policy, 10-min fresh / 60-min
@@ -113,7 +120,7 @@ These surprise people. Each has an ADR with the full reasoning; the short versio
 - **The CLI is found on `PATH`, then two fallback paths.** `resolveCodexBarBinary` searches `PATH`
   (defaulting to a Homebrew-inclusive `PATH` when Raycast's environment has none), then
   `/opt/homebrew/bin/codexbar` and `/usr/local/bin/codexbar`. The CLI can be installed standalone
-  (Homebrew, GitHub releases). It does not require the CodexBar app. See `codexbar.ts`.
+  (Homebrew, GitHub releases). It does not require the CodexBar app. See `cli/binary.ts`.
 - **Serve is a real daemon, started only by the background refresh.** The extension talks to
   `codexbar serve` over `127.0.0.1:17653`. Only `refresh-usage-cache` may start it; the foreground
   Usage Overview only *reads* an already-healthy serve and otherwise falls back to a one-shot CLI
