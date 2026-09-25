@@ -1,14 +1,17 @@
 import { Cache } from "@raycast/api";
+import { createIndexedCache } from "../cache/indexedCache";
 import type { ProviderDetailData, ProviderSourceMode } from "../providers/types";
-import { KEYCHAIN_ACCESS_POLICIES, type KeychainAccessPolicy } from "./keychainAccessPolicy";
+import type { KeychainAccessPolicy } from "./keychainAccessPolicy";
 
 export const PROVIDER_DETAIL_CONCURRENCY = 4;
 const PROVIDER_DETAIL_FRESHNESS_WINDOW_MS = 10 * 60 * 1000;
 export const PROVIDER_DETAIL_STALE_WINDOW_MS = 60 * 60 * 1000;
 const PROVIDER_DETAIL_SCHEMA_VERSION = "provider-details-v8";
-const LEGACY_PROVIDER_DETAIL_SCHEMA_VERSION = "provider-details-v7";
-const PROVIDER_DETAIL_INDEX_KEY = `${PROVIDER_DETAIL_SCHEMA_VERSION}:index`;
-const providerDetailCache = new Cache({ namespace: "provider-details" });
+const providerDetailCache = createIndexedCache({
+  namespace: "provider-details",
+  schemaVersion: PROVIDER_DETAIL_SCHEMA_VERSION,
+  legacySchemaVersions: ["provider-details-v7"],
+});
 const providerDetailFailureCache = new Cache({ namespace: "provider-detail-failures" });
 
 export type ProviderDetailCacheStatus = "fresh" | "stale";
@@ -101,8 +104,7 @@ export function buildCachedProviderResults(
 }
 
 export function cacheProviderDetail(detail: ProviderDetailData, keychainAccessPolicy: KeychainAccessPolicy): void {
-  providerDetailCache.set(buildProviderDetailCacheKey(detail.id, keychainAccessPolicy), JSON.stringify(detail));
-  trackProviderDetailCacheId(detail.id);
+  providerDetailCache.set(detail.id, keychainAccessPolicy, JSON.stringify(detail));
 }
 
 export function readCachedProviderDetail(
@@ -111,27 +113,31 @@ export function readCachedProviderDetail(
   now = Date.now(),
   requestedSource?: ProviderSourceMode,
 ): Pick<ProviderDetailState, "detail" | "cacheStatus"> | undefined {
-  const cacheKey = buildProviderDetailCacheKey(providerId, keychainAccessPolicy);
-  const serializedDetail = providerDetailCache.get(cacheKey);
+  const serializedDetail = providerDetailCache.get(providerId, keychainAccessPolicy);
   if (!serializedDetail) {
     return undefined;
   }
 
-  try {
-    const detail = JSON.parse(serializedDetail) as ProviderDetailData;
-    const cacheStatus = getProviderDetailCacheStatus(detail, providerId, now, requestedSource);
-    if (!cacheStatus) {
-      if (!getProviderDetailCacheStatus(detail, providerId, now)) {
-        providerDetailCache.remove(cacheKey);
-        untrackProviderDetailCacheIdIfEmpty(providerId);
-      }
-      return undefined;
-    }
+  const detail = parseProviderDetail(serializedDetail);
+  const cacheStatus = detail ? getProviderDetailCacheStatus(detail, providerId, now) : undefined;
+  if (!detail || !cacheStatus) {
+    // Unparseable, wrong-provider, wrong-schema, or expired: evict.
+    providerDetailCache.remove(providerId, keychainAccessPolicy);
+    return undefined;
+  }
 
-    return { detail, cacheStatus };
+  // A valid entry fetched under another source is hidden, not evicted.
+  if (requestedSource !== undefined && detail.requestedSource !== requestedSource) {
+    return undefined;
+  }
+
+  return { detail, cacheStatus };
+}
+
+function parseProviderDetail(serialized: string): ProviderDetailData | undefined {
+  try {
+    return JSON.parse(serialized) as ProviderDetailData;
   } catch {
-    providerDetailCache.remove(cacheKey);
-    untrackProviderDetailCacheIdIfEmpty(providerId);
     return undefined;
   }
 }
@@ -140,13 +146,8 @@ function getProviderDetailCacheStatus(
   detail: ProviderDetailData,
   providerId: string,
   now = Date.now(),
-  requestedSource?: ProviderSourceMode,
 ): ProviderDetailCacheStatus | undefined {
-  if (
-    detail.id !== providerId ||
-    !isProviderDetailSchemaCurrent(detail) ||
-    (requestedSource !== undefined && detail.requestedSource !== requestedSource)
-  ) {
+  if (detail.id !== providerId || !isProviderDetailSchemaCurrent(detail)) {
     return undefined;
   }
 
@@ -167,11 +168,12 @@ function isProviderDetailOlderThan(detail: ProviderDetailData, maxAgeMs: number,
 }
 
 function isProviderDetailSchemaCurrent(detail: ProviderDetailData): boolean {
-  return detail.sections.every(({ kind }) => kind === "usage" || kind === "supplementalUsage" || kind === "info");
-}
-
-function buildProviderDetailCacheKey(providerId: string, keychainAccessPolicy: KeychainAccessPolicy): string {
-  return `${PROVIDER_DETAIL_SCHEMA_VERSION}:${keychainAccessPolicy}:${providerId}`;
+  return (
+    Array.isArray(detail.sections) &&
+    detail.sections.every(
+      (section) => section?.kind === "usage" || section?.kind === "supplementalUsage" || section?.kind === "info",
+    )
+  );
 }
 
 export function recordProviderDetailSuccess(providerId: string, keychainAccessPolicy: KeychainAccessPolicy): void {
@@ -195,74 +197,8 @@ function buildProviderDetailFailureKey(providerId: string, keychainAccessPolicy:
 }
 
 export function pruneProviderDetailCaches(providerIds: string[] = [], now = Date.now()): void {
-  const trackedProviderIds = readProviderDetailCacheIndex();
-  const providerIdsToPrune = new Set([...trackedProviderIds, ...providerIds]);
-
-  for (const providerId of providerIdsToPrune) {
-    providerDetailCache.remove(`${LEGACY_PROVIDER_DETAIL_SCHEMA_VERSION}:${providerId}`);
-
-    for (const policy of KEYCHAIN_ACCESS_POLICIES) {
-      const key = buildProviderDetailCacheKey(providerId, policy);
-      const serialized = providerDetailCache.get(key);
-      if (!serialized) continue;
-
-      try {
-        const detail = JSON.parse(serialized) as ProviderDetailData;
-        if (!getProviderDetailCacheStatus(detail, providerId, now)) {
-          providerDetailCache.remove(key);
-        }
-      } catch {
-        providerDetailCache.remove(key);
-      }
-    }
-
-    if (!hasAnyProviderDetailCacheEntry(providerId)) {
-      trackedProviderIds.delete(providerId);
-    }
-  }
-
-  writeProviderDetailCacheIndex(trackedProviderIds);
-}
-
-function trackProviderDetailCacheId(providerId: string): void {
-  const trackedProviderIds = readProviderDetailCacheIndex();
-  trackedProviderIds.add(providerId);
-  writeProviderDetailCacheIndex(trackedProviderIds);
-}
-
-function untrackProviderDetailCacheIdIfEmpty(providerId: string): void {
-  if (hasAnyProviderDetailCacheEntry(providerId)) return;
-  const trackedProviderIds = readProviderDetailCacheIndex();
-  trackedProviderIds.delete(providerId);
-  writeProviderDetailCacheIndex(trackedProviderIds);
-}
-
-function hasAnyProviderDetailCacheEntry(providerId: string): boolean {
-  return KEYCHAIN_ACCESS_POLICIES.some((policy) =>
-    Boolean(providerDetailCache.get(buildProviderDetailCacheKey(providerId, policy))),
-  );
-}
-
-function readProviderDetailCacheIndex(): Set<string> {
-  const serialized = providerDetailCache.get(PROVIDER_DETAIL_INDEX_KEY);
-  if (!serialized) return new Set();
-
-  try {
-    const providerIds = JSON.parse(serialized) as unknown;
-    if (!Array.isArray(providerIds) || !providerIds.every((providerId) => typeof providerId === "string")) {
-      throw new Error("invalid provider detail cache index");
-    }
-    return new Set(providerIds);
-  } catch {
-    providerDetailCache.remove(PROVIDER_DETAIL_INDEX_KEY);
-    return new Set();
-  }
-}
-
-function writeProviderDetailCacheIndex(providerIds: Set<string>): void {
-  if (providerIds.size === 0) {
-    providerDetailCache.remove(PROVIDER_DETAIL_INDEX_KEY);
-    return;
-  }
-  providerDetailCache.set(PROVIDER_DETAIL_INDEX_KEY, JSON.stringify([...providerIds]));
+  providerDetailCache.prune(providerIds, (serialized, providerId) => {
+    const detail = parseProviderDetail(serialized);
+    return detail && getProviderDetailCacheStatus(detail, providerId, now) ? serialized : undefined;
+  });
 }
