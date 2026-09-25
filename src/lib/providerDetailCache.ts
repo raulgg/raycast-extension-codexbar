@@ -168,7 +168,12 @@ function isProviderDetailOlderThan(detail: ProviderDetailData, maxAgeMs: number,
 }
 
 function isProviderDetailSchemaCurrent(detail: ProviderDetailData): boolean {
-  return detail.sections.every(({ kind }) => kind === "usage" || kind === "supplementalUsage" || kind === "info");
+  return (
+    Array.isArray(detail.sections) &&
+    detail.sections.every(
+      (section) => section?.kind === "usage" || section?.kind === "supplementalUsage" || section?.kind === "info",
+    )
+  );
 }
 
 export function recordProviderDetailSuccess(providerId: string, keychainAccessPolicy: KeychainAccessPolicy): void {
