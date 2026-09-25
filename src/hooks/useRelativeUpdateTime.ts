@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getRelativeUpdateTimeRefreshDelay } from "../render/presentation";
+import { getRelativeUpdateTimeRefreshDelay } from "../render/format";
 
 export function useRelativeUpdateTime(updatedAt?: string, enabled = true): number | undefined {
   const [now, setNow] = useState<number>();
