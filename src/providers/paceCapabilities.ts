@@ -1,4 +1,4 @@
-import type { ProviderUsagePacingContext } from "./types";
+import type { ProviderUsagePacingContext } from "../usage/types";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;

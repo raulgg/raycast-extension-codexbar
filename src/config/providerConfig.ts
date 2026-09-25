@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getProviderMetadata, isKnownProviderId, isProviderSelectorId, resolveProviderId } from "../providers/registry";
-import type { AvailableProvider, ConfiguredProvider, ProviderSourceMode } from "../providers/types";
+import type { AvailableProvider, ConfiguredProvider, ProviderSourceMode } from "../usage/types";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { CodexBarCliError, executeCodexBar } from "../cli/exec";
 

@@ -1,4 +1,4 @@
-import type { ProviderInteractionMode, ProviderSourceMode } from "../providers/types";
+import type { ProviderInteractionMode, ProviderSourceMode } from "../usage/types";
 import { canForceRefreshViaServe, type CodexBarCapabilities, type ResolvedCodexBarBinary } from "./binary";
 import { executeCodexBar } from "./exec";
 import { CODEXBAR_SERVE_REQUEST_TIMEOUT_SECONDS, isCodexBarServeAttested, requestCodexBarServeJson } from "./serve";

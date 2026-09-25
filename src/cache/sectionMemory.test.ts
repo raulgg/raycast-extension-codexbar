@@ -1,6 +1,6 @@
 import { Cache } from "@raycast/api";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ProviderDetailData } from "../providers/types";
+import type { ProviderDetailData } from "../usage/types";
 import {
   applyProviderUsageSectionMemory,
   pruneProviderUsageSectionMemory,
