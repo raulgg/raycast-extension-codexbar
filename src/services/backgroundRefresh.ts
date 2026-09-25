@@ -6,9 +6,9 @@ import {
   recordProviderDetailFailure,
   recordProviderDetailSuccess,
   runProviderDetailFetches,
-} from "./providerDetailCache";
-import { pruneProviderUsageSectionMemory } from "./providerShapeMemory";
-import { cacheProviderStatus, readProviderStatus } from "./providerStatusCache";
+} from "../cache/providerDetailCache";
+import { pruneProviderUsageSectionMemory } from "../cache/sectionMemory";
+import { cacheProviderStatus, readProviderStatus } from "../cache/providerStatusCache";
 import { canForceRefreshViaServe } from "../cli/binary";
 import { getCodexBarClientAvailability, type CodexBarClient } from "../services/codexbarClient";
 import { loadProviderDetail, type ProviderUsageWithStatus } from "../services/providerDetail";

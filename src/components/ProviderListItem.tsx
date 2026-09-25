@@ -1,5 +1,5 @@
 import { Action, ActionPanel, Icon, Keyboard, List } from "@raycast/api";
-import type { ProviderDetailCacheStatus } from "../lib/providerDetailCache";
+import type { ProviderDetailCacheStatus } from "../cache/providerDetailCache";
 import type { ConfiguredProvider, ProviderDetailData, ProviderStatus, ProviderUsageSection } from "../providers/types";
 import { formatPercentRemaining } from "../lib/presentation";
 import { buildTwoBarAccessoryIcon } from "../lib/twoBarAccessoryIcon";
