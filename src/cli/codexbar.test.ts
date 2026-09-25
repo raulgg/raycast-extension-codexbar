@@ -1072,6 +1072,61 @@ describe("codexbar runtime helpers", () => {
     expect(providers[1].name).toBe("Groq");
   });
 
+  it("keeps a valid accent color on the canonical provider and drops unreadable ones", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          { id: "grok", enabled: true, accentColor: "#000000" },
+          { id: "codex", enabled: true, accentColor: "  #60BA7E " },
+          { id: "claude", enabled: true, accentColor: "60ba7e" },
+          { id: "cursor", enabled: true, accentColor: "" },
+          { id: "warp", enabled: true, accentColor: "#FFF" },
+          { id: "perplexity", enabled: true, accentColor: "#60BA7EFF" },
+          { id: "factory", enabled: true, accentColor: "not a color" },
+        ],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers.map((provider) => [provider.id, provider.accentColor])).toEqual([
+      ["grok", "#000000"],
+      ["codex", "#60BA7E"],
+      ["claude", "#60BA7E"],
+      ["cursor", undefined],
+      ["warp", undefined],
+      ["perplexity", undefined],
+      ["factory", undefined],
+    ]);
+  });
+
+  it("carries an alias accent onto the canonical provider", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [{ id: "groqcloud", enabled: true, accentColor: "60ba7e" }],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers).toEqual([expect.objectContaining({ id: "groq", accentColor: "#60BA7E" })]);
+  });
+
+  it("keeps the first accent when an alias repeats a provider", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          { id: "groq", enabled: true, accentColor: "#111111" },
+          { id: "groqcloud", enabled: true, accentColor: "#222222" },
+        ],
+      }),
+    );
+
+    const providers = await readConfiguredProvidersFromConfig();
+
+    expect(providers).toEqual([expect.objectContaining({ id: "groq", accentColor: "#111111" })]);
+  });
+
   it("throws when the config file is missing", async () => {
     readFileMock.mockRejectedValue(Object.assign(new Error("missing"), { code: "ENOENT" }));
 
@@ -1134,6 +1189,32 @@ describe("codexbar runtime helpers", () => {
             { id: "codex", enabled: true },
             { id: "perplexity", enabled: true },
             { id: "cursor", enabled: true },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  });
+
+  it("keeps accentColor and unrelated provider fields when reordering", () => {
+    expect(
+      moveConfiguredProviderInRawConfig(
+        JSON.stringify({
+          providers: [
+            { id: "codex", enabled: true, accentColor: "#000000", cookieHeader: "session=1" },
+            { id: "cursor", enabled: true },
+          ],
+        }),
+        "cursor",
+        "up",
+      ),
+    ).toBe(
+      `${JSON.stringify(
+        {
+          providers: [
+            { id: "cursor", enabled: true },
+            { id: "codex", enabled: true, accentColor: "#000000", cookieHeader: "session=1" },
           ],
         },
         null,

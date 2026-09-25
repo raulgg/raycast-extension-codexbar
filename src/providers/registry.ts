@@ -108,6 +108,24 @@ function buildProgressPalette(brandColor: string): ProviderProgressPalette {
   };
 }
 
+// Matches CodexBar `ProviderColor.init(hexString:)`: optional `#`, exactly six hex digits.
+// Anything else is omitted so a hand-edited config falls back to the shipped brand color.
+export function parseAccentColor(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  let text = value.trim();
+  if (text.startsWith("#")) {
+    text = text.slice(1);
+  }
+  if (!/^[0-9A-Fa-f]{6}$/.test(text)) {
+    return undefined;
+  }
+
+  return `#${text.toUpperCase()}`;
+}
+
 function registryEntryFromCatalog(id: string, entry: ProviderCatalogEntry): ProviderRegistryEntry {
   const brandColor = normalizeHexColor(entry.brandColor);
   return {
@@ -159,7 +177,12 @@ export function getProviderMetadata(id: string): ProviderRegistryEntry {
   };
 }
 
-export function getProviderProgressPalette(id: string): ProviderProgressPalette {
+export function getProviderProgressPalette(id: string, accentColor?: string): ProviderProgressPalette {
+  const override = parseAccentColor(accentColor);
+  if (override) {
+    return buildProgressPalette(override);
+  }
+
   return getProviderMetadata(id).progressPalette;
 }
 

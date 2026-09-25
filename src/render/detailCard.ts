@@ -28,6 +28,7 @@ type ProviderDetailMarkdownOptions = {
   subtitle?: string;
   now?: number;
   status?: ProviderStatus;
+  accentColor?: string;
 };
 
 const GENERIC_SECTION_LAYOUT = {
@@ -206,12 +207,13 @@ function renderStandaloneSection(
   providerId: string,
   appearance: ProviderDetailAppearance,
   startY: number,
+  accentColor?: string,
 ): { markup: string[]; contentBottomY: number } {
   if (section.kind === "info") {
     return renderGenericSection(section, appearance, startY);
   }
 
-  return renderMetricSection(section, providerId, appearance, startY);
+  return renderMetricSection(section, providerId, appearance, startY, accentColor);
 }
 
 export function buildProviderDetailMarkdown(
@@ -247,7 +249,7 @@ export function buildProviderDetailMarkdown(
     markup.push(buildSectionDivider(getSectionDividerY(currentY), palette.dividerStroke));
     currentY = getSectionTitleY(currentY);
 
-    const rendered = renderMetricSections(metricSections, detail.id, appearance, currentY);
+    const rendered = renderMetricSections(metricSections, detail.id, appearance, currentY, options?.accentColor);
     markup.push(...rendered.markup);
     currentY = rendered.contentBottomY;
   }
@@ -256,7 +258,7 @@ export function buildProviderDetailMarkdown(
     markup.push(buildSectionDivider(getSectionDividerY(currentY), palette.dividerStroke));
     currentY = getSectionTitleY(currentY);
 
-    const rendered = renderStandaloneSection(section, detail.id, appearance, currentY);
+    const rendered = renderStandaloneSection(section, detail.id, appearance, currentY, options?.accentColor);
     markup.push(...rendered.markup);
     currentY = rendered.contentBottomY;
   }

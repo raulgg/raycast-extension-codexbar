@@ -137,6 +137,29 @@ describe("provider markdown", () => {
     expect(lightMarkdown).not.toBe(darkMarkdown);
   });
 
+  it("paints usage meters with a Provider accent color", () => {
+    const detail = {
+      id: "grok",
+      name: "Grok",
+      sections: [
+        {
+          kind: "usage" as const,
+          title: "Primary" as const,
+          displayTitle: "Credits",
+          remainingPercent: 40,
+        },
+      ],
+    };
+
+    const lightSvg = extractSvgMarkup(buildProviderDetailMarkdown(detail, "light", { accentColor: "#000000" }))[0];
+    const darkSvg = extractSvgMarkup(buildProviderDetailMarkdown(detail, "dark", { accentColor: "#000000" }))[0];
+
+    expect(lightSvg).toContain('fill="#000000"');
+    expect(lightSvg).not.toContain('fill="#10A37F"');
+    expect(darkSvg).toContain('fill="#333333"');
+    expect(darkSvg).not.toContain('fill="#40B599"');
+  });
+
   it("uses explicit display titles for usage sections", () => {
     const markdown = buildProviderDetailMarkdown(
       {

@@ -86,7 +86,11 @@ A Provider the user has enabled in their CodexBar config. The extension shows ex
 _Avoid_: Enabled provider, active provider
 
 **Provider config**:
-The CodexBar config file (`~/.codexbar/config.json`), owned by the CodexBar app, listing which Providers are enabled and in what order. The extension reads and reorders it but treats the app as the owner.
+The CodexBar config file (`~/.codexbar/config.json`), owned by the CodexBar app. It lists which Providers are enabled, their order, and any accent color the user has set. The extension reads that file, paints usage meters from the accent color, and writes Provider order back to it.
+
+**Accent color**:
+A user override of a Provider's shipped brand color, stored on that Provider in the Provider config. When it is set, the extension paints that Provider's usage meters with it. When it is absent, the shipped brand color is used.
+_Avoid_: theme color, custom color
 
 **Source**:
 How the CodexBar CLI acquires a Provider's usage — API, browser session (web), OAuth, local file, or CLI. The extension forwards the Provider's shared-config source and requests the upstream GUI-parity fetch profile when the installed CLI supports it. (Not currently surfaced — the Source row lived in the now-removed General section.)
