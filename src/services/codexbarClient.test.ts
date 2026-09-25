@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { listAvailableProvidersMock, setProviderEnabledMock, fetchProviderDetailMock } = vi.hoisted(() => ({
+const { listAvailableProvidersMock, setProviderEnabledMock, fetchUsageMock } = vi.hoisted(() => ({
   listAvailableProvidersMock: vi.fn(async () => []),
   setProviderEnabledMock: vi.fn(async () => undefined),
-  fetchProviderDetailMock: vi.fn(async () => ({ id: "codex", name: "Codex", fetchedAt: "now", sections: [] })),
+  fetchUsageMock: vi.fn(async () => ({ provider: "codex" })),
 }));
 
 vi.mock("../lib/providerConfig", async (importOriginal) => ({
@@ -14,7 +14,7 @@ vi.mock("../lib/providerConfig", async (importOriginal) => ({
 
 vi.mock("../cli/fetch", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../cli/fetch")>()),
-  fetchProviderDetail: fetchProviderDetailMock,
+  fetchUsage: fetchUsageMock,
 }));
 
 import type { ResolvedCodexBarBinary } from "../cli/binary";
@@ -32,12 +32,12 @@ describe("createCodexBarClient", () => {
 
     await client.listAvailableProviders();
     await client.setProviderEnabled("groqcloud", true);
-    await client.fetchProviderDetail("codex", { mode: "force", interaction: "user" });
+    await client.fetchUsage("codex", { mode: "force", interaction: "user" });
 
     expect(client.binary).toBe(binary);
     expect(listAvailableProvidersMock).toHaveBeenCalledWith(binary);
     expect(setProviderEnabledMock).toHaveBeenCalledWith(binary, "groqcloud", true);
-    expect(fetchProviderDetailMock).toHaveBeenCalledWith(binary, "codex", { mode: "force", interaction: "user" });
+    expect(fetchUsageMock).toHaveBeenCalledWith(binary, "codex", { mode: "force", interaction: "user" });
   });
 });
 
@@ -51,15 +51,10 @@ describe("createMockCodexBarClient", () => {
     expect((await client.readConfiguredProviders()).length).toBeGreaterThan(0);
   });
 
-  it("normalizes fixture payloads and carries the requested source and status", async () => {
+  it("returns the raw fixture payload for a provider", async () => {
     const client = createMockCodexBarClient("default");
 
-    const detail = await client.fetchProviderDetail("codex", { source: "cli" });
-    expect(detail).toMatchObject({ id: "codex", requestedSource: "cli" });
-    expect(detail.sections.length).toBeGreaterThan(0);
-
-    const withStatus = await client.fetchProviderUsageWithStatus("codex");
-    expect(withStatus.detail.requestedSource).toBe("auto");
-    expect(withStatus.status).toBeDefined();
+    expect(await client.fetchUsage("codex")).toMatchObject({ provider: "codex" });
+    await expect(client.fetchUsage("not-a-provider")).rejects.toThrow(/Unknown mock provider id/);
   });
 });
