@@ -1,6 +1,5 @@
 import { useCachedPromise } from "@raycast/utils";
-import type { ResolvedCodexBarBinary } from "../cli/binary";
-import { listAvailableProviders } from "../lib/providerConfig";
+import type { CodexBarClient } from "../services/codexbarClient";
 import type { AvailableProvider } from "../providers/types";
 
 type UseAvailableProvidersResult = {
@@ -10,16 +9,10 @@ type UseAvailableProvidersResult = {
   revalidate: () => Promise<void>;
 };
 
-export function useAvailableProviders(binary?: ResolvedCodexBarBinary): UseAvailableProvidersResult {
+export function useAvailableProviders(client?: CodexBarClient): UseAvailableProvidersResult {
   const { data, error, isLoading, revalidate } = useCachedPromise(
-    async (resolvedBinary?: ResolvedCodexBarBinary) => {
-      if (!resolvedBinary) {
-        return [];
-      }
-
-      return listAvailableProviders(resolvedBinary);
-    },
-    [binary],
+    async (resolvedClient?: CodexBarClient) => (resolvedClient ? resolvedClient.listAvailableProviders() : []),
+    [client],
     {
       keepPreviousData: true,
     },

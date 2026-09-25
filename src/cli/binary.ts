@@ -1,7 +1,6 @@
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { delimiter, join } from "node:path";
-import { isCodexBarMockMode } from "../mocks/codexbar";
 import { isRecord } from "../usage/json";
 import { CodexBarCliError, classifyExecFailure, execFileAsync, executeCodexBar, buildCodexBarProcessEnv } from "./exec";
 import { buildInstallHelp, detectHomebrew, findCodexBarApp, type InstallHelpState } from "./install";
@@ -145,17 +144,6 @@ export async function smokeTestCodexBar(binary: ResolvedCodexBarBinary): Promise
 export async function getCodexBarAvailability(
   keychainAccessPolicy: KeychainAccessPolicy,
 ): Promise<CodexBarAvailability> {
-  if (isCodexBarMockMode()) {
-    return {
-      status: "available",
-      binary: {
-        command: "codexbar-mock",
-        source: "mock",
-        keychainAccessPolicy,
-      },
-    };
-  }
-
   try {
     const binary = await resolveCodexBarBinary(keychainAccessPolicy);
     await smokeTestCodexBar(binary);

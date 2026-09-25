@@ -16,8 +16,8 @@ import { useMoveProvider } from "../hooks/useMoveProvider";
 export function UsageList() {
   const [selectedProviderId, setSelectedProviderId] = useState<string>();
   const availability = useCodexBarAvailability();
-  const binary = availability.availability?.status === "available" ? availability.availability.binary : undefined;
-  const configuredProviders = useUsageOverview(binary);
+  const client = availability.availability?.status === "available" ? availability.availability.client : undefined;
+  const configuredProviders = useUsageOverview(client);
 
   useEffect(() => {
     const providers = configuredProviders.providers;
@@ -34,7 +34,7 @@ export function UsageList() {
     [configuredProviders.providers, selectedProviderId],
   );
 
-  const providerDetails = useProviderDetails(binary, configuredProviders.providers, selectedProviderId);
+  const providerDetails = useProviderDetails(client, configuredProviders.providers, selectedProviderId);
   const { isLoading: isProviderDetailLoading, refreshProvider, results: providerDetailResults } = providerDetails;
   const statusProviderIds = useMemo(
     () => configuredProviders.providers.map((provider) => provider.id),
@@ -57,6 +57,7 @@ export function UsageList() {
   }, [refreshProvider, selectedProviderId]);
 
   const moveProvider = useMoveProvider(
+    client,
     useCallback(
       (providerId: string) => {
         setSelectedProviderId(providerId);
@@ -120,9 +121,9 @@ export function UsageList() {
           description="Enable a provider from Manage Providers, or in CodexBar, and reopen this command."
           icon={Icon.Circle}
           actions={
-            binary ? (
+            client ? (
               <ActionPanel>
-                <ManageProvidersAction binary={binary} onProvidersChanged={configuredProviders.revalidate} />
+                <ManageProvidersAction client={client} onProvidersChanged={configuredProviders.revalidate} />
               </ActionPanel>
             ) : undefined
           }
@@ -142,7 +143,7 @@ export function UsageList() {
             status={providerStatuses[provider.id]}
             isSelected={provider.id === selectedProviderId}
             relativeTimeNow={provider.id === selectedProviderId ? relativeTimeNow : undefined}
-            binary={binary}
+            client={client}
             onProvidersChanged={configuredProviders.revalidate}
             onRefresh={() => refreshProvider(provider.id, { force: true })}
             onMoveUp={index > 0 ? () => void moveProvider(provider.id, "up") : undefined}

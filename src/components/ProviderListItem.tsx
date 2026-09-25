@@ -4,7 +4,7 @@ import type { ConfiguredProvider, ProviderDetailData, ProviderStatus, ProviderUs
 import { formatPercentRemaining } from "../lib/presentation";
 import { buildTwoBarAccessoryIcon } from "../lib/twoBarAccessoryIcon";
 import { getProviderMetadata, resolveDashboardUrl } from "../providers/registry";
-import type { ResolvedCodexBarBinary } from "../cli/binary";
+import type { CodexBarClient } from "../services/codexbarClient";
 import { ManageProvidersAction } from "./ManageProvidersAction";
 import { moveProviderActions } from "./moveProviderActions";
 import { ProviderDetail } from "./ProviderDetail";
@@ -19,7 +19,7 @@ type ProviderListItemProps = {
   status?: ProviderStatus;
   isSelected: boolean;
   relativeTimeNow?: number;
-  binary?: ResolvedCodexBarBinary;
+  client?: CodexBarClient;
   onRefresh: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -35,13 +35,13 @@ export function ProviderListItem({
   status,
   isSelected,
   relativeTimeNow,
-  binary,
+  client,
   onRefresh,
   onMoveUp,
   onMoveDown,
   onProvidersChanged,
 }: ProviderListItemProps) {
-  const fetchCommand = buildProviderFetchCommand(provider.id, binary?.keychainAccessPolicy ?? "default");
+  const fetchCommand = buildProviderFetchCommand(provider.id, client?.binary.keychainAccessPolicy ?? "default");
   const statusPageUrl = getProviderMetadata(provider.id).statusPageUrl ?? status?.url;
   // When detail (and thus planText) hasn't loaded yet, this falls back to the
   // plain dashboardUrl; for Claude subscription plans it resolves to claude.ai.
@@ -91,7 +91,7 @@ export function ProviderListItem({
             />
           ) : null}
           {moveProviderActions(onMoveUp, onMoveDown)}
-          <ManageProvidersAction binary={binary} onProvidersChanged={onProvidersChanged} />
+          <ManageProvidersAction client={client} onProvidersChanged={onProvidersChanged} />
           <Action.CopyToClipboard
             title="Copy CLI Command"
             content={fetchCommand}

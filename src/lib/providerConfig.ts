@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { getProviderMetadata, isKnownProviderId, isProviderSelectorId, resolveProviderId } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, ProviderSourceMode } from "../providers/types";
-import { getMockAvailableProviders, isCodexBarMockMode } from "../mocks/codexbar";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { CodexBarCliError, executeCodexBar } from "../cli/exec";
 
@@ -53,10 +52,6 @@ export async function readConfiguredProvidersFromConfig(): Promise<ConfiguredPro
 
 // CLI `config providers` + registry join. Throws for old CLIs (callers degrade).
 export async function listAvailableProviders(binary: ResolvedCodexBarBinary): Promise<AvailableProvider[]> {
-  if (binary.source === "mock" || isCodexBarMockMode()) {
-    return getMockAvailableProviders();
-  }
-
   const payload = await executeCodexBar(binary, ["config", "providers", "--format", "json", "--json-only"]);
   const providers = normalizeAvailableProviders(payload);
   return orderEnabledProvidersByConfig(providers, await readConfiguredProviderOrder());
@@ -141,10 +136,6 @@ export async function setProviderEnabled(
   const normalizedProvider = cliProvider.trim();
   if (!normalizedProvider) {
     throw new CodexBarCliError("execution", "Cannot toggle a provider without an id.");
-  }
-
-  if (binary.source === "mock" || isCodexBarMockMode()) {
-    return;
   }
 
   await executeCodexBar(binary, [
