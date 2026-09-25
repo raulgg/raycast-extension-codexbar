@@ -206,14 +206,20 @@ describe("provider registry", () => {
   it("paints a valid accent over the catalog color and ignores anything else", () => {
     expect(getProviderProgressPalette("grok", "#000000")).toEqual({
       lightFill: "#000000",
-      darkFill: "#333333",
+      darkFill: "#000000",
     });
     expect(getProviderProgressPalette("grok", "  #000000 ")).toEqual({
       lightFill: "#000000",
-      darkFill: "#333333",
+      darkFill: "#000000",
     });
-    expect(getProviderProgressPalette("grok", "#fff")).toEqual(getProviderProgressPalette("grok"));
-    expect(getProviderProgressPalette("grok", "not a color")).toEqual(getProviderProgressPalette("grok"));
+    expect(getProviderProgressPalette("grok", "#fff")).toEqual({
+      lightFill: "#10A37F",
+      darkFill: "#10A37F",
+    });
+    expect(getProviderProgressPalette("grok", "not a color")).toEqual({
+      lightFill: "#10A37F",
+      darkFill: "#10A37F",
+    });
   });
 
   it("returns friendly metadata for known providers", () => {
@@ -228,7 +234,7 @@ describe("provider registry", () => {
       brandColor: "#6467F2",
       progressPalette: {
         lightFill: "#6467F2",
-        darkFill: "#8385F5",
+        darkFill: "#6467F2",
       },
       usageSectionLabels: { primary: "Credits", secondary: "Usage" },
       dashboardUrl: "https://openrouter.ai/activity",
@@ -248,7 +254,7 @@ describe("provider registry", () => {
       brandColor: "#FF6A00",
       progressPalette: {
         lightFill: "#FF6A00",
-        darkFill: "#FF8833",
+        darkFill: "#FF6A00",
       },
       usageSectionLabels: { primary: "5-hour", secondary: "Weekly", tertiary: "Monthly" },
       dashboardUrl: "https://modelstudio.console.alibabacloud.com/ap-southeast-1/?tab=coding-plan#/efm/coding_plan",
@@ -268,7 +274,7 @@ describe("provider registry", () => {
       brandColor: "#3B82F6",
       progressPalette: {
         lightFill: "#3B82F6",
-        darkFill: "#629BF8",
+        darkFill: "#3B82F6",
       },
       usageSectionLabels: { primary: "5-hour", secondary: "Weekly", tertiary: "Monthly" },
       dashboardUrl: "https://opencode.ai/auth",
@@ -287,10 +293,15 @@ describe("provider registry", () => {
     }
   });
 
-  it("lifts a white brand off a light background and leaves its dark fill white", () => {
-    expect(getProviderMetadata("vercel").progressPalette.darkFill).toBe("#FFFFFF");
-    expect(getProviderMetadata("vercel").progressPalette.lightFill).not.toBe("#FFFFFF");
-    expect(getProviderMetadata("alibaba").progressPalette.lightFill).toBe("#FF6A00");
+  it("paints catalog brand colors unchanged in both appearances", () => {
+    expect(getProviderMetadata("vercel").progressPalette).toEqual({
+      lightFill: "#FFFFFF",
+      darkFill: "#FFFFFF",
+    });
+    expect(getProviderMetadata("replicate").progressPalette).toEqual({
+      lightFill: "#000000",
+      darkFill: "#000000",
+    });
   });
 
   it("falls back to a title-cased label for unknown providers", () => {
@@ -301,7 +312,7 @@ describe("provider registry", () => {
       brandColor: "#22B8CF",
       progressPalette: {
         lightFill: "#22B8CF",
-        darkFill: "#4EC8DD",
+        darkFill: "#22B8CF",
       },
       usageSectionLabels: { primary: "Primary", secondary: "Secondary", tertiary: "Tertiary" },
     });

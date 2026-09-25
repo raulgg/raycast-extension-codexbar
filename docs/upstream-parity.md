@@ -71,12 +71,11 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 | 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
-Everything else the extension renders is derived, not tracked. The dark-mode progress fill is
-`brandColor` mixed 20% toward white (`buildProgressPalette`). A Provider config `accentColor`
-replaces `brandColor` before that mix. The catalog value stays the shipped default that
-`upstream:check` compares. A fill that is effectively the appearance background (under 1.2:1) is
-mixed away from it until the contrast reaches 3:1, so a white brand stays visible in light mode.
-Brighter catalog colors are left alone. Don't hand-edit derived values.
+Everything else the extension renders is derived, not tracked. Quota bars and usage meters use
+`brandColor` in both appearances (`buildProgressPalette`). A Provider config `accentColor`
+replaces `brandColor`. The menu bar uses `UsageMenuCardView.Model.progressColor`
+(`ProviderAccentPalette.color`). The catalog value stays the shipped default that `upstream:check`
+compares. Don't hand-edit derived values.
 
 ## Hidden usage items
 

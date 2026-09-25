@@ -4,7 +4,7 @@
 
 - Usage Overview keeps working after Raycast restores its cached CodexBar CLI check
 - Extension icon matches the official CodexBar app icon
-- Usage meters and list quota bars use a Provider's accent color from `~/.codexbar/config.json` when the CodexBar app has customized it
+- Usage meters and list quota bars use a Provider's accent color from `~/.codexbar/config.json`, or its catalog brand color, in both light and dark mode
 - Antigravity detail hides Gemini Models and Claude and GPT when quota-summary extras are present
 - Refresh Usage Cache runs every 10 minutes and requests a live serve copy (`refresh=true`)
 - Usage Overview does not start serve or enable the background command. If serve is down it uses a one-shot CLI fetch
@@ -14,7 +14,6 @@
 - Antigravity session pacing follows a 300-minute window, matching CodexBar v0.66.0
 - Mistral, Qwen Cloud, and StepFun usage-bar titles follow the CodexBar app's rate-window labelers
 - Helmcode accounts in the NaN Builders organization open `https://cloud.nan.builders/dashboard`
-- A white brand color still paints a visible usage meter in light mode
 - Grok weekly credits window shows the same pace marker as the CodexBar app
 - Pace ticks use the CodexBar app's red (deficit) and green (reserve) colors, and hide when a window is on pace
 - Pace ticks punch a gap through the usage meter so the color stays visible on similar brand fills

@@ -108,7 +108,7 @@ describe("ProviderDetail", () => {
 
     const svg = extractFirstSvg(element.props.markdown);
     expect(svg).toContain('fill="#F3F4F6"');
-    expect(svg).toContain('fill="#6DB5C0"');
+    expect(svg).toContain('fill="#49A3B0"');
     expect(svg).toContain(">Session 53% left<");
   });
 
