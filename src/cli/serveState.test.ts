@@ -5,7 +5,7 @@ import {
   codexBarServeRuntimeMatches,
   readCodexBarServeRuntime,
   recordCodexBarServeRuntime,
-} from "./codexBarServeState";
+} from "./serveState";
 
 describe("CodexBar serve runtime state", () => {
   beforeEach(() => {

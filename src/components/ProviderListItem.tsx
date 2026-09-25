@@ -4,11 +4,11 @@ import type { ConfiguredProvider, ProviderDetailData, ProviderStatus, ProviderUs
 import { formatPercentRemaining } from "../lib/presentation";
 import { buildTwoBarAccessoryIcon } from "../lib/twoBarAccessoryIcon";
 import { getProviderMetadata, resolveDashboardUrl } from "../providers/registry";
-import type { ResolvedCodexBarBinary } from "../lib/codexbar";
+import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { ManageProvidersAction } from "./ManageProvidersAction";
 import { moveProviderActions } from "./moveProviderActions";
 import { ProviderDetail } from "./ProviderDetail";
-import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV, type KeychainAccessPolicy } from "../lib/keychainAccessPolicy";
+import { CODEXBAR_DISABLE_KEYCHAIN_ACCESS_ENV, type KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 
 type ProviderListItemProps = {
   provider: ConfiguredProvider;
