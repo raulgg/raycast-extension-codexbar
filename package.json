@@ -84,6 +84,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "upstream:sync-icons": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/sync-provider-icons.mjs",
     "upstream:check": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-upstream.mjs",
+    "upstream:prune": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prune-removed-providers.mjs",
     "upstream:bump": "node scripts/bump-upstream.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

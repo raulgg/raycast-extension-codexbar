@@ -210,15 +210,16 @@ Every catalog `iconSlug` maps to `assets/provider-icons/<slug>.svg`, harvested f
 `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg`.
 
 - `npm run upstream:sync-icons` fetches, optimizes with SVGO, normalizes the root to
-  `width/height="100"` while keeping `viewBox`, and writes any changed icons.
-- `npm run upstream:sync-icons -- --check` does the same but writes nothing and exits non-zero if an
-  icon is out of date or a local SVG has no catalog `iconSlug` pointing at it.
-
-The script writes and compares icons. It does not delete them. When `upstream:check` reports a
-provider with no upstream descriptor, remove that provider and delete every leftover that still
-names it: the catalog entry, `PROVIDER_ID_ALIASES`, mock builders in `src/cli/mockPayloads.ts`,
-`DYNAMIC_SLOT_TITLES` and pace rows, tests, and `assets/provider-icons/<slug>.svg`. `--check`
-exits non-zero on that SVG until the file is gone.
+  `width/height="100"` while keeping `viewBox`, writes changed icons, and deletes a local SVG whose
+  slug is no longer in the catalog.
+- `npm run upstream:sync-icons -- --check` does the same comparison but writes nothing and exits
+  non-zero if an icon is out of date or a local SVG has no catalog `iconSlug` pointing at it.
+- `npm run upstream:prune` removes every catalog provider that no longer has an upstream descriptor.
+  It deletes the catalog entry, matching `PROVIDER_ID_ALIASES`, mock builders, pace rows, dynamic
+  titles, allowlist entries, the `providerRules/<id>` module and the production code that calls it,
+  tests that only mention that provider, and `assets/provider-icons/<slug>.svg`. A test that uses
+  the id as one sample among several is left in place and printed. `--check` reports the removals
+  and writes nothing.
 
 Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don't matter. The
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that
