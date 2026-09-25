@@ -11,7 +11,6 @@ export type ConfiguredProvider = {
   icon: Image.ImageLike;
   keywords?: string[];
   source?: ProviderSourceMode;
-  /** Canonical `#RRGGBB` from the Provider config, when the user set one. */
   accentColor?: string;
 };
 

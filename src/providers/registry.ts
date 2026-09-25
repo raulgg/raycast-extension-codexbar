@@ -108,8 +108,6 @@ function buildProgressPalette(brandColor: string): ProviderProgressPalette {
   };
 }
 
-// Matches CodexBar `ProviderColor.init(hexString:)`: optional `#`, exactly six hex digits.
-// Anything else is omitted so a hand-edited config falls back to the shipped brand color.
 export function parseAccentColor(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
