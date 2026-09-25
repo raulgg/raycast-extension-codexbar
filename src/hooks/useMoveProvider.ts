@@ -1,9 +1,11 @@
 import { showToast, Toast } from "@raycast/api";
 import { useCallback, useRef } from "react";
-import { moveConfiguredProviderInConfig, type ProviderMoveDirection } from "../lib/providerConfig";
+import type { ProviderMoveDirection } from "../lib/providerConfig";
+import type { CodexBarClient } from "../services/codexbarClient";
 
 // Serializes config writes via busyRef so concurrent toggles/reorders don't clobber.
 export function useMoveProvider(
+  client: CodexBarClient | undefined,
   onMoved: (providerId: string) => void,
   busyRef?: { current: boolean },
 ): (providerId: string, direction: ProviderMoveDirection) => Promise<void> {
@@ -12,13 +14,13 @@ export function useMoveProvider(
 
   return useCallback(
     async (providerId: string, direction: ProviderMoveDirection) => {
-      if (activeBusyRef.current) {
+      if (!client || activeBusyRef.current) {
         return;
       }
       activeBusyRef.current = true;
 
       try {
-        const didMove = await moveConfiguredProviderInConfig(providerId, direction);
+        const didMove = await client.moveConfiguredProvider(providerId, direction);
         if (!didMove) {
           return;
         }
@@ -34,6 +36,6 @@ export function useMoveProvider(
         activeBusyRef.current = false;
       }
     },
-    [onMoved, activeBusyRef],
+    [client, onMoved, activeBusyRef],
   );
 }

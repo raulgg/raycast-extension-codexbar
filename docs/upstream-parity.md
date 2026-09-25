@@ -310,7 +310,7 @@ When the check fails:
 2. `computeSlotUsagePacing` already evaluates the table. Add a gating test in
    [`normalize.test.ts`](../src/providers/normalize.test.ts) for the new rule.
 3. Give the mock a window that actually satisfies it (reset inside the duration, enough elapsed
-   for `idealUsedPercentByNow ≥ 3%`). See [`mocks/codexbar.ts`](../src/mocks/codexbar.ts).
+   for `idealUsedPercentByNow ≥ 3%`). See [`cli/mockPayloads.ts`](../src/cli/mockPayloads.ts).
 
 Do not infer "has a 5-hour primary" from the payload. OpenCode Go is the reminder. The CLI lane
 would session-pace that bar. The GUI `sessionPaceWindowRule` would not.

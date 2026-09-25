@@ -2,21 +2,20 @@ import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@rayca
 import { useCallback, useRef, useState } from "react";
 import { useAvailableProviders } from "../hooks/useAvailableProviders";
 import { useMoveProvider } from "../hooks/useMoveProvider";
-import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { CodexBarCliError } from "../cli/exec";
-import { setProviderEnabled } from "../lib/providerConfig";
+import type { CodexBarClient } from "../services/codexbarClient";
 import type { AvailableProvider } from "../providers/types";
 import { moveProviderActions } from "./moveProviderActions";
 
 const NOT_IN_OVERVIEW_HINT = "Not shown in the Raycast Usage Overview yet";
 
 type ManageProvidersProps = {
-  binary: ResolvedCodexBarBinary;
+  client: CodexBarClient;
   onProvidersChanged?: () => void;
 };
 
-export function ManageProviders({ binary, onProvidersChanged }: ManageProvidersProps) {
-  const available = useAvailableProviders(binary);
+export function ManageProviders({ client, onProvidersChanged }: ManageProvidersProps) {
+  const available = useAvailableProviders(client);
   const [pendingProviderId, setPendingProviderId] = useState<string>();
   // Serialize read-modify-write config ops across toggles + reorders.
   const isMutatingRef = useRef(false);
@@ -31,7 +30,7 @@ export function ManageProviders({ binary, onProvidersChanged }: ManageProvidersP
       const nextEnabled = !provider.enabled;
       setPendingProviderId(provider.id);
       try {
-        await setProviderEnabled(binary, provider.cliProvider, nextEnabled);
+        await client.setProviderEnabled(provider.cliProvider, nextEnabled);
         await showToast({ style: Toast.Style.Success, ...buildToggleSuccessToast(provider, nextEnabled) });
         await available.revalidate();
         onProvidersChanged?.();
@@ -46,10 +45,11 @@ export function ManageProviders({ binary, onProvidersChanged }: ManageProvidersP
         isMutatingRef.current = false;
       }
     },
-    [available, binary, onProvidersChanged],
+    [available, client, onProvidersChanged],
   );
 
   const moveProvider = useMoveProvider(
+    client,
     useCallback(() => {
       void available.revalidate();
       onProvidersChanged?.();
