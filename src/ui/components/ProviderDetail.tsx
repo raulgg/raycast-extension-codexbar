@@ -31,6 +31,7 @@ export function ProviderDetail({
         subtitle: buildDetailSubtitle(detail, isLoading, cacheStatus, relativeTimeNow),
         now: relativeTimeNow,
         status,
+        accentColor: provider.accentColor,
       }).trim()
     : undefined;
   const markdown =

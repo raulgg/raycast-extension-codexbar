@@ -402,6 +402,25 @@ describe("ProviderListItem", () => {
     });
   });
 
+  it("paints quota bars with the Provider accent color", () => {
+    const accessories = buildProviderListItemAccessories(
+      "grok",
+      makeDetail(82, 41),
+      undefined,
+      false,
+      undefined,
+      "#000000",
+    );
+
+    expectProgressAccessories(accessories, "grok", {
+      primary: 82,
+      secondary: 41,
+      text: "82% • 41%",
+      tooltip: "Session: 82% remaining • Weekly: 41% remaining",
+      accentColor: "#000000",
+    });
+  });
+
   it("keeps accessories usage-only during an incident", () => {
     const accessories = buildProviderListItemAccessories("codex", makeDetail(82, 41), undefined, false);
 
@@ -521,6 +540,7 @@ function expectProgressAccessories(
     secondaryMissing?: boolean;
     text: string;
     tooltip: string;
+    accentColor?: string;
   },
 ): void {
   expect(accessories).toHaveLength(2);
@@ -539,7 +559,7 @@ function expectProgressAccessories(
 
   const lightSvg = decodeSvgDataUri(icon?.source?.light);
   const darkSvg = decodeSvgDataUri(icon?.source?.dark);
-  const palette = getProviderProgressPalette(providerId);
+  const palette = getProviderProgressPalette(providerId, expected.accentColor);
 
   expect(lightSvg).toContain('viewBox="0 0 36 36"');
   expect(lightSvg).toContain(`fill="${palette.lightFill}"`);

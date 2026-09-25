@@ -1,7 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getProviderMetadata, isKnownProviderId, isProviderSelectorId, resolveProviderId } from "../providers/registry";
+import {
+  getProviderMetadata,
+  isKnownProviderId,
+  isProviderSelectorId,
+  parseAccentColor,
+  resolveProviderId,
+} from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, ProviderSourceMode } from "../usage/types";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
 import { CodexBarCliError, executeCodexBar } from "../cli/exec";
@@ -18,6 +24,7 @@ type CodexBarConfigProvider = {
   id?: string;
   enabled?: boolean;
   source?: string;
+  accentColor?: string;
 };
 
 // Entry from `codexbar config providers --json`.
@@ -204,7 +211,11 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
       (provider): provider is CodexBarConfigProvider & { id: string; enabled: true } =>
         typeof provider.id === "string" && provider.id.trim().length > 0 && provider.enabled === true,
     )
-    .map((provider) => ({ id: provider.id.trim(), source: normalizeProviderSource(provider.source) }))
+    .map((provider) => ({
+      id: provider.id.trim(),
+      source: normalizeProviderSource(provider.source),
+      accentColor: parseAccentColor(provider.accentColor),
+    }))
     .filter(({ id }) => !isProviderSelectorId(id) && isKnownProviderId(id))
     .filter(({ id }) => {
       const canonicalId = resolveProviderId(id);
@@ -215,7 +226,7 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
       seenProviderIds.add(canonicalId);
       return true;
     })
-    .map(({ id: providerId, source }) => {
+    .map(({ id: providerId, source, accentColor }) => {
       const metadata = getProviderMetadata(providerId);
       return {
         id: metadata.id,
@@ -223,6 +234,7 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
         icon: metadata.icon,
         keywords: [metadata.id],
         ...(source ? { source } : {}),
+        ...(accentColor ? { accentColor } : {}),
       };
     });
 }

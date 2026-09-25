@@ -71,7 +71,8 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 
 Everything else the extension renders is derived, not tracked. The dark-mode progress fill is
 `brandColor` mixed 20% toward white (`buildProgressPalette`), so it follows the brand color
-automatically. Don't hand-edit derived values.
+automatically. A Provider config `accentColor` replaces `brandColor` before that mix. The catalog
+value stays the shipped default that `upstream:check` compares. Don't hand-edit derived values.
 
 ---
 
