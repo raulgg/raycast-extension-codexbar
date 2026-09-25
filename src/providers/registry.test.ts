@@ -56,6 +56,12 @@ describe("provider registry", () => {
     expect(resolveProviderId("bob")).toBe("ibmbob");
     expect(resolveProviderId("sub-2-api")).toBe("sub2api");
     expect(resolveProviderId("kiro-cli")).toBe("kiro");
+    expect(resolveProviderId("hf")).toBe("huggingface");
+    expect(resolveProviderId("gk")).toBe("gitkraken");
+    expect(resolveProviderId("muse-code")).toBe("muse");
+    expect(resolveProviderId("hermes")).toBe("nous");
+    expect(resolveProviderId("r8")).toBe("replicate");
+    expect(resolveProviderId("helm-code")).toBe("helmcode");
   });
 
   it("uses harvested upstream metadata for new providers", () => {
@@ -73,6 +79,18 @@ describe("provider registry", () => {
       name: "Alibaba Token Plan",
       brandColor: "#FF6A00",
       usageSectionLabels: { primary: "Credits", secondary: "Usage" },
+    });
+    expect(getProviderMetadata("huggingface")).toMatchObject({
+      name: "Hugging Face",
+      brandColor: "#FFD21E",
+      usageSectionLabels: { primary: "Inference", secondary: "ZeroGPU" },
+      dashboardUrl: "https://huggingface.co/settings/billing",
+      statusPageUrl: "https://status.huggingface.co",
+    });
+    expect(getProviderMetadata("llmman")).toMatchObject({
+      name: "llmman",
+      brandColor: "#6CC5B0",
+      dashboardUrl: "http://127.0.0.1:17434",
     });
     expect(getProviderMetadata("devin")).toMatchObject({
       name: "Devin",

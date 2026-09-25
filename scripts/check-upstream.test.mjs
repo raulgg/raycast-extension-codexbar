@@ -92,6 +92,7 @@ describe("parseDescriptorMetadata", () => {
       statusLinkURL: undefined,
       brandColorHex: "#49A3B0",
       definesDynamicPrimaryLabel: false,
+      definesRateWindowLabeler: false,
     });
   });
 
@@ -133,6 +134,14 @@ describe("parseDescriptorMetadata", () => {
       descriptorFixture({ extra: "public static func primaryLabel(window: RateWindow?) -> String? { nil }" }),
     );
     expect(metadata.definesDynamicPrimaryLabel).toBe(true);
+    expect(metadata.definesRateWindowLabeler).toBe(false);
+  });
+
+  it("detects rateWindowLabeler overrides", () => {
+    const metadata = parseDescriptorMetadata(
+      descriptorFixture({ extra: "let presentation = rateWindowLabeler: { _, _, _ in }" }),
+    );
+    expect(metadata.definesRateWindowLabeler).toBe(true);
   });
 
   it("rejects files without exactly one ProviderMetadata literal", () => {
@@ -589,6 +598,21 @@ describe("checkUpstream", () => {
       { ...TOY_POLICY, catalog: { other: TOY_CATALOG.toy } },
     );
     expect(result.problems.some((problem) => problem.includes("toy: upstream provider missing"))).toBe(true);
+  });
+
+  it("fails when a descriptor rateWindowLabeler is not ported", async () => {
+    const result = await checkUpstream(
+      fakeSource({
+        "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift": descriptorFixture({
+          id: "toy",
+          extra: "let labeler = rateWindowLabeler: { _, _, _ in }",
+        }),
+        "Sources/CodexBar/MenuDescriptor.swift": LABEL_RENDERER,
+        "Sources/CodexBar/MenuCardView.swift": PACE_RENDERER,
+      }),
+      TOY_POLICY,
+    );
+    expect(result.problems.some((problem) => problem.includes("toy: upstream renderers apply a dynamic"))).toBe(true);
   });
 
   it("fails when descriptor pace: drifts from the imported table", async () => {

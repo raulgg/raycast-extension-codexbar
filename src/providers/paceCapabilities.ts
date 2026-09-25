@@ -6,7 +6,6 @@ export const MONTHLY_WINDOW_SENTINEL_MINUTES = 30 * 24 * 60;
 
 export type PaceCustomId =
   | "ampRenewsInDescription"
-  | "antigravitySession"
   | "claudeSessionAlways"
   | "codexSessionRejectsWeeklyMonthly"
   | "grokWeeklyCredits"
@@ -113,7 +112,6 @@ function grokWeeklyCredits(window: PaceWindow, now: number): boolean {
 export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now: number) => boolean> = {
   ampRenewsInDescription: (window) =>
     window.windowMinutes !== undefined && (window.resetDescription?.startsWith("renews in ") ?? false),
-  antigravitySession: (window) => window.windowMinutes === undefined || window.windowMinutes === 300,
   claudeSessionAlways: () => true,
   codexSessionRejectsWeeklyMonthly: (window) => {
     if (window.windowMinutes === undefined) {
@@ -316,7 +314,7 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
   antigravity: {
     resetWindowPace: { type: "unsupported" },
     inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "custom", id: "antigravitySession" },
+    sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
   },
   claude: {
     resetWindowPace: { type: "unsupported" },
@@ -379,7 +377,10 @@ type DynamicTitleOptions = {
   resetsAt?: string;
   resetDescription?: string;
   factoryHasTertiary: boolean;
+  hasPrimary: boolean;
   hasSecondary: boolean;
+  // Object presence, distinct from hasSecondary (a secondary that will render).
+  hasSecondaryWindow: boolean;
   hasAgentDetailRow: boolean;
   now: number;
 };
@@ -441,13 +442,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     return undefined;
   },
-  crof(slotTitle, options) {
-    if (slotTitle !== "Primary") {
-      return undefined;
-    }
-
-    return options.hasSecondary ? "Requests" : "Credits";
-  },
   amp(slotTitle, options) {
     if (slotTitle === "Primary" && options.hasAgentDetailRow) {
       return "Agent usage";
@@ -488,6 +482,30 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
   sub2api(slotTitle, options) {
     if (slotTitle === "Primary" && options.hasSecondary) {
       return "Daily quota";
+    }
+
+    return undefined;
+  },
+  // MistralProviderDescriptor rateWindowLabeler: a present primary window is "Included API".
+  mistral(slotTitle, options) {
+    if (slotTitle === "Primary" && options.hasPrimary) {
+      return "Included API";
+    }
+
+    return undefined;
+  },
+  // QwenCloudProviderDescriptor rateWindowLabeler.
+  qwencloud(slotTitle, options) {
+    if (slotTitle === "Primary" && options.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
+      return "Monthly";
+    }
+
+    return undefined;
+  },
+  // StepFunProviderDescriptor.rateWindowLabels: credit plans have a primary and no secondary window.
+  stepfun(slotTitle, options) {
+    if (slotTitle === "Primary" && options.hasPrimary && !options.hasSecondaryWindow) {
+      return "Credit";
     }
 
     return undefined;

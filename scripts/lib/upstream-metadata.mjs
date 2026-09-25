@@ -119,8 +119,11 @@ export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
     statusLinkURL: stringOrExpression("statusLinkURL"),
     brandColorHex: parseBrandColor(branding, fileName),
     // Descriptors that define a contextual label helper participate in dynamic
-    // relabelling even before any renderer references them.
+    // relabelling even before any renderer references them. rateWindowLabeler is
+    // the same kind of override when the menu card falls through to
+    // presentation.rateWindowLabels (Mistral, Qwen Cloud, StepFun).
     definesDynamicPrimaryLabel: /static func primaryLabel\(/.test(swiftSource),
+    definesRateWindowLabeler: /rateWindowLabeler\s*:/.test(swiftSource),
   };
 }
 

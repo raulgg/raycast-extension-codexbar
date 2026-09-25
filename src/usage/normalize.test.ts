@@ -288,18 +288,41 @@ describe("provider normalization", () => {
     ]);
   });
 
-  it("relabels crof's primary bar as Requests when a secondary window is present", () => {
+  it("relabels a present Mistral primary window as Included API", () => {
     const now = Date.parse("2026-03-23T10:30:00Z");
     const usageTitles = (usage: Record<string, unknown>) =>
-      normalizeProviderDetailPayload({ provider: "crof", usage }, "crof", now)
+      normalizeProviderDetailPayload({ provider: "mistral", usage }, "mistral", now)
         .sections.filter((section) => section.kind === "usage")
         .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
 
-    expect(usageTitles({ primary: { usedPercent: 10 } })).toEqual(["Credits"]);
+    expect(usageTitles({ primary: { usedPercent: 10 } })).toEqual(["Included API"]);
+    expect(usageTitles({})).toEqual([]);
+  });
+
+  it("relabels a 30-day Qwen Cloud primary as Monthly", () => {
+    const now = Date.parse("2026-03-23T10:30:00Z");
+    const usageTitles = (usage: Record<string, unknown>) =>
+      normalizeProviderDetailPayload({ provider: "qwencloud", usage }, "qwencloud", now)
+        .sections.filter((section) => section.kind === "usage")
+        .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
+
+    expect(usageTitles({ primary: { windowMinutes: 43_200, usedPercent: 10 } })).toEqual(["Monthly"]);
+    expect(usageTitles({ primary: { windowMinutes: 300, usedPercent: 10 } })).toEqual(["5-hour"]);
+  });
+
+  it("relabels a StepFun credit plan primary as Credit when no secondary window is present", () => {
+    const now = Date.parse("2026-03-23T10:30:00Z");
+    const usageTitles = (usage: Record<string, unknown>) =>
+      normalizeProviderDetailPayload({ provider: "stepfun", usage }, "stepfun", now)
+        .sections.filter((section) => section.kind === "usage")
+        .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
+
+    expect(usageTitles({ primary: { usedPercent: 10 } })).toEqual(["Credit"]);
     expect(usageTitles({ primary: { usedPercent: 10 }, secondary: { usedPercent: 20 } })).toEqual([
-      "Requests",
-      "Credits",
+      "5h Window",
+      "Weekly Window",
     ]);
+    expect(usageTitles({ primary: { usedPercent: 10 }, secondary: {} })).toEqual(["5h Window"]);
   });
 
   it("relabels amp windows as Other usage / Orb usage when a secondary window is present", () => {
@@ -1042,9 +1065,9 @@ describe("usage pacing gating", () => {
     expect(usagePacing(withWindow)).toMatchObject({ context: "session" });
   });
 
-  it("paces the antigravity session window when windowMinutes is omitted or exactly 300", () => {
+  it("paces the antigravity session window only when windowMinutes is exactly 300", () => {
     const [withoutWindow] = pace("antigravity", { primary: { usedPercent: 60, resetsAt: SESSION_RESETS_AT } });
-    expect(usagePacing(withoutWindow)).toMatchObject({ stage: "over", context: "session" });
+    expect(usagePacing(withoutWindow)).toBeUndefined();
 
     const [withSessionWindow] = pace("antigravity", {
       primary: { windowMinutes: 300, usedPercent: 60, resetsAt: SESSION_RESETS_AT },

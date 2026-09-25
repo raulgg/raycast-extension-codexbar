@@ -219,6 +219,8 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
   ];
   // A present window is one that will render — upstream's `snapshot.* != nil` check.
   const factoryHasTertiary = toFiniteNumber(toRecord(usage?.tertiary)?.usedPercent) !== undefined;
+  const hasPrimary = toRecord(usage?.primary) !== undefined;
+  const hasSecondaryWindow = toRecord(usage?.secondary) !== undefined;
   const hasSecondary = toFiniteNumber(toRecord(usage?.secondary)?.usedPercent) !== undefined;
   const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
   const context = meterContext(providerId, payload, now);
@@ -244,7 +246,9 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
         resetsAt: resolvedResetsAt,
         resetDescription,
         factoryHasTertiary,
+        hasPrimary,
         hasSecondary,
+        hasSecondaryWindow,
         hasAgentDetailRow,
         now,
       }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title);
