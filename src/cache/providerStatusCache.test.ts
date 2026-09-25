@@ -1,6 +1,6 @@
 import { Cache } from "@raycast/api";
 import { beforeEach, describe, expect, it } from "vitest";
-import { cacheProviderStatus, readProviderStatus, readProviderStatuses } from "./providerStatusCache";
+import { cacheProviderStatus, readProviderStatus, readProviderStatuses } from "../cache/providerStatusCache";
 import { PROVIDER_STATUS_TTL_MS } from "../providers/status";
 import type { ProviderStatus } from "../providers/types";
 

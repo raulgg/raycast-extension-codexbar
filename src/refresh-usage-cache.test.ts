@@ -4,7 +4,7 @@ const { refreshUsageCacheMock } = vi.hoisted(() => ({
   refreshUsageCacheMock: vi.fn(),
 }));
 
-vi.mock("./lib/backgroundRefresh", () => ({
+vi.mock("./services/backgroundRefresh", () => ({
   refreshUsageCache: refreshUsageCacheMock,
 }));
 

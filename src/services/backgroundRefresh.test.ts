@@ -32,9 +32,9 @@ vi.mock("node:http", () => ({
   request: httpRequestMock,
 }));
 
-import { refreshUsageCache } from "./backgroundRefresh";
-import { buildCachedProviderResults } from "./providerDetailCache";
-import { cacheProviderStatus, readProviderStatus } from "./providerStatusCache";
+import { refreshUsageCache } from "../services/backgroundRefresh";
+import { buildCachedProviderResults } from "../cache/providerDetailCache";
+import { cacheProviderStatus, readProviderStatus } from "../cache/providerStatusCache";
 
 const SERVE_FORCE_REFRESH_CAPABILITIES = JSON.stringify({
   serve: { forceRefresh: true },
