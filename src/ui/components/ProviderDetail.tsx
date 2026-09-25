@@ -32,6 +32,7 @@ export function ProviderDetail({
         now: relativeTimeNow,
         status,
         accentColor: provider.accentColor,
+        hiddenUsageItemIDs: provider.hiddenUsageItemIDs,
       }).trim()
     : undefined;
   const markdown =

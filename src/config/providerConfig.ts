@@ -25,6 +25,7 @@ type CodexBarConfigProvider = {
   enabled?: boolean;
   source?: string;
   accentColor?: string;
+  hiddenUsageItemIDs?: unknown;
 };
 
 // Entry from `codexbar config providers --json`.
@@ -215,6 +216,7 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
       id: provider.id.trim(),
       source: normalizeProviderSource(provider.source),
       accentColor: parseAccentColor(provider.accentColor),
+      hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
     }))
     .filter(({ id }) => !isProviderSelectorId(id) && isKnownProviderId(id))
     .filter(({ id }) => {
@@ -226,7 +228,7 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
       seenProviderIds.add(canonicalId);
       return true;
     })
-    .map(({ id: providerId, source, accentColor }) => {
+    .map(({ id: providerId, source, accentColor, hiddenUsageItemIDs }) => {
       const metadata = getProviderMetadata(providerId);
       return {
         id: metadata.id,
@@ -235,8 +237,31 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
         keywords: [metadata.id],
         ...(source ? { source } : {}),
         ...(accentColor ? { accentColor } : {}),
+        ...(hiddenUsageItemIDs ? { hiddenUsageItemIDs } : {}),
       };
     });
+}
+
+function parseHiddenUsageItemIDs(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const id = entry.trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+
+  return ids.length > 0 ? ids : undefined;
 }
 
 function normalizeProviderSource(source: unknown): ProviderSourceMode | undefined {

@@ -73,7 +73,33 @@ describe("provider normalization", () => {
       { kind: "usage", title: "Primary", displayTitle: "Session", remainingPercent: 85, resetsIn: "1h 30m" },
       { kind: "supplementalUsage", title: "Daily Routines", remainingPercent: 70, resetsIn: "7d" },
     ]);
+    expect(detail.sections.map((section) => section.usageItemId)).toEqual(["metric:primary", "metric:claude-routines"]);
     expect(detail.sections).toHaveLength(2);
+  });
+
+  it("stamps Codex lane, extra-window, code-review, and reset-credit ids", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "codex",
+        usage: {
+          primary: { usedPercent: 25, windowMinutes: 30 * 24 * 60 },
+          secondary: { usedPercent: 10, windowMinutes: 7 * 24 * 60 },
+          extraRateWindows: [{ id: "codex-spark", title: "Codex Spark", window: { usedPercent: 5 } }],
+          codexResetCredits: { credits: [{ status: "available" }] },
+        },
+        openaiDashboard: { codeReviewRemainingPercent: 40 },
+      },
+      "codex",
+      Date.parse("2026-03-23T10:30:00Z"),
+    );
+
+    expect(detail.sections.map((section) => section.usageItemId)).toEqual([
+      "metric:monthly",
+      "metric:secondary",
+      "metric:codex-spark",
+      "metric:code-review",
+      "section:codex-reset-credits",
+    ]);
   });
 
   it("treats an empty canonical meter list as authoritative", () => {
@@ -811,6 +837,7 @@ describe("provider normalization", () => {
     expect(detail.sections).toContainEqual({
       kind: "info",
       title: "Limit Reset Credits",
+      usageItemId: "section:codex-reset-credits",
       items: [
         { label: "Available", value: "1 available" },
         { label: "Next expiry", value: "1d" },
@@ -839,6 +866,7 @@ describe("provider normalization", () => {
     expect(detail.sections).toContainEqual({
       kind: "info",
       title: "Limit Reset Credits",
+      usageItemId: "section:codex-reset-credits",
       items: [
         { label: "Available", value: "3 available" },
         { label: "Next expiry", value: "1d" },

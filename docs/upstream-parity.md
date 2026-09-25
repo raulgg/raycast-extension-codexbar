@@ -56,8 +56,8 @@ compares against the wrong thing is worse than a hard failure.
 
 ## The parity surfaces at a glance
 
-There are six distinct surfaces where we track upstream. Three are guarded by scripts (drift
-fails the check). Three are hand-maintained (drift is silent until you re-read Swift).
+There are seven distinct surfaces where we track upstream. Three are guarded by scripts (drift
+fails the check). The rest are hand-maintained (drift is silent until you re-read Swift).
 
 | # | What | Where it lives here | How drift is caught | Upstream source |
 | - | --- | --- | --- | --- |
@@ -68,6 +68,7 @@ fails the check). Three are hand-maintained (drift is silent until you re-read S
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
+| 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
 | | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. Quota bars and usage meters use
@@ -75,6 +76,26 @@ Everything else the extension renders is derived, not tracked. Quota bars and us
 replaces `brandColor`. The menu bar uses `UsageMenuCardView.Model.progressColor`
 (`ProviderAccentPalette.color`). The catalog value stays the shipped default that `upstream:check`
 compares. Don't hand-edit derived values.
+
+## Hidden usage items
+
+`hiddenUsageItemIDs` on a Provider config entry is the app's list of menu-card items to hide
+(`ProviderUsageItemID` in `ProviderUsageItemVisibility.swift`). The extension reads that list and
+omits matching sections from the usage adornment and the detail view. The filter runs at render
+time. The provider-detail cache still stores every section.
+
+| Stored id | What it hides here |
+| --- | --- |
+| `metric:primary` / `metric:secondary` / `metric:tertiary` | That slot. |
+| `metric:monthly` | Codex's 30-day lane (`CodexConsumerProjection.classifyRateWindow`). 300 minutes is `metric:primary`, 10080 is `metric:secondary`. Any other duration stays on its slot. |
+| `metric:<extraRateWindow id>` | That named extra rate window (`cursor-grok-bot`, `codex-spark`, …). |
+| `metric:code-review` | Codex code review. |
+| `section:codex-reset-credits` | Limit Reset Credits. |
+| `section:credits`, `detailSection:<raw title>` | That credits block or detail section, when the extension renders it. |
+
+A presentation supplemental id `extra:<id>` matches `metric:<id>`. Cached details from before
+`usageItemId` still match slot meters, Code review, and Limit Reset Credits by title. A named extra
+window matches on the next fetch.
 
 ---
 

@@ -19,6 +19,7 @@ import {
   buildCodexResetCreditSection,
 } from "./providerRules/codex";
 import { buildSupplementalMapperSections } from "./providerRules/openrouter";
+import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
   ProviderSection,
@@ -164,6 +165,7 @@ function buildUsageMeter(
   displayTitle: string,
   input: MeterInput,
   context: MeterContext,
+  usageItemId: string,
 ): ProviderUsageSection {
   return {
     kind: "usage",
@@ -173,6 +175,7 @@ function buildUsageMeter(
     resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
     usagePacing: computeMeterPacing(slot, input, context),
     nextRegenPercent: input.nextRegenPercent,
+    usageItemId,
   };
 }
 
@@ -180,6 +183,7 @@ function buildSupplementalMeter(
   title: string,
   input: MeterInput,
   context: MeterContext,
+  usageItemId?: string,
 ): ProviderSupplementalUsageSection {
   return {
     kind: "supplementalUsage",
@@ -188,6 +192,7 @@ function buildSupplementalMeter(
     resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
     usagePacing: computeMeterPacing("extra", input, context),
     nextRegenPercent: input.nextRegenPercent,
+    ...(usageItemId ? { usageItemId } : {}),
   };
 }
 
@@ -270,6 +275,7 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
           nextRegenPercent: toFiniteNumber(record.nextRegenPercent),
         },
         context,
+        usageItemIdForSlot(providerId, slot.title, windowMinutes),
       ),
     );
   }
@@ -317,6 +323,7 @@ function buildExtraRateWindowSections(
           nextRegenPercent: toFiniteNumber(window.nextRegenPercent),
         },
         context,
+        usageItemIdFromMeterId(toTrimmedString(record.id)),
       ),
     );
   }
@@ -378,10 +385,17 @@ function buildPresentationMeterSections(
       nextRegenPercent: toFiniteNumber(meter.nextRegenPercent),
     };
 
+    const meterId = toTrimmedString(meter.id);
     sections.push(
       kind === "supplemental"
-        ? buildSupplementalMeter(label, input, context)
-        : buildUsageMeter(PRESENTATION_SLOT_TITLES[kind], label, input, context),
+        ? buildSupplementalMeter(label, input, context, usageItemIdFromMeterId(meterId))
+        : buildUsageMeter(
+            PRESENTATION_SLOT_TITLES[kind],
+            label,
+            input,
+            context,
+            usageItemIdFromMeterId(meterId) ?? `metric:${kind}`,
+          ),
     );
   }
 

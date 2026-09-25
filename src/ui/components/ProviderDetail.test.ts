@@ -64,6 +64,18 @@ describe("ProviderDetail", () => {
     hidePersonalInfoMock.value = false;
   });
 
+  it("omits a usage item hidden in the provider config", () => {
+    appearanceMock.value = "light";
+
+    const element = ProviderDetail({
+      provider: { ...provider, hiddenUsageItemIDs: ["metric:primary"] },
+      detail: makeDetail(),
+      isLoading: false,
+    });
+
+    expect(extractFirstSvg(element.props.markdown)).not.toContain("Session 53% left");
+  });
+
   it("renders themed markdown from the current appearance", () => {
     appearanceMock.value = "light";
     const detail = makeDetail();
