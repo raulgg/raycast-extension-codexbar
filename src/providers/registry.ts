@@ -28,7 +28,7 @@ export type ProviderRegistryEntry = {
 
 const DEFAULT_PROGRESS_PALETTE: ProviderProgressPalette = {
   lightFill: "#22B8CF",
-  darkFill: "#4EC8DD",
+  darkFill: "#22B8CF",
 };
 
 function providerIcon(slug: string, fallback: Icon = Icon.Circle): Image.ImageLike {
@@ -60,100 +60,14 @@ export const PROVIDER_IDS = Object.keys(PROVIDER_CATALOG) as Array<keyof typeof 
 export const PROVIDER_SELECTOR_IDS = ["all", "both"] as const;
 const PROVIDER_SELECTOR_ID_SET = new Set<string>(PROVIDER_SELECTOR_IDS);
 
-function clampColorChannel(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
-}
-
 function normalizeHexColor(value: string): string {
   const normalized = value.trim().toUpperCase();
   return normalized.startsWith("#") ? normalized : `#${normalized}`;
 }
 
-function parseHexColor(value: string): [number, number, number] {
-  const normalized = normalizeHexColor(value).slice(1);
-  if (!/^[0-9A-F]{6}$/.test(normalized)) {
-    throw new Error(`Invalid hex color: ${value}`);
-  }
-
-  return [
-    Number.parseInt(normalized.slice(0, 2), 16),
-    Number.parseInt(normalized.slice(2, 4), 16),
-    Number.parseInt(normalized.slice(4, 6), 16),
-  ];
-}
-
-function formatHexColor(red: number, green: number, blue: number): string {
-  return `#${[red, green, blue]
-    .map((channel) => clampColorChannel(channel).toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase()}`;
-}
-
-function mixHexColors(baseColor: string, targetColor: string, ratio: number): string {
-  const [baseRed, baseGreen, baseBlue] = parseHexColor(baseColor);
-  const [targetRed, targetGreen, targetBlue] = parseHexColor(targetColor);
-
-  return formatHexColor(
-    baseRed + (targetRed - baseRed) * ratio,
-    baseGreen + (targetGreen - baseGreen) * ratio,
-    baseBlue + (targetBlue - baseBlue) * ratio,
-  );
-}
-
-// Bright brands such as Alibaba orange sit under 3:1 against white and must stay
-// as cataloged. Only a fill that is effectively the background gets lifted.
-const NEAR_BACKGROUND_CONTRAST = 1.2;
-const VISIBLE_PROGRESS_CONTRAST = 3;
-
-function channelLuminance(value: number): number {
-  const srgb = value / 255;
-  return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
-}
-
-function relativeLuminance(hex: string): number {
-  const [red, green, blue] = parseHexColor(hex);
-  return 0.2126 * channelLuminance(red) + 0.7152 * channelLuminance(green) + 0.0722 * channelLuminance(blue);
-}
-
-function contrastRatio(fill: string, background: string): number {
-  const fillLuminance = relativeLuminance(fill);
-  const backgroundLuminance = relativeLuminance(background);
-  const lighter = Math.max(fillLuminance, backgroundLuminance);
-  const darker = Math.min(fillLuminance, backgroundLuminance);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-// A fill under 1.2:1 against the appearance background is mixed away from it
-// until the contrast reaches 3:1. Brighter fills, including the dark-mode
-// 20% white mix, are returned unchanged.
-function floorFillAgainstBackground(fill: string, background: string, awayFrom: string): string {
-  if (contrastRatio(fill, background) >= NEAR_BACKGROUND_CONTRAST) {
-    return fill;
-  }
-
-  let best = awayFrom;
-  let low = 0;
-  let high = 1;
-  for (let step = 0; step < 16; step += 1) {
-    const ratio = (low + high) / 2;
-    const mixed = mixHexColors(fill, awayFrom, ratio);
-    if (contrastRatio(mixed, background) >= VISIBLE_PROGRESS_CONTRAST) {
-      best = mixed;
-      high = ratio;
-    } else {
-      low = ratio;
-    }
-  }
-
-  return best;
-}
-
 function buildProgressPalette(brandColor: string): ProviderProgressPalette {
-  const brand = normalizeHexColor(brandColor);
-  return {
-    lightFill: floorFillAgainstBackground(brand, "#FFFFFF", "#000000"),
-    darkFill: floorFillAgainstBackground(mixHexColors(brand, "#FFFFFF", 0.2), "#000000", "#FFFFFF"),
-  };
+  const fill = normalizeHexColor(brandColor);
+  return { lightFill: fill, darkFill: fill };
 }
 
 export function parseAccentColor(value: unknown): string | undefined {
