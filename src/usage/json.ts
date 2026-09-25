@@ -20,6 +20,18 @@ export function toTrimmedString(value: unknown): string | undefined {
   return toNonBlankString(value)?.trim();
 }
 
+/** The first non-blank string among the candidates, trimmed. */
+export function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const stringValue = toTrimmedString(value);
+    if (stringValue) {
+      return stringValue;
+    }
+  }
+
+  return undefined;
+}
+
 export function toFiniteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
