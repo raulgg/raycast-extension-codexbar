@@ -379,7 +379,6 @@ type DynamicTitleOptions = {
   factoryHasTertiary: boolean;
   hasPrimary: boolean;
   hasSecondary: boolean;
-  // Object presence, distinct from hasSecondary (a secondary that will render).
   hasSecondaryWindow: boolean;
   hasAgentDetailRow: boolean;
   now: number;
@@ -486,7 +485,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     return undefined;
   },
-  // MistralProviderDescriptor rateWindowLabeler: a present primary window is "Included API".
   mistral(slotTitle, options) {
     if (slotTitle === "Primary" && options.hasPrimary) {
       return "Included API";
@@ -494,7 +492,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     return undefined;
   },
-  // QwenCloudProviderDescriptor rateWindowLabeler.
   qwencloud(slotTitle, options) {
     if (slotTitle === "Primary" && options.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
       return "Monthly";
@@ -502,7 +499,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     return undefined;
   },
-  // StepFunProviderDescriptor.rateWindowLabels: credit plans have a primary and no secondary window.
   stepfun(slotTitle, options) {
     if (slotTitle === "Primary" && options.hasPrimary && !options.hasSecondaryWindow) {
       return "Credit";

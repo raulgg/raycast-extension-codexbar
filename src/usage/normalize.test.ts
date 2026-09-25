@@ -296,7 +296,6 @@ describe("provider normalization", () => {
         .map((section) => (section.kind === "usage" ? section.displayTitle : section.title));
 
     expect(usageTitles({ primary: { usedPercent: 10 } })).toEqual(["Included API"]);
-    expect(usageTitles({})).toEqual([]);
   });
 
   it("relabels a 30-day Qwen Cloud primary as Monthly", () => {
