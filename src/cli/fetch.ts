@@ -187,8 +187,6 @@ export type ProviderUsageWithStatus = {
 };
 
 // One-shot usage+status. Used by background refresh when serve is cold.
-
-// One-shot usage+status. Used by background refresh when serve is cold.
 export async function fetchProviderUsageWithStatus(
   binary: ResolvedCodexBarBinary,
   providerId: string,
