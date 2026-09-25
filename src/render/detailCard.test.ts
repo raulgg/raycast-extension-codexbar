@@ -131,7 +131,7 @@ describe("provider markdown", () => {
     expect(darkSvg).toContain('stroke="#374151"');
     expect(darkSvg).toContain('fill="#FFFFFF"');
     expect(darkSvg).toContain('fill-opacity="0.054"');
-    expect(darkSvg).toContain('fill="#6DB5C0"');
+    expect(darkSvg).toContain('fill="#49A3B0"');
     expect(lightSvg).toContain(">Session 53% left<");
     expect(darkSvg).toContain(">Session 53% left<");
     expect(lightMarkdown).not.toBe(darkMarkdown);
@@ -156,8 +156,8 @@ describe("provider markdown", () => {
 
     expect(lightSvg).toContain('fill="#000000"');
     expect(lightSvg).not.toContain('fill="#10A37F"');
-    expect(darkSvg).toContain('fill="#333333"');
-    expect(darkSvg).not.toContain('fill="#40B599"');
+    expect(darkSvg).toContain('fill="#000000"');
+    expect(darkSvg).not.toContain('fill="#10A37F"');
   });
 
   it("uses explicit display titles for usage sections", () => {
@@ -534,7 +534,7 @@ describe("provider markdown", () => {
     expect(svg).toContain(">Updating...<");
     expect(svg).not.toContain(">Session<");
     expect(svg).toContain("<line ");
-    expect(svg).not.toContain('fill="#6DB5C0"');
+    expect(svg).not.toContain('fill="#49A3B0"');
     const parsed = parseSvg(svg);
     expect(rectsWithSize(parsed, 88, 10)).toHaveLength(2);
     expect(rectsWithSize(parsed, 440, 8)).toHaveLength(2);
