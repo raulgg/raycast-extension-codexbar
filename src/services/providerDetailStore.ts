@@ -12,6 +12,7 @@ import {
   type ProviderDetailState,
 } from "../cache/providerDetailCache";
 import { pruneProviderUsageSectionMemory } from "../cache/sectionMemory";
+import type { KeychainAccessPolicy } from "../cli/keychainAccessPolicy";
 import type { ConfiguredProvider, ProviderSourceMode } from "../usage/types";
 import type { CodexBarClient } from "./codexbarClient";
 import { loadProviderDetail as defaultLoadProviderDetail, type LoadProviderDetailOptions } from "./providerDetail";
@@ -39,6 +40,8 @@ export type ProviderDetailSnapshot = {
 export type ProviderDetailContext = {
   client: CodexBarClient | undefined;
   providers: ConfiguredProvider[];
+  /** Policy used to seed cached results while the client is still resolving. */
+  keychainAccessPolicy?: KeychainAccessPolicy;
 };
 
 export type ProviderDetailStore = {
@@ -89,6 +92,7 @@ export function createProviderDetailStore(deps: ProviderDetailStoreDeps = {}): P
   let client: CodexBarClient | undefined;
   let clientKey = "";
   let providersKey = "";
+  let seedPolicy: KeychainAccessPolicy | undefined;
   let providerIds: string[] = [];
   let providerIdSet = new Set<string>();
   let providerSources = new Map<string, ProviderSourceMode>();
@@ -260,12 +264,14 @@ export function createProviderDetailStore(deps: ProviderDetailStoreDeps = {}): P
     setContext(context) {
       const nextClientKey = buildClientKey(context.client);
       const nextProvidersKey = buildProvidersKey(context.providers);
-      const changed = nextClientKey !== clientKey || nextProvidersKey !== providersKey;
+      const nextPolicy = context.client?.binary.keychainAccessPolicy ?? context.keychainAccessPolicy;
+      const changed = nextClientKey !== clientKey || nextProvidersKey !== providersKey || nextPolicy !== seedPolicy;
       const providersChanged = nextProvidersKey !== providersKey;
 
       client = context.client;
       clientKey = nextClientKey;
       providersKey = nextProvidersKey;
+      seedPolicy = nextPolicy;
       providerIds = context.providers.map((provider) => provider.id);
       providerIdSet = new Set(providerIds);
       providerSources = new Map(context.providers.map((provider) => [provider.id, provider.source ?? "auto"]));
@@ -279,8 +285,7 @@ export function createProviderDetailStore(deps: ProviderDetailStoreDeps = {}): P
         pruneProviderUsageSectionMemory(providerIds);
       }
 
-      const policy = context.client?.binary.keychainAccessPolicy;
-      optimistic = policy ? buildCachedProviderResults(providerIds, policy, now(), providerSources) : {};
+      optimistic = nextPolicy ? buildCachedProviderResults(providerIds, nextPolicy, now(), providerSources) : {};
       startBatch();
     },
 
