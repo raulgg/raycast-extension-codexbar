@@ -1,13 +1,9 @@
 import { CodexBarCliError } from "../cli/exec";
 import type { FetchUsageOptions } from "../cli/fetch";
 import { applyProviderUsageSectionMemory } from "../cache/sectionMemory";
-import {
-  extractProviderErrorMessage,
-  extractProviderStatus,
-  normalizeProviderDetailPayload,
-} from "../providers/normalize";
+import { extractProviderErrorMessage, extractProviderStatus, normalizeProviderDetailPayload } from "../usage/normalize";
 import { isProviderSelectorId } from "../providers/registry";
-import type { ProviderDetailData, ProviderSourceMode, ProviderStatus } from "../providers/types";
+import type { ProviderDetailData, ProviderSourceMode, ProviderStatus } from "../usage/types";
 import type { CodexBarClient } from "./codexbarClient";
 
 // The one place a raw CodexBar usage payload becomes a ProviderDetailData:

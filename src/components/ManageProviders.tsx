@@ -4,7 +4,7 @@ import { useAvailableProviders } from "../hooks/useAvailableProviders";
 import { useMoveProvider } from "../hooks/useMoveProvider";
 import { CodexBarCliError } from "../cli/exec";
 import type { CodexBarClient } from "../services/codexbarClient";
-import type { AvailableProvider } from "../providers/types";
+import type { AvailableProvider } from "../usage/types";
 import { moveProviderActions } from "./moveProviderActions";
 
 const NOT_IN_OVERVIEW_HINT = "Not shown in the Raycast Usage Overview yet";

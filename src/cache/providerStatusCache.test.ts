@@ -1,8 +1,8 @@
 import { Cache } from "@raycast/api";
 import { beforeEach, describe, expect, it } from "vitest";
 import { cacheProviderStatus, readProviderStatus, readProviderStatuses } from "../cache/providerStatusCache";
-import { PROVIDER_STATUS_TTL_MS } from "../providers/status";
-import type { ProviderStatus } from "../providers/types";
+import { PROVIDER_STATUS_TTL_MS } from "../usage/status";
+import type { ProviderStatus } from "../usage/types";
 
 const status: ProviderStatus = {
   indicator: "minor",

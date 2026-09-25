@@ -24,7 +24,7 @@ import {
   getProviderMoveGating,
 } from "./ManageProviders";
 import { CodexBarCliError } from "../cli/exec";
-import type { AvailableProvider } from "../providers/types";
+import type { AvailableProvider } from "../usage/types";
 
 function makeProvider(overrides: Partial<AvailableProvider> & Pick<AvailableProvider, "id">): AvailableProvider {
   return {

@@ -16,7 +16,7 @@ import {
 } from "../cache/providerDetailCache";
 import { pruneProviderUsageSectionMemory } from "../cache/sectionMemory";
 import { getKeychainAccessPolicy } from "../preferences";
-import type { ConfiguredProvider } from "../providers/types";
+import type { ConfiguredProvider } from "../usage/types";
 
 export type {
   ProviderDetailCacheStatus,
