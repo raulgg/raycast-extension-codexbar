@@ -1,4 +1,5 @@
 import type { ProviderUsagePacingContext } from "../usage/types";
+import { isKnownProviderId } from "./registry";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
@@ -213,6 +214,10 @@ export function resolveSlotPace(
   window: PaceWindow,
   now: number,
 ): ResolvedSlotPace | undefined {
+  if (!isKnownProviderId(providerId)) {
+    return undefined;
+  }
+
   const capability = getPaceCapability(providerId);
   const resetPace = (): ResolvedSlotPace | undefined => {
     if (!matchWindowRule(capability.resetWindowPace, window, now)) {

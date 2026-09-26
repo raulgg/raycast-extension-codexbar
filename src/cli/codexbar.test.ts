@@ -162,6 +162,16 @@ function mockServeUnavailable() {
   });
 }
 
+function isServeHttpError(value: unknown): value is { statusCode: number; body: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "statusCode" in value &&
+    "body" in value &&
+    typeof value.statusCode === "number"
+  );
+}
+
 function mockServeResponses(...responses: Array<unknown | Error>) {
   const pendingResponses = [...responses];
   httpRequestMock.mockImplementation(
@@ -179,10 +189,11 @@ function mockServeResponses(...responses: Array<unknown | Error>) {
       };
 
       if (!(response instanceof Error)) {
-        const res = Object.assign(new EventEmitter(), { statusCode: 200 });
+        const httpError = isServeHttpError(response) ? response : undefined;
+        const res = Object.assign(new EventEmitter(), { statusCode: httpError?.statusCode ?? 200 });
         queueMicrotask(() => {
           callback(res);
-          res.emit("data", Buffer.from(JSON.stringify(response)));
+          res.emit("data", Buffer.from(JSON.stringify(httpError ? httpError.body : response)));
           res.emit("end");
         });
       }
@@ -649,6 +660,33 @@ describe("codexbar runtime helpers", () => {
     );
   });
 
+  it("does not one-shot when serve refuses an unknown provider", async () => {
+    const binary: ResolvedCodexBarBinary = {
+      command: "/usr/local/bin/codexbar",
+      source: "path",
+      keychainAccessPolicy: "default",
+      capabilities: {
+        appFetchProfile: false,
+        interactionModes: false,
+        presentationSchemaVersions: [],
+        serveAppFetchProfile: false,
+        serveForceRefresh: true,
+      },
+    };
+    attestServeProcess();
+    mockServeResponses({ status: "ok" }, { statusCode: 400, body: { error: "Unknown provider 'plugin'." } });
+
+    await expect(fetchProviderDetail(binary, "plugin", { mode: "force" })).rejects.toThrow(
+      "Unknown provider 'plugin'.",
+    );
+    expect(execFileMock).not.toHaveBeenCalledWith(
+      "/usr/local/bin/codexbar",
+      expect.arrayContaining(["usage", "--provider", "plugin"]),
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
   it("requests a forced serve refresh independently of app-profile support", async () => {
     const binary: ResolvedCodexBarBinary = {
       command: "/usr/local/bin/codexbar",
@@ -1017,7 +1055,7 @@ describe("codexbar runtime helpers", () => {
     expect(execOptions.env?.USER).not.toHaveLength(0);
   });
 
-  it("reads supported enabled providers from object-shaped config in file order", async () => {
+  it("reads enabled providers from object-shaped config in file order", async () => {
     readFileMock.mockResolvedValue(
       JSON.stringify({
         providers: {
@@ -1043,6 +1081,12 @@ describe("codexbar runtime helpers", () => {
         source: "oauth",
       },
       {
+        id: "unknown",
+        name: "Unknown",
+        icon: Icon.Circle,
+        keywords: ["unknown"],
+      },
+      {
         id: "perplexity",
         name: "Perplexity",
         icon: {
@@ -1051,6 +1095,32 @@ describe("codexbar runtime helpers", () => {
           tintColor: Color.PrimaryText,
         },
         keywords: ["perplexity"],
+      },
+    ]);
+  });
+
+  it("keeps accent color and hidden usage item ids on a provider the catalog does not list", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          {
+            id: "some-new-provider",
+            enabled: true,
+            accentColor: "#112233",
+            hiddenUsageItemIDs: ["metric:primary", "metric:primary", ""],
+          },
+        ],
+      }),
+    );
+
+    await expect(readConfiguredProvidersFromConfig()).resolves.toEqual([
+      {
+        id: "some-new-provider",
+        name: "Some New Provider",
+        icon: Icon.Circle,
+        keywords: ["some-new-provider"],
+        accentColor: "#112233",
+        hiddenUsageItemIDs: ["metric:primary"],
       },
     ]);
   });
@@ -1222,11 +1292,54 @@ describe("codexbar runtime helpers", () => {
       `${JSON.stringify(
         {
           providers: {
-            perplexity: { enabled: true },
             unknown: { enabled: true },
             codex: { enabled: true },
+            perplexity: { enabled: true },
             warp: { enabled: false },
           },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  });
+
+  it("swaps a provider the catalog does not list with its enabled neighbors", () => {
+    const config = JSON.stringify({
+      providers: [
+        { id: "codex", enabled: true },
+        { id: "unknown", enabled: true },
+        { id: "all", enabled: true },
+        { id: "warp", enabled: false },
+        { id: "perplexity", enabled: true },
+      ],
+    });
+
+    expect(moveConfiguredProviderInRawConfig(config, "unknown", "up")).toBe(
+      `${JSON.stringify(
+        {
+          providers: [
+            { id: "unknown", enabled: true },
+            { id: "codex", enabled: true },
+            { id: "all", enabled: true },
+            { id: "warp", enabled: false },
+            { id: "perplexity", enabled: true },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    expect(moveConfiguredProviderInRawConfig(config, "unknown", "down")).toBe(
+      `${JSON.stringify(
+        {
+          providers: [
+            { id: "codex", enabled: true },
+            { id: "perplexity", enabled: true },
+            { id: "all", enabled: true },
+            { id: "warp", enabled: false },
+            { id: "unknown", enabled: true },
+          ],
         },
         null,
         2,

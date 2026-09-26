@@ -26,6 +26,19 @@ const CODEXBAR_SERVE_STARTUP_TIMEOUT_MS = 1_500;
 
 const CODEXBAR_SERVE_STARTUP_POLL_MS = 150;
 
+function serveFailureMessage(statusCode: number | undefined, body: string): string {
+  const fallback = `CodexBar serve returned HTTP ${statusCode ?? "unknown"}.`;
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (isRecord(parsed) && typeof parsed.error === "string" && parsed.error.trim()) {
+      return parsed.error.trim();
+    }
+  } catch {
+    // A non-JSON error body keeps the HTTP status sentence.
+  }
+  return fallback;
+}
+
 export function requestCodexBarServeJson(path: string, timeout: number): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -51,7 +64,7 @@ export function requestCodexBarServeJson(path: string, timeout: number): Promise
         });
         res.on("end", () => {
           if (res.statusCode !== 200) {
-            reject(new Error(`CodexBar serve returned HTTP ${res.statusCode ?? "unknown"}.`));
+            reject(new Error(serveFailureMessage(res.statusCode, Buffer.concat(chunks).toString("utf8"))));
             return;
           }
 

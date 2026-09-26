@@ -15,6 +15,7 @@ vi.mock("node:child_process", () => ({
   execFile: execFileMock,
 }));
 
+import { Icon } from "@raycast/api";
 import type { ResolvedCodexBarBinary } from "../cli/binary";
 import {
   listAvailableProviders,
@@ -129,14 +130,21 @@ describe("available providers", () => {
     expect(execFileMock).not.toHaveBeenCalled();
   });
 
-  it("marks providers the registry does not know as unsupported", () => {
+  it("uses the CLI display name and a circle icon for providers the registry does not know", () => {
     const providers = normalizeAvailableProviders([
       { provider: "codex", enabled: true },
       { provider: "someunknownprovider", displayName: "New", enabled: true },
     ]);
 
-    expect(providers.find((provider) => provider.id === "codex")?.supported).toBe(true);
-    expect(providers.find((provider) => provider.cliProvider === "someunknownprovider")?.supported).toBe(false);
+    expect(providers.find((provider) => provider.id === "codex")).toMatchObject({ name: "Codex" });
+    expect(providers.find((provider) => provider.cliProvider === "someunknownprovider")).toEqual(
+      expect.objectContaining({
+        id: "someunknownprovider",
+        name: "New",
+        icon: Icon.Circle,
+        enabled: true,
+      }),
+    );
   });
 
   it("orders enabled providers by config order and keeps disabled ones after", () => {

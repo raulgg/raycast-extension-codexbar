@@ -126,6 +126,14 @@ from `ProviderColor(red:green:blue:)` or `ProviderColor(hex: 0xRRGGBB)`. If a pa
 find what it expects, it throws. A format change on the Swift side is a failure to fix, not a
 silent gap.
 
+### Providers the catalog does not list yet
+
+An enabled Provider still renders when `PROVIDER_CATALOG` has no entry for its id
+([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)). Presentation meters keep the
+CLI label. Raw slots use Primary / Secondary / Tertiary. The row uses a circle icon and `#22B8CF`,
+or the config `accentColor`. Pace, dashboard, and status URLs wait for the catalog entry.
+`upstream:check` still fails when upstream ships a provider the catalog lacks.
+
 ### `ALLOWED_DIVERGENCES`. Recording an intentional difference
 
 Some upstream URLs are computed (`ZaiAPIRegion.global.dashboardURL.absoluteString`), not string

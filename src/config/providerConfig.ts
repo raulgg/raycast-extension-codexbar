@@ -128,7 +128,6 @@ export function normalizeAvailableProviders(payload: unknown): AvailableProvider
       name: isKnownProviderId(cliProvider) ? metadata.name : (cliDisplayName ?? metadata.name),
       icon: metadata.icon,
       enabled: record.enabled === true,
-      supported: isKnownProviderId(cliProvider),
     });
   }
 
@@ -207,39 +206,42 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
 
   const seenProviderIds = new Set<string>();
 
-  return providers
-    .filter(
-      (provider): provider is CodexBarConfigProvider & { id: string; enabled: true } =>
-        typeof provider.id === "string" && provider.id.trim().length > 0 && provider.enabled === true,
-    )
-    .map((provider) => ({
-      id: provider.id.trim(),
-      source: normalizeProviderSource(provider.source),
-      accentColor: parseAccentColor(provider.accentColor),
-      hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
-    }))
-    .filter(({ id }) => !isProviderSelectorId(id) && isKnownProviderId(id))
-    .filter(({ id }) => {
-      const canonicalId = resolveProviderId(id);
-      if (seenProviderIds.has(canonicalId)) {
-        return false;
-      }
+  return (
+    providers
+      .filter(
+        (provider): provider is CodexBarConfigProvider & { id: string; enabled: true } =>
+          typeof provider.id === "string" && provider.id.trim().length > 0 && provider.enabled === true,
+      )
+      .map((provider) => ({
+        id: provider.id.trim(),
+        source: normalizeProviderSource(provider.source),
+        accentColor: parseAccentColor(provider.accentColor),
+        hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
+      }))
+      // Enabled non-selector ids are listed, including ids the catalog does not contain.
+      .filter(({ id }) => !isProviderSelectorId(id))
+      .filter(({ id }) => {
+        const canonicalId = resolveProviderId(id);
+        if (seenProviderIds.has(canonicalId)) {
+          return false;
+        }
 
-      seenProviderIds.add(canonicalId);
-      return true;
-    })
-    .map(({ id: providerId, source, accentColor, hiddenUsageItemIDs }) => {
-      const metadata = getProviderMetadata(providerId);
-      return {
-        id: metadata.id,
-        name: metadata.name,
-        icon: metadata.icon,
-        keywords: [metadata.id],
-        ...(source ? { source } : {}),
-        ...(accentColor ? { accentColor } : {}),
-        ...(hiddenUsageItemIDs ? { hiddenUsageItemIDs } : {}),
-      };
-    });
+        seenProviderIds.add(canonicalId);
+        return true;
+      })
+      .map(({ id: providerId, source, accentColor, hiddenUsageItemIDs }) => {
+        const metadata = getProviderMetadata(providerId);
+        return {
+          id: metadata.id,
+          name: metadata.name,
+          icon: metadata.icon,
+          keywords: [metadata.id],
+          ...(source ? { source } : {}),
+          ...(accentColor ? { accentColor } : {}),
+          ...(hiddenUsageItemIDs ? { hiddenUsageItemIDs } : {}),
+        };
+      })
+  );
 }
 
 function parseHiddenUsageItemIDs(value: unknown): string[] | undefined {
@@ -342,7 +344,7 @@ function findConfiguredProviderMoveIndexes(
   direction: ProviderMoveDirection,
 ): { from: number; to: number } | undefined {
   const visibleProviders = providers.flatMap(({ id, provider }, index) => {
-    if (!id || provider?.enabled !== true || isProviderSelectorId(id) || !isKnownProviderId(id)) {
+    if (!id || provider?.enabled !== true || isProviderSelectorId(id)) {
       return [];
     }
 

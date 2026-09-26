@@ -2,6 +2,7 @@
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
+- Usage Overview shows an enabled Provider the catalog does not list yet
 - Usage Overview keeps working after Raycast restores its cached CodexBar CLI check
 - Extension icon matches the official CodexBar app icon
 - Usage meters and list quota bars use a Provider's accent color from `~/.codexbar/config.json`, or its catalog brand color, in both light and dark mode

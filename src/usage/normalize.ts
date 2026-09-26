@@ -520,8 +520,16 @@ export function normalizeProviderDetailPayload(
   now = Date.now(),
 ): ProviderDetailData {
   const candidates = collectCandidates(payload);
-  const candidate = candidates.find((entry) => entry.id === providerId) ?? candidates[0];
+  const matched = candidates.find((entry) => entry.id === providerId);
+  if (matched) {
+    return normalizePayload(providerId, matched.payload, now);
+  }
 
+  if (candidates.some((entry) => entry.id !== undefined)) {
+    throw new Error(`CodexBar did not return usage for ${providerId}.`);
+  }
+
+  const candidate = candidates[0];
   if (candidate) {
     return normalizePayload(providerId, candidate.payload, now);
   }

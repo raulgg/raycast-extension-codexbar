@@ -117,7 +117,7 @@ export function UsageList() {
     >
       {configuredProviders.providers.length === 0 && !configuredProviders.isLoading ? (
         <List.EmptyView
-          title="No Supported Providers"
+          title="No Enabled Providers"
           description="Enable a provider from Manage Providers, or in CodexBar, and reopen this command."
           icon={Icon.Circle}
           actions={
