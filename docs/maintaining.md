@@ -123,7 +123,8 @@ src/
 
 scripts/
   check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating.
-  bump-upstream.mjs           npm run upstream:bump       check latest release, then pin lockfile.
+  bump-upstream.mjs           npm run upstream:bump       prune removals, check latest release, then pin lockfile.
+  prune-removed-providers.mjs npm run upstream:prune      delete providers upstream no longer ships.
   sync-provider-icons.mjs     npm run upstream:sync-icons icon harvest / drift guard.
   lib/upstream.mjs            Shared upstream source (ref resolution, GitHub / local checkout).
   lib/upstream-metadata.mjs   Catalog/descriptor parse and compare (unit-tested).
@@ -147,8 +148,9 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
 | `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
-| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release, then run both guards. |
-| `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. |
+| `npm run upstream:prune [-- --check]` | Delete table rows for providers the lockfile SHA no longer ships, including their icons and provider-rules file. Exits non-zero while any other file still names them. `--check` writes nothing. |
+| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after pruning removals and running both guards. |
+| `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
 
 Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
 
@@ -216,9 +218,10 @@ Upstream ships often. A periodic sync pass:
    `paceCapabilities.ts` row (GUI fields only, plus a `CUSTOM_PACE_RULES` fingerprint for `.custom`
    closures), or mark presentation-only paths in `UNPORTABLE_PRESENTATION_PACE` /
    `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the `-- --check` and let the sync script
-   write them. Removed provider → delete the catalog entry and every leftover that names it
-   (aliases, mocks, dynamic titles, pace rows, tests, and `assets/provider-icons/<slug>.svg`).
-   The icon script reports a stale SVG and leaves the file in place.
+   write them. Removed provider → `npm run upstream:prune` deletes the catalog entry, aliases,
+   mocks, pace rows, dynamic titles, the provider-rules file, and the SVG. It leaves call sites
+   and tests alone. While any quoted id, rules-file path, or URL segment remains, it writes
+   nothing and fails, so the lockfile stays put.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.

@@ -24,6 +24,13 @@ async function bump() {
   const env = { ...process.env, CODEXBAR_REF: target.sha };
   delete env.CODEXBAR_DIR;
 
+  const pruneCode = await runNpm(["run", "upstream:prune"], env);
+  if (pruneCode !== 0) {
+    console.error("upstream:prune failed; lockfile not updated.");
+    process.exitCode = pruneCode;
+    return;
+  }
+
   const checkCode = await runNpm(["run", "upstream:check"], env);
   if (checkCode !== 0) {
     console.error("upstream:check failed; lockfile not updated.");
