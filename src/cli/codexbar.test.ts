@@ -1017,7 +1017,7 @@ describe("codexbar runtime helpers", () => {
     expect(execOptions.env?.USER).not.toHaveLength(0);
   });
 
-  it("reads supported enabled providers from object-shaped config in file order", async () => {
+  it("reads enabled providers from object-shaped config in file order", async () => {
     readFileMock.mockResolvedValue(
       JSON.stringify({
         providers: {
@@ -1043,6 +1043,12 @@ describe("codexbar runtime helpers", () => {
         source: "oauth",
       },
       {
+        id: "unknown",
+        name: "Unknown",
+        icon: Icon.Circle,
+        keywords: ["unknown"],
+      },
+      {
         id: "perplexity",
         name: "Perplexity",
         icon: {
@@ -1051,6 +1057,32 @@ describe("codexbar runtime helpers", () => {
           tintColor: Color.PrimaryText,
         },
         keywords: ["perplexity"],
+      },
+    ]);
+  });
+
+  it("keeps accent color and hidden usage item ids on a provider the catalog does not list", async () => {
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        providers: [
+          {
+            id: "some-new-provider",
+            enabled: true,
+            accentColor: "#112233",
+            hiddenUsageItemIDs: ["metric:primary", "metric:primary", ""],
+          },
+        ],
+      }),
+    );
+
+    await expect(readConfiguredProvidersFromConfig()).resolves.toEqual([
+      {
+        id: "some-new-provider",
+        name: "Some New Provider",
+        icon: Icon.Circle,
+        keywords: ["some-new-provider"],
+        accentColor: "#112233",
+        hiddenUsageItemIDs: ["metric:primary"],
       },
     ]);
   });
@@ -1222,11 +1254,54 @@ describe("codexbar runtime helpers", () => {
       `${JSON.stringify(
         {
           providers: {
-            perplexity: { enabled: true },
             unknown: { enabled: true },
             codex: { enabled: true },
+            perplexity: { enabled: true },
             warp: { enabled: false },
           },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  });
+
+  it("swaps a provider the catalog does not list with its enabled neighbors", () => {
+    const config = JSON.stringify({
+      providers: [
+        { id: "codex", enabled: true },
+        { id: "unknown", enabled: true },
+        { id: "all", enabled: true },
+        { id: "warp", enabled: false },
+        { id: "perplexity", enabled: true },
+      ],
+    });
+
+    expect(moveConfiguredProviderInRawConfig(config, "unknown", "up")).toBe(
+      `${JSON.stringify(
+        {
+          providers: [
+            { id: "unknown", enabled: true },
+            { id: "codex", enabled: true },
+            { id: "all", enabled: true },
+            { id: "warp", enabled: false },
+            { id: "perplexity", enabled: true },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    expect(moveConfiguredProviderInRawConfig(config, "unknown", "down")).toBe(
+      `${JSON.stringify(
+        {
+          providers: [
+            { id: "codex", enabled: true },
+            { id: "perplexity", enabled: true },
+            { id: "all", enabled: true },
+            { id: "warp", enabled: false },
+            { id: "unknown", enabled: true },
+          ],
         },
         null,
         2,

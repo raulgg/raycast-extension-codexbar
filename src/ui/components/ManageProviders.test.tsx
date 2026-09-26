@@ -33,12 +33,11 @@ function makeProvider(overrides: Partial<AvailableProvider> & Pick<AvailableProv
     name: overrides.name ?? overrides.id,
     icon: overrides.icon ?? "icon",
     enabled: overrides.enabled ?? true,
-    supported: overrides.supported ?? true,
   };
 }
 
 describe("getProviderMoveGating", () => {
-  it("gates move actions by position within the supported enabled subset", () => {
+  it("gates move actions by position in the enabled list", () => {
     const gating = getProviderMoveGating([
       makeProvider({ id: "a" }),
       makeProvider({ id: "b" }),
@@ -50,20 +49,19 @@ describe("getProviderMoveGating", () => {
     expect(gating.get("c")).toEqual({ canMoveUp: true, canMoveDown: false });
   });
 
-  it("excludes unsupported providers from reordering and ignores them as neighbors", () => {
+  it("treats a provider the catalog does not list as a neighbor", () => {
     const gating = getProviderMoveGating([
       makeProvider({ id: "known1" }),
-      makeProvider({ id: "unknown", supported: false }),
+      makeProvider({ id: "unknown" }),
       makeProvider({ id: "known2" }),
     ]);
 
-    expect(gating.has("unknown")).toBe(false);
-    // The two supported providers are adjacent to each other, not to `unknown`.
     expect(gating.get("known1")).toEqual({ canMoveUp: false, canMoveDown: true });
+    expect(gating.get("unknown")).toEqual({ canMoveUp: true, canMoveDown: true });
     expect(gating.get("known2")).toEqual({ canMoveUp: true, canMoveDown: false });
   });
 
-  it("offers no moves for a single supported provider", () => {
+  it("offers no moves for a single enabled provider", () => {
     const gating = getProviderMoveGating([makeProvider({ id: "solo" })]);
 
     expect(gating.get("solo")).toEqual({ canMoveUp: false, canMoveDown: false });
@@ -77,7 +75,7 @@ describe("buildToggleAccessories", () => {
     ]);
   });
 
-  it("shows enabled and disabled state for supported providers", () => {
+  it("shows enabled and disabled state", () => {
     expect(buildToggleAccessories(makeProvider({ id: "x", enabled: true }), false)).toEqual([
       { icon: { source: "CheckCircle", tintColor: "Green" }, tooltip: "Enabled" },
     ]);
@@ -85,28 +83,15 @@ describe("buildToggleAccessories", () => {
       { icon: "Circle", tooltip: "Disabled" },
     ]);
   });
-
-  it("badges unsupported providers as not shown in the overview", () => {
-    const accessories = buildToggleAccessories(makeProvider({ id: "x", supported: false, enabled: true }), false);
-
-    expect(accessories).toHaveLength(2);
-    expect(accessories[0]).toEqual({ icon: "Info", tooltip: "Not shown in the Raycast Usage Overview yet" });
-  });
 });
 
 describe("buildToggleSuccessToast", () => {
-  it("titles the toast and hints only when enabling an unsupported provider", () => {
+  it("titles the toast with the provider name", () => {
     expect(buildToggleSuccessToast(makeProvider({ id: "x", name: "X" }), true)).toEqual({
       title: "Enabled X",
-      message: undefined,
     });
     expect(buildToggleSuccessToast(makeProvider({ id: "x", name: "X" }), false)).toEqual({
       title: "Disabled X",
-      message: undefined,
-    });
-    expect(buildToggleSuccessToast(makeProvider({ id: "x", name: "X", supported: false }), true)).toEqual({
-      title: "Enabled X",
-      message: "Not shown in the Raycast Usage Overview yet",
     });
   });
 });

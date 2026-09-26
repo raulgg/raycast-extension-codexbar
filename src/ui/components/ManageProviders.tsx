@@ -7,8 +7,6 @@ import type { CodexBarClient } from "../../services/codexbarClient";
 import type { AvailableProvider } from "../../usage/types";
 import { moveProviderActions } from "./moveProviderActions";
 
-const NOT_IN_OVERVIEW_HINT = "Not shown in the Raycast Usage Overview yet";
-
 type ManageProvidersProps = {
   client: CodexBarClient;
   onProvidersChanged?: () => void;
@@ -131,30 +129,25 @@ function ProviderToggleItem({ provider, isPending, onToggle, onMoveUp, onMoveDow
   );
 }
 
-// Gating derived from supported enabled providers in their rendered order.
+// Gating derived from enabled providers in their rendered order.
 export function getProviderMoveGating(
   enabledProviders: AvailableProvider[],
 ): Map<string, { canMoveUp: boolean; canMoveDown: boolean }> {
-  const reorderable = enabledProviders.filter((provider) => provider.supported);
   const gating = new Map<string, { canMoveUp: boolean; canMoveDown: boolean }>();
 
-  reorderable.forEach((provider, index) => {
+  enabledProviders.forEach((provider, index) => {
     gating.set(provider.id, {
       canMoveUp: index > 0,
-      canMoveDown: index < reorderable.length - 1,
+      canMoveDown: index < enabledProviders.length - 1,
     });
   });
 
   return gating;
 }
 
-export function buildToggleSuccessToast(
-  provider: AvailableProvider,
-  nextEnabled: boolean,
-): { title: string; message?: string } {
+export function buildToggleSuccessToast(provider: AvailableProvider, nextEnabled: boolean): { title: string } {
   return {
     title: nextEnabled ? `Enabled ${provider.name}` : `Disabled ${provider.name}`,
-    message: nextEnabled && !provider.supported ? NOT_IN_OVERVIEW_HINT : undefined,
   };
 }
 
@@ -182,14 +175,7 @@ export function describeManageProvidersError(error: Error): { title: string; des
 }
 
 export function buildToggleAccessories(provider: AvailableProvider, isPending: boolean): List.Item.Accessory[] {
-  const accessories: List.Item.Accessory[] = [];
-
-  if (!provider.supported) {
-    accessories.push({ icon: Icon.Info, tooltip: NOT_IN_OVERVIEW_HINT });
-  }
-
-  accessories.push(buildToggleStateAccessory(provider, isPending));
-  return accessories;
+  return [buildToggleStateAccessory(provider, isPending)];
 }
 
 function buildToggleStateAccessory(provider: AvailableProvider, isPending: boolean): List.Item.Accessory {

@@ -126,6 +126,16 @@ from `ProviderColor(red:green:blue:)` or `ProviderColor(hex: 0xRRGGBB)`. If a pa
 find what it expects, it throws. A format change on the Swift side is a failure to fix, not a
 silent gap.
 
+### Providers the catalog does not list yet
+
+An enabled Provider in `~/.codexbar/config.json` still renders when `PROVIDER_CATALOG` has no entry
+for its id ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)). The overview fetches
+that id and uses presentation meter labels when the CLI sends them. Raw Primary / Secondary /
+Tertiary windows otherwise keep the fallback titles. The row uses a circle icon and `#22B8CF`, or
+the config entry's `accentColor`. Pacing, the dashboard URL, and the status-page URL stay absent
+until the catalog and pace table include the id. `npm run upstream:check` still fails when upstream
+ships a provider the catalog lacks. This fallback is the gap before that sync.
+
 ### `ALLOWED_DIVERGENCES`. Recording an intentional difference
 
 Some upstream URLs are computed (`ZaiAPIRegion.global.dashboardURL.absoluteString`), not string

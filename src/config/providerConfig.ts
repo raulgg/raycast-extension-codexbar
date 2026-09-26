@@ -128,7 +128,6 @@ export function normalizeAvailableProviders(payload: unknown): AvailableProvider
       name: isKnownProviderId(cliProvider) ? metadata.name : (cliDisplayName ?? metadata.name),
       icon: metadata.icon,
       enabled: record.enabled === true,
-      supported: isKnownProviderId(cliProvider),
     });
   }
 
@@ -218,7 +217,7 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
       accentColor: parseAccentColor(provider.accentColor),
       hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
     }))
-    .filter(({ id }) => !isProviderSelectorId(id) && isKnownProviderId(id))
+    .filter(({ id }) => !isProviderSelectorId(id))
     .filter(({ id }) => {
       const canonicalId = resolveProviderId(id);
       if (seenProviderIds.has(canonicalId)) {
@@ -342,7 +341,7 @@ function findConfiguredProviderMoveIndexes(
   direction: ProviderMoveDirection,
 ): { from: number; to: number } | undefined {
   const visibleProviders = providers.flatMap(({ id, provider }, index) => {
-    if (!id || provider?.enabled !== true || isProviderSelectorId(id) || !isKnownProviderId(id)) {
+    if (!id || provider?.enabled !== true || isProviderSelectorId(id)) {
       return [];
     }
 

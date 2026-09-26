@@ -207,8 +207,11 @@ Upstream ships often. A periodic sync pass:
    npm run upstream:sync-icons -- --check
    ```
 3. **Fix what they flag.** New provider → add a `PROVIDER_CATALOG` entry (name, brandColor,
-   labels, URLs, iconSlug) transcribed from its `…ProviderDescriptor.swift`; **don't invent values**. New
-   alias → `PROVIDER_ID_ALIASES` in `catalog.ts`. Field mismatch → update the catalog, or record an
+   labels, URLs, iconSlug) transcribed from its `…ProviderDescriptor.swift`; **don't invent values**.
+   Until that entry lands, an enabled Provider the catalog does not list still renders from the CLI
+   payload ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); the fallback does not
+   satisfy this check.
+   New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`. Field mismatch → update the catalog, or record an
    intentional `ALLOWED_DIVERGENCES` entry with a reason. New/removed dynamic override → port it
    into `DYNAMIC_SLOT_TITLES` or mark it unportable. New descriptor `pace:` → add a
    `paceCapabilities.ts` row (GUI fields only, plus a `CUSTOM_PACE_RULES` fingerprint for `.custom`

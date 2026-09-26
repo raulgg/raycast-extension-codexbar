@@ -20,4 +20,5 @@ Maintainer and contributor documentation for the CodexBar Raycast extension.
   - [0007](adr/0007-restore-remembered-usage-sections.md) — temporarily restore supplemental meters omitted by flaky payloads.
   - [0008](adr/0008-extension-installs-codexbar-cli.md) — CLI setup is an explicit, verified extension workflow.
   - [0009](adr/0009-disable-keychain-access-strictly.md) — disabling Keychain access is a strict, Provider-wide runtime policy.
+  - [0010](adr/0010-render-providers-missing-from-the-catalog.md) — an enabled Provider renders before the catalog lists it.
 </content>
