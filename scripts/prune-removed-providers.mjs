@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-// Deletes providers that the pinned CodexBar revision no longer ships.
-// Catalog entries, aliases, mocks, pace rows, dynamic titles, allowlists, provider
-// rules, exclusive tests, and icons are removed together. Shared tests that use the
-// id as one sample among several are listed and left in place.
+// Deletes the table rows for providers the pinned CodexBar revision no longer ships.
+// Call sites and tests stay. Any remaining mention exits non-zero so a bump cannot
+// move the lockfile until those references are gone.
 //
 //   npm run upstream:prune
 //   npm run upstream:prune -- --check
@@ -13,7 +12,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
-import { keptIconSlugs, pruneProviderSources } from "./lib/prune-provider.mjs";
+import { collectProviderMentions, keptIconSlugs, pruneProviderSources } from "./lib/prune-provider.mjs";
 import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./lib/upstream.mjs";
 import { parseDescriptorMetadata } from "./lib/upstream-metadata.mjs";
 import { assertSafeIconSlug } from "./sync-provider-icons.mjs";
@@ -78,31 +77,40 @@ async function prune() {
   }
 
   console.log(`Upstream no longer ships: ${removed.join(", ")}`);
-  if (CHECK_ONLY) {
-    process.exitCode = 1;
-    return;
-  }
 
   const original = await readProjectSources();
   const keptSlugs = keptIconSlugs(PROVIDER_CATALOG, removed);
   let current = original;
   const deleted = new Set();
-  const leftovers = [];
-  const testMentions = [];
+  const mentions = [];
 
   for (const id of removed) {
     const iconSlug = assertSafeIconSlug(PROVIDER_CATALOG[id].iconSlug);
     const result = pruneProviderSources(current, {
       id,
       iconSlug,
-      knownIds: Object.keys(PROVIDER_CATALOG),
-      removedIds: removed,
+      keptIconSlugs: keptSlugs,
       deleteIcon: !keptSlugs.has(iconSlug),
+      scan: false,
     });
     current = result.files;
     for (const filePath of result.deleted) deleted.add(filePath);
-    leftovers.push(...result.leftovers);
-    testMentions.push(...result.testMentions);
+    mentions.push(...result.mentions.map((mention) => `${id} ${mention}`));
+  }
+  for (const id of removed) {
+    mentions.push(...collectProviderMentions(current, id, keptSlugs).map((mention) => `${id} ${mention}`));
+  }
+
+  if (mentions.length > 0) {
+    console.error("These references still use a removed provider, so nothing was written:");
+    for (const mention of mentions) console.error(`  ${mention}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (CHECK_ONLY) {
+    process.exitCode = 1;
+    return;
   }
 
   for (const [relative, contents] of Object.entries(current)) {
@@ -121,16 +129,6 @@ async function prune() {
     if (!relative.endsWith(".svg")) continue;
     await rm(path.join(ROOT, relative), { force: true });
     console.log(`Deleted ${relative}`);
-  }
-
-  if (testMentions.length > 0) {
-    console.log("Tests still mention a removed provider as one sample among several:");
-    for (const mention of testMentions) console.log(`  ${mention}`);
-  }
-  if (leftovers.length > 0) {
-    console.error("Removed providers are still referenced from production code:");
-    for (const mention of leftovers) console.error(`  ${mention}`);
-    process.exitCode = 1;
   }
 }
 

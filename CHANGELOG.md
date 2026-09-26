@@ -22,7 +22,7 @@
 - Cursor, Copilot, Kimi, Zai, Notion, and calendar-month providers (Alibaba, Amp, Command Code, Doubao, MiMo, OpenCode Go, StepFun) show the same plain usage pacer as the CodexBar app
 - Codex, Claude, and Antigravity extra rate windows show the same session and weekly pacer as the CodexBar app
 - `npm run upstream:check` diffs each provider's `pace:` capability against `paceCapabilities.ts` so a new upstream pacer fails the check instead of drifting silently
-- `npm run upstream:prune` deletes a provider upstream no longer ships, including its catalog entry, aliases, mocks, pace rows, and icon
+- `npm run upstream:prune` deletes a provider upstream no longer ships from the catalog, aliases, mocks, pace rows, provider-rules file, and icon. A quoted id, rules-file path, or URL segment blocks the write, so the upstream pin does not move
 - `npm run upstream:sync-icons -- --check` fails when leftover SVGs remain under `assets/provider-icons/`
 - `npm run upstream:check` pins CodexBar to `codexbar-upstream.lock` and imports `catalog.ts` / `paceCapabilities.ts` instead of regex-parsing `registry.ts`
 - Background refresh restarts the CodexBar serve daemon when it predates the installed CLI binary, so payload shapes stay consistent across app updates

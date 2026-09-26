@@ -148,7 +148,7 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
 | `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
-| `npm run upstream:prune [-- --check]` | Delete providers the lockfile SHA no longer ships, including their icons. `--check` writes nothing. |
+| `npm run upstream:prune [-- --check]` | Delete table rows for providers the lockfile SHA no longer ships, including their icons and provider-rules file. Exits non-zero while any other file still names them. `--check` writes nothing. |
 | `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after pruning removals and running both guards. |
 | `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
 
@@ -219,7 +219,9 @@ Upstream ships often. A periodic sync pass:
    closures), or mark presentation-only paths in `UNPORTABLE_PRESENTATION_PACE` /
    `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the `-- --check` and let the sync script
    write them. Removed provider → `npm run upstream:prune` deletes the catalog entry, aliases,
-   mocks, pace rows, dynamic titles, provider rules, exclusive tests, and the SVG.
+   mocks, pace rows, dynamic titles, the provider-rules file, and the SVG. It leaves call sites
+   and tests alone. While any quoted id, rules-file path, or URL segment remains, it writes
+   nothing and fails, so the lockfile stays put.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.

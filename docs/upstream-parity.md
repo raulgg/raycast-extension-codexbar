@@ -215,11 +215,13 @@ Every catalog `iconSlug` maps to `assets/provider-icons/<slug>.svg`, harvested f
 - `npm run upstream:sync-icons -- --check` does the same comparison but writes nothing and exits
   non-zero if an icon is out of date or a local SVG has no catalog `iconSlug` pointing at it.
 - `npm run upstream:prune` removes every catalog provider that no longer has an upstream descriptor.
-  It deletes the catalog entry, matching `PROVIDER_ID_ALIASES`, mock builders, pace rows, dynamic
-  titles, allowlist entries, the `providerRules/<id>` module and the production code that calls it,
-  tests that only mention that provider, and `assets/provider-icons/<slug>.svg`. A test that uses
-  the id as one sample among several is left in place and printed. `--check` reports the removals
-  and writes nothing.
+  It deletes the catalog entry, matching `PROVIDER_ID_ALIASES`, mock rows, pace rows, dynamic
+  titles, allowlist entries, the `providerRules/<id>.ts` file, and `assets/provider-icons/<slug>.svg`.
+  Call sites and tests are left as they are. A mention is a quoted id, a `providerRules/<id>` path,
+  or a `/<id>/` URL segment. A shared `iconSlug` on a provider that stays is not a mention.
+  While any mention remains, the command writes nothing and exits non-zero, so
+  `npm run upstream:bump` will not move the lockfile.
+  `--check` reports the removals and writes nothing.
 
 Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don't matter. The
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that
