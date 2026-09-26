@@ -206,39 +206,42 @@ function extractConfiguredProvidersFromConfig(rawConfig: string): ConfiguredProv
 
   const seenProviderIds = new Set<string>();
 
-  return providers
-    .filter(
-      (provider): provider is CodexBarConfigProvider & { id: string; enabled: true } =>
-        typeof provider.id === "string" && provider.id.trim().length > 0 && provider.enabled === true,
-    )
-    .map((provider) => ({
-      id: provider.id.trim(),
-      source: normalizeProviderSource(provider.source),
-      accentColor: parseAccentColor(provider.accentColor),
-      hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
-    }))
-    .filter(({ id }) => !isProviderSelectorId(id))
-    .filter(({ id }) => {
-      const canonicalId = resolveProviderId(id);
-      if (seenProviderIds.has(canonicalId)) {
-        return false;
-      }
+  return (
+    providers
+      .filter(
+        (provider): provider is CodexBarConfigProvider & { id: string; enabled: true } =>
+          typeof provider.id === "string" && provider.id.trim().length > 0 && provider.enabled === true,
+      )
+      .map((provider) => ({
+        id: provider.id.trim(),
+        source: normalizeProviderSource(provider.source),
+        accentColor: parseAccentColor(provider.accentColor),
+        hiddenUsageItemIDs: parseHiddenUsageItemIDs(provider.hiddenUsageItemIDs),
+      }))
+      // Enabled non-selector ids are listed, including ids the catalog does not contain.
+      .filter(({ id }) => !isProviderSelectorId(id))
+      .filter(({ id }) => {
+        const canonicalId = resolveProviderId(id);
+        if (seenProviderIds.has(canonicalId)) {
+          return false;
+        }
 
-      seenProviderIds.add(canonicalId);
-      return true;
-    })
-    .map(({ id: providerId, source, accentColor, hiddenUsageItemIDs }) => {
-      const metadata = getProviderMetadata(providerId);
-      return {
-        id: metadata.id,
-        name: metadata.name,
-        icon: metadata.icon,
-        keywords: [metadata.id],
-        ...(source ? { source } : {}),
-        ...(accentColor ? { accentColor } : {}),
-        ...(hiddenUsageItemIDs ? { hiddenUsageItemIDs } : {}),
-      };
-    });
+        seenProviderIds.add(canonicalId);
+        return true;
+      })
+      .map(({ id: providerId, source, accentColor, hiddenUsageItemIDs }) => {
+        const metadata = getProviderMetadata(providerId);
+        return {
+          id: metadata.id,
+          name: metadata.name,
+          icon: metadata.icon,
+          keywords: [metadata.id],
+          ...(source ? { source } : {}),
+          ...(accentColor ? { accentColor } : {}),
+          ...(hiddenUsageItemIDs ? { hiddenUsageItemIDs } : {}),
+        };
+      })
+  );
 }
 
 function parseHiddenUsageItemIDs(value: unknown): string[] | undefined {

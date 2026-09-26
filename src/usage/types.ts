@@ -19,8 +19,7 @@ export type ConfiguredProvider = {
 // reported by `codexbar config providers`. The full roster from which
 // ConfiguredProviders (enabled === true) are drawn. `id` is the alias-resolved
 // canonical id used for registry lookups; `cliProvider` is the raw id the CLI
-// reported, which is what enable/disable commands are addressed to. An enabled
-// id renders in the Usage Overview whether or not the catalog lists it.
+// reported, which is what enable/disable commands are addressed to.
 export type AvailableProvider = {
   id: string;
   cliProvider: string;

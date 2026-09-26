@@ -52,9 +52,12 @@ export async function fetchUsage(
 
   try {
     return await executeCodexBarServe(binary, providerId, options);
-  } catch {
-    // Serve is unavailable, unattested, or this request failed; fall through
-    // to a fresh policy-guarded one-shot command.
+  } catch (error) {
+    // An unknown-provider refusal is not a dead serve. Other failures fall
+    // through to a fresh policy-guarded one-shot command.
+    if (isUnknownProviderError(error)) {
+      throw error;
+    }
   }
 
   // Foreground never starts serve (ADR-0002). When serve is unavailable, a one-shot CLI command
@@ -85,6 +88,11 @@ async function executeCodexBarServe(
     params.set("refresh", "true");
   }
   return requestCodexBarServeJson(`/usage?${params.toString()}`, CODEXBAR_SERVE_REQUEST_TIMEOUT_SECONDS * 1000);
+}
+
+function isUnknownProviderError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /unknown provider/i.test(message);
 }
 
 function buildProviderUsageCommandArgs(

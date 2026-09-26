@@ -162,6 +162,16 @@ function mockServeUnavailable() {
   });
 }
 
+function isServeHttpError(value: unknown): value is { statusCode: number; body: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "statusCode" in value &&
+    "body" in value &&
+    typeof value.statusCode === "number"
+  );
+}
+
 function mockServeResponses(...responses: Array<unknown | Error>) {
   const pendingResponses = [...responses];
   httpRequestMock.mockImplementation(
@@ -179,10 +189,11 @@ function mockServeResponses(...responses: Array<unknown | Error>) {
       };
 
       if (!(response instanceof Error)) {
-        const res = Object.assign(new EventEmitter(), { statusCode: 200 });
+        const httpError = isServeHttpError(response) ? response : undefined;
+        const res = Object.assign(new EventEmitter(), { statusCode: httpError?.statusCode ?? 200 });
         queueMicrotask(() => {
           callback(res);
-          res.emit("data", Buffer.from(JSON.stringify(response)));
+          res.emit("data", Buffer.from(JSON.stringify(httpError ? httpError.body : response)));
           res.emit("end");
         });
       }
@@ -644,6 +655,33 @@ describe("codexbar runtime helpers", () => {
     expect(execFileMock).toHaveBeenCalledWith(
       "/usr/local/bin/codexbar",
       expect.arrayContaining(["usage", "--provider", "codex"]),
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("does not one-shot when serve refuses an unknown provider", async () => {
+    const binary: ResolvedCodexBarBinary = {
+      command: "/usr/local/bin/codexbar",
+      source: "path",
+      keychainAccessPolicy: "default",
+      capabilities: {
+        appFetchProfile: false,
+        interactionModes: false,
+        presentationSchemaVersions: [],
+        serveAppFetchProfile: false,
+        serveForceRefresh: true,
+      },
+    };
+    attestServeProcess();
+    mockServeResponses({ status: "ok" }, { statusCode: 400, body: { error: "Unknown provider 'plugin'." } });
+
+    await expect(fetchProviderDetail(binary, "plugin", { mode: "force" })).rejects.toThrow(
+      "Unknown provider 'plugin'.",
+    );
+    expect(execFileMock).not.toHaveBeenCalledWith(
+      "/usr/local/bin/codexbar",
+      expect.arrayContaining(["usage", "--provider", "plugin"]),
       expect.any(Object),
       expect.any(Function),
     );

@@ -129,14 +129,16 @@ describe("provider normalization", () => {
 
     expect(detail).toMatchObject({ id: "some-new-provider", name: "Some New Provider" });
     expect(detail.sections).toHaveLength(1);
-    expect(detail.sections[0]).toMatchObject({
-      kind: "usage",
-      title: "Primary",
-      displayTitle: "Session",
-      remainingPercent: 85,
-      resetsIn: "1h 30m",
-    });
-    expect(detail.sections[0]?.kind === "usage" ? detail.sections[0].usagePacing : "missing").toBeUndefined();
+    expect(detail.sections).toMatchObject([
+      {
+        kind: "usage",
+        title: "Primary",
+        displayTitle: "Session",
+        remainingPercent: 85,
+        resetsIn: "1h 30m",
+        usagePacing: undefined,
+      },
+    ]);
   });
 
   it("labels raw windows with fallback titles for a provider the catalog does not list", () => {
@@ -145,7 +147,7 @@ describe("provider normalization", () => {
         provider: "some-new-provider",
         usage: {
           primary: { usedPercent: 20, resetsAt: "2026-03-23T12:00:00Z" },
-          secondary: { usedPercent: 40 },
+          secondary: { usedPercent: 40, windowMinutes: 10_080, resetsAt: "2026-03-30T08:00:00Z" },
           tertiary: { usedPercent: 10 },
         },
       },
@@ -155,15 +157,36 @@ describe("provider normalization", () => {
 
     expect(detail.sections).toHaveLength(3);
     expect(detail.sections).toMatchObject([
-      { kind: "usage", title: "Primary", displayTitle: "Primary", remainingPercent: 80, resetsIn: "1h 30m" },
-      { kind: "usage", title: "Secondary", displayTitle: "Secondary", remainingPercent: 60 },
-      { kind: "usage", title: "Tertiary", displayTitle: "Tertiary", remainingPercent: 90 },
+      {
+        kind: "usage",
+        title: "Primary",
+        displayTitle: "Primary",
+        remainingPercent: 80,
+        resetsIn: "1h 30m",
+        usagePacing: undefined,
+      },
+      { kind: "usage", title: "Secondary", displayTitle: "Secondary", remainingPercent: 60, usagePacing: undefined },
+      { kind: "usage", title: "Tertiary", displayTitle: "Tertiary", remainingPercent: 90, usagePacing: undefined },
     ]);
-    expect(detail.sections.map((section) => (section.kind === "usage" ? section.usagePacing : section.kind))).toEqual([
-      undefined,
-      undefined,
-      undefined,
-    ]);
+  });
+
+  it("refuses a roster that does not contain the requested provider", () => {
+    expect(() =>
+      normalizeProviderDetailPayload(
+        [
+          { provider: "codex", accountEmail: "dev@example.com", usage: { primary: { usedPercent: 47 } } },
+          { provider: "claude", usage: { primary: { usedPercent: 12 } } },
+        ],
+        "some-new-provider",
+      ),
+    ).toThrow("CodexBar did not return usage for some-new-provider.");
+  });
+
+  it("normalizes a payload that has no provider id", () => {
+    const detail = normalizeProviderDetailPayload({ usage: { primary: { usedPercent: 20 } } }, "some-new-provider");
+
+    expect(detail).toMatchObject({ id: "some-new-provider", name: "Some New Provider" });
+    expect(detail.sections[0]).toMatchObject({ kind: "usage", remainingPercent: 80 });
   });
 
   it("treats an empty canonical meter list as authoritative", () => {
