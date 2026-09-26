@@ -266,11 +266,39 @@ export const PACE_CAPABILITIES = {
     expect(result.mentions.some((mention) => mention.includes("PaceCustomId"))).toBe(false);
   });
 
-  it("reports a pace-rule name the line match cannot delete", () => {
+  it("deletes a last pace-rule name that has a trailing comment", () => {
     const result = prune(
       {
         "src/providers/paceCapabilities.ts": `export type PaceCustomId =
+  | "claudeSessionAlways"
   | "zaiMonthlyMcp"; // last
+
+export const CUSTOM_WINDOW_RULES = {
+  claudeSessionAlways: () => true,
+  zaiMonthlyMcp: (window) => true,
+};
+
+export const PACE_CAPABILITIES = {
+  zai: {
+    resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },
+  },
+};
+`,
+      },
+      "zai",
+    );
+
+    expect(result.files["src/providers/paceCapabilities.ts"]).toContain('| "claudeSessionAlways";');
+    expect(result.files["src/providers/paceCapabilities.ts"]).not.toContain("zaiMonthlyMcp");
+    expect(result.files["src/providers/paceCapabilities.ts"]).not.toContain("// last");
+    expect(result.mentions.some((mention) => mention.includes("PaceCustomId"))).toBe(false);
+  });
+
+  it("reports a pace-rule name sharing a line with another member", () => {
+    const result = prune(
+      {
+        "src/providers/paceCapabilities.ts": `export type PaceCustomId =
+  | "claudeSessionAlways" | "zaiMonthlyMcp";
 
 export const CUSTOM_WINDOW_RULES = {
   zaiMonthlyMcp: (window) => true,
@@ -286,7 +314,6 @@ export const PACE_CAPABILITIES = {
       "zai",
     );
 
-    expect(result.files["src/providers/paceCapabilities.ts"]).toContain('| "zaiMonthlyMcp"; // last');
     expect(result.mentions).toContain(
       "src/providers/paceCapabilities.ts: pace rule zaiMonthlyMcp is still in PaceCustomId",
     );

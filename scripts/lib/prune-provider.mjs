@@ -249,7 +249,7 @@ function editNamedSet(source, name, shouldRemoveValue) {
 function removeUnionMember(source, typeName, member) {
   const declaration = new RegExp(`(?:export\\s+)?type\\s+${typeName}\\b`).exec(source);
   if (!declaration) return source;
-  const line = new RegExp(`^\\s*\\|\\s*["']${member}["']\\s*;?\\s*$`, "m");
+  const line = new RegExp(`^\\s*\\|\\s*["']${member}["']\\s*;?\\s*(?:\\/\\/.*)?$`, "m");
   const match = line.exec(source.slice(declaration.index));
   if (!match) return source;
   const start = declaration.index + match.index;
