@@ -304,9 +304,9 @@ few special cases:
   windows (`extraRateWindows`, e.g. "Codex Spark"), and OpenRouter key usage (`openRouterUsage`,
   on the OpenRouter provider module).
   Antigravity extras whose ids start with `antigravity-quota-summary-` are what the detail card
-  draws. Primary and Secondary are copies for the list adornment, the same rule as
-  `antigravityMetrics` in `MenuCardView+ModelHelpers.swift`. Skip the slot-hiding rewrite when
-  presentation meters are already present.
+  draws (on the Antigravity provider module). Primary and Secondary are copies for the list
+  adornment, the same rule as `antigravityMetrics` in `MenuCardView+ModelHelpers.swift`. Skip
+  the slot-hiding rewrite when presentation meters are already present.
 - **Deferred / unmapped.** `cursorRequests`, `zaiUsage`, `minimaxUsage`, `kiroUsage`, `mistralUsage`,
   `deepseekUsage`, `deepgramUsage`, `openAIAPIUsage`, `claudeAdminAPIUsage`, `antigravityPlanInfo`.
   These wait until we can sample their live JSON. An unmapped shape renders nothing, silent by

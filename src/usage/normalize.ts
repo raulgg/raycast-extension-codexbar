@@ -14,7 +14,6 @@ import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
 import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
 import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
-import { applyAntigravityDetailRules } from "./providerRules/antigravity";
 import {
   applyCodexWeeklySessionCap,
   buildCodexCodeReviewSection,
@@ -527,15 +526,14 @@ function normalizePayload(
     ...buildCodexCodeReviewSection(payload, now),
     ...buildCodexResetCreditSection(metadata.id, payload, now),
   ];
-  const builtSections = applyAntigravityDetailRules(metadata.id, payload, presentation !== undefined, rawSections);
   const interpreted = modules[metadata.id]?.interpret?.({
     payload,
-    sections: builtSections,
+    sections: rawSections,
     planText: genericPlanText,
     hasPresentationMeters: presentation !== undefined,
     now,
   });
-  const sections = interpreted?.sections ?? builtSections;
+  const sections = interpreted?.sections ?? rawSections;
   const planText = interpreted?.planText ?? genericPlanText;
 
   return {

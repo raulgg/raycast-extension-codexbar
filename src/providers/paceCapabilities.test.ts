@@ -191,7 +191,7 @@ describe("resolveExtraWindowPace", () => {
 
   it("session-paces Codex and Antigravity 5-hour extras, weekly-paces 7-day extras", () => {
     expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, legacyModules)?.context).toBe("session");
-    expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 }, legacyModules)?.context).toBe("session");
+    expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 }, PROVIDER_MODULES)?.context).toBe("session");
     expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
     expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
   });
