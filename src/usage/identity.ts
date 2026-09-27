@@ -1,6 +1,5 @@
 import { firstString, toRecord } from "./json";
 import { extractClaudePlanText } from "./providerRules/claude";
-import { extractKiloPass } from "./providerRules/kilo";
 import type { RawProviderPayload } from "./types";
 
 // Account identity shown in the detail header: the account email and the plan
@@ -93,13 +92,9 @@ export function formatPlanText(providerId: string, payload: RawProviderPayload):
     return undefined;
   }
 
-  const providerScopedPlanText = providerId === "kilo" ? (extractKiloPass(rawPlanText) ?? rawPlanText) : rawPlanText;
-  if (
-    /^[a-z0-9_-]+$/i.test(providerScopedPlanText) &&
-    providerScopedPlanText === providerScopedPlanText.toLowerCase()
-  ) {
-    return formatSlugLabel(providerScopedPlanText);
+  if (/^[a-z0-9_-]+$/i.test(rawPlanText) && rawPlanText === rawPlanText.toLowerCase()) {
+    return formatSlugLabel(rawPlanText);
   }
 
-  return providerScopedPlanText;
+  return rawPlanText;
 }

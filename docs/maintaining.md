@@ -109,8 +109,8 @@ src/
     identity.ts               Account email and plan text for the detail header.
     providerRules/            Provider-specific interpretation, one file per provider: codex
                               (weekly caps session, code review, reset credits), claude (plan
-                              fields), kilo (pass text), antigravity (hide adornment copies),
-                              openrouter (supplemental mapper table).
+                              fields), antigravity (hide adornment copies), openrouter
+                              (supplemental mapper table). Kilo's header text lives on its module.
     pacing.ts                 The pace formula and labels. Hand-maintained (not script-diffed).
     status.ts                 Parse the CLI status object into a badge model.
 

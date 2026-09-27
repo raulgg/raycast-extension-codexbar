@@ -17,7 +17,6 @@ const MOCK_SOURCES: Record<string, string> = {
   factory: "web",
   antigravity: "local",
   zai: "api",
-  kilo: "api",
   amp: "web",
   ollama: "web",
   openrouter: "api",
@@ -269,24 +268,6 @@ function buildZai(now: Date): RawProviderPayload {
   });
 }
 
-function buildKilo(now: Date): RawProviderPayload {
-  return buildPayload("kilo", {
-    source: MOCK_SOURCES.kilo,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 52, null, "12/30 credits"),
-      buildWindow(now, 86, 7 * DAY, "$4.00 / $20.00 (+ $2.00 bonus)"),
-      null,
-      buildIdentity("kilo", null, null, "Kilo Pass Pro - Auto top-up: visa"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildAmp(now: Date): RawProviderPayload {
   return buildPayload("amp", {
     source: MOCK_SOURCES.amp,
@@ -410,7 +391,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   factory: buildFactory,
   antigravity: buildAntigravity,
   zai: buildZai,
-  kilo: buildKilo,
   amp: buildAmp,
   ollama: buildOllama,
   openrouter: buildOpenRouter,

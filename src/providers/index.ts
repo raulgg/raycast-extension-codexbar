@@ -31,6 +31,7 @@ import huggingface from "./huggingface";
 import hyper from "./hyper";
 import ibmbob from "./ibmbob";
 import jetbrains from "./jetbrains";
+import kilo from "./kilo";
 import kimi from "./kimi";
 import kiro from "./kiro";
 import litellm from "./litellm";
@@ -105,6 +106,7 @@ export const PROVIDER_MODULES = {
   hyper,
   ibmbob,
   jetbrains,
+  kilo,
   kimi,
   kiro,
   litellm,
