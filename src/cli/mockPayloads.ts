@@ -2,61 +2,30 @@ import { environment } from "@raycast/api";
 import { providerModuleById } from "../providers/module";
 import { getProviderMetadata, PROVIDER_IDS } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../usage/types";
+import { buildIdentity, buildPayload, buildUsage, buildWindow, DAY, HOUR, iso, MINUTE, offsetIso } from "./mockShape";
 
 // TODO: add CODEXBAR_MOCK_ERROR fixtures later.
 
 // update const to true when want to use mock data in development
 const DEV_MOCK = false;
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
 type MockBuilder = (now: Date) => RawProviderPayload;
-
-type MockWindow = {
-  usedPercent: number;
-  resetsAt: string | null;
-  resetDescription: string | null;
-  nextRegenPercent?: number;
-  windowMinutes?: number;
-};
-
-type MockPayloadOptions = {
-  source: string;
-  version: string | null;
-  status: Record<string, unknown> | null;
-  usage: Record<string, unknown> | null;
-  credits: Record<string, unknown> | null;
-  antigravityPlanInfo: Record<string, unknown> | null;
-  openaiDashboard: Record<string, unknown> | null;
-};
 
 const MOCK_SOURCES: Record<string, string> = {
   codex: "codex-cli",
   claude: "web",
   cursor: "web",
-  opencode: "web",
   opencodego: "web",
   alibaba: "web",
   factory: "web",
-  gemini: "api",
   antigravity: "local",
   copilot: "api",
   zai: "api",
-  minimax: "web",
   kimi: "api",
   kilo: "api",
-  kiro: "cli",
-  vertexai: "oauth",
-  augment: "web",
-  jetbrains: "local",
   amp: "web",
   ollama: "web",
-  synthetic: "api",
-  warp: "api",
   openrouter: "api",
-  perplexity: "api",
   grok: "web",
   notion: "web",
 };
@@ -64,37 +33,10 @@ const MOCK_SOURCES: Record<string, string> = {
 const MOCK_VERSIONS: Record<string, string | null> = {
   codex: "0.6.0",
   claude: "1.0.0",
-  gemini: "0.12.0",
-  kiro: "0.4.0",
 };
 
 function isCodexBarMockMode(): boolean {
   return environment.isDevelopment && DEV_MOCK;
-}
-
-function iso(value: Date): string {
-  return value.toISOString();
-}
-
-function offsetIso(now: Date, offsetMs: number): string {
-  return iso(new Date(now.getTime() + offsetMs));
-}
-
-function buildWindow(
-  now: Date,
-  usedPercent: number,
-  resetOffsetMs: number | null,
-  resetDescription: string | null = null,
-  nextRegenPercent?: number,
-  windowMinutes?: number,
-): MockWindow {
-  return {
-    usedPercent,
-    resetsAt: resetOffsetMs === null ? null : offsetIso(now, resetOffsetMs),
-    resetDescription,
-    ...(nextRegenPercent === undefined ? {} : { nextRegenPercent }),
-    ...(windowMinutes === undefined ? {} : { windowMinutes }),
-  };
 }
 
 function buildStatus(
@@ -108,56 +50,6 @@ function buildStatus(
     description,
     url,
     updatedAt: iso(now),
-  };
-}
-
-function buildIdentity(
-  providerID: string,
-  email: string | null,
-  organization: string | null,
-  loginMethod: string | null,
-): Record<string, unknown> {
-  return {
-    identity: {
-      providerID,
-      accountEmail: email,
-      accountOrganization: organization,
-      loginMethod,
-    },
-    accountEmail: email,
-    accountOrganization: organization,
-    loginMethod,
-  };
-}
-
-function buildPayload(provider: string, options: MockPayloadOptions): RawProviderPayload {
-  return {
-    provider,
-    account: null,
-    version: options.version,
-    source: options.source,
-    status: options.status,
-    usage: options.usage,
-    credits: options.credits,
-    antigravityPlanInfo: options.antigravityPlanInfo,
-    openaiDashboard: options.openaiDashboard,
-    error: null,
-  };
-}
-
-function buildUsage(
-  now: Date,
-  primary: MockWindow | null,
-  secondary: MockWindow | null = null,
-  tertiary: MockWindow | null = null,
-  extras: Record<string, unknown> = {},
-): Record<string, unknown> {
-  return {
-    primary,
-    secondary,
-    tertiary,
-    updatedAt: iso(now),
-    ...extras,
   };
 }
 
@@ -358,18 +250,6 @@ function buildCursor(now: Date): RawProviderPayload {
   });
 }
 
-function buildOpenCode(now: Date): RawProviderPayload {
-  return buildPayload("opencode", {
-    source: MOCK_SOURCES.opencode,
-    version: null,
-    status: null,
-    usage: buildUsage(now, buildWindow(now, 29, 2 * HOUR, null), buildWindow(now, 56, 24 * HOUR, null)),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildOpenCodeGo(now: Date): RawProviderPayload {
   return buildPayload("opencodego", {
     source: MOCK_SOURCES.opencodego,
@@ -416,26 +296,6 @@ function buildFactory(now: Date): RawProviderPayload {
       buildWindow(now, 81, 7 * DAY, "Resets in 7d"),
       null,
       buildIdentity("factory", "dev@example.com", "Example Labs", "Factory Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildGemini(now: Date): RawProviderPayload {
-  return buildPayload("gemini", {
-    source: MOCK_SOURCES.gemini,
-    version: MOCK_VERSIONS.gemini,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 51, 6 * HOUR, "Free tier"),
-      buildWindow(now, 67, 24 * HOUR, "Pro quota"),
-      buildWindow(now, 84, 30 * DAY, "Monthly cap"),
-      {
-        ...buildIdentity("gemini", "dev@example.com", null, "Google AI Pro"),
-      },
     ),
     credits: null,
     antigravityPlanInfo: null,
@@ -499,24 +359,6 @@ function buildZai(now: Date): RawProviderPayload {
   });
 }
 
-function buildMiniMax(now: Date): RawProviderPayload {
-  return buildPayload("minimax", {
-    source: MOCK_SOURCES.minimax,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 63, 5 * HOUR, "1000 prompts / 5 hours"),
-      null,
-      null,
-      buildIdentity("minimax", null, null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildKimi(now: Date): RawProviderPayload {
   return buildPayload("kimi", {
     source: MOCK_SOURCES.kimi,
@@ -546,74 +388,6 @@ function buildKilo(now: Date): RawProviderPayload {
       buildWindow(now, 86, 7 * DAY, "$4.00 / $20.00 (+ $2.00 bonus)"),
       null,
       buildIdentity("kilo", null, null, "Kilo Pass Pro - Auto top-up: visa"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildKiro(now: Date): RawProviderPayload {
-  return buildPayload("kiro", {
-    source: MOCK_SOURCES.kiro,
-    version: MOCK_VERSIONS.kiro,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 38, 30 * DAY, null),
-      buildWindow(now, 79, 14 * DAY, "expires in 14d"),
-      null,
-      buildIdentity("kiro", null, "Kiro Pro", "Kiro Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildVertexAI(now: Date): RawProviderPayload {
-  return buildPayload("vertexai", {
-    source: MOCK_SOURCES.vertexai,
-    version: null,
-    status: null,
-    usage: buildUsage(now, null, null, null, {
-      ...buildIdentity("vertexai", "dev@example.com", "example-project", "gcloud"),
-    }),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildAugment(now: Date): RawProviderPayload {
-  return buildPayload("augment", {
-    source: MOCK_SOURCES.augment,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 46, 3 * DAY, "Resets in 3d"),
-      null,
-      null,
-      buildIdentity("augment", "dev@example.com", null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildJetBrains(now: Date): RawProviderPayload {
-  return buildPayload("jetbrains", {
-    source: MOCK_SOURCES.jetbrains,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 33, 7 * DAY, "Resets in 7d"),
-      null,
-      null,
-      buildIdentity("jetbrains", null, "IntelliJ IDEA", "AI Pro"),
     ),
     credits: null,
     antigravityPlanInfo: null,
@@ -657,42 +431,6 @@ function buildOllama(now: Date): RawProviderPayload {
   });
 }
 
-function buildSynthetic(now: Date): RawProviderPayload {
-  return buildPayload("synthetic", {
-    source: MOCK_SOURCES.synthetic,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 22, 2 * DAY, null),
-      buildWindow(now, 70, null, "60 minutes"),
-      null,
-      buildIdentity("synthetic", null, null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildWarp(now: Date): RawProviderPayload {
-  return buildPayload("warp", {
-    source: MOCK_SOURCES.warp,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 0, null, "Unlimited"),
-      buildWindow(now, 84, null, "2 bonus credits"),
-      null,
-      buildIdentity("warp", null, null, null),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildOpenRouter(now: Date): RawProviderPayload {
   return buildPayload("openrouter", {
     source: MOCK_SOURCES.openrouter,
@@ -702,24 +440,6 @@ function buildOpenRouter(now: Date): RawProviderPayload {
       openRouterUsage: buildOpenRouterUsage(now),
       ...buildIdentity("openrouter", null, null, "Balance: $25.50"),
     }),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildPerplexity(now: Date): RawProviderPayload {
-  return buildPayload("perplexity", {
-    source: MOCK_SOURCES.perplexity,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 54, 30 * DAY, "54/100 credits"),
-      buildWindow(now, 29, null, "20 promo credits"),
-      buildWindow(now, 71, null, "8 purchased credits"),
-      buildIdentity("perplexity", null, null, "Pro"),
-    ),
     credits: null,
     antigravityPlanInfo: null,
     openaiDashboard: null,
@@ -796,27 +516,17 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   codex: buildCodex,
   claude: buildClaude,
   cursor: buildCursor,
-  opencode: buildOpenCode,
   opencodego: buildOpenCodeGo,
   alibaba: buildAlibaba,
   factory: buildFactory,
-  gemini: buildGemini,
   antigravity: buildAntigravity,
   copilot: buildCopilot,
   zai: buildZai,
-  minimax: buildMiniMax,
   kimi: buildKimi,
   kilo: buildKilo,
-  kiro: buildKiro,
-  vertexai: buildVertexAI,
-  augment: buildAugment,
-  jetbrains: buildJetBrains,
   amp: buildAmp,
   ollama: buildOllama,
-  synthetic: buildSynthetic,
-  warp: buildWarp,
   openrouter: buildOpenRouter,
-  perplexity: buildPerplexity,
   grok: buildGrok,
   notion: buildNotion,
   helmcode: buildGenericProvider("helmcode"),
@@ -846,6 +556,9 @@ export function getMockAvailableProviders(): AvailableProvider[] {
 
 export function getMockProviderPayload(providerId: string, now: Date = new Date()): RawProviderPayload {
   const mock = providerModuleById(providerId)?.mock;
+  if (mock?.build) {
+    return mock.build(now);
+  }
   if (mock) {
     return buildGenericProvider(providerId, mock.windowCount ?? 2, mock.source)(now);
   }

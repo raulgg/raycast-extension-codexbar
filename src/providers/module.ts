@@ -6,6 +6,7 @@ import type { ProviderSection, RawProviderPayload } from "../usage/types";
 export type ProviderMock = {
   source?: string;
   windowCount?: 1 | 2;
+  build?: (now: Date) => RawProviderPayload;
 };
 
 export type ProviderDashboardInput = {

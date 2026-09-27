@@ -3,6 +3,7 @@ import abacus from "./abacus";
 import aiand from "./aiand";
 import alibabatokenplan from "./alibabatokenplan";
 import atlascloud from "./atlascloud";
+import augment from "./augment";
 import azureopenai from "./azureopenai";
 import bedrock from "./bedrock";
 import bifrost from "./bifrost";
@@ -20,23 +21,29 @@ import devpass from "./devpass";
 import doubao from "./doubao";
 import elevenlabs from "./elevenlabs";
 import fireworks from "./fireworks";
+import gemini from "./gemini";
 import gitkraken from "./gitkraken";
 import groq from "./groq";
 import huggingface from "./huggingface";
 import hyper from "./hyper";
 import ibmbob from "./ibmbob";
+import jetbrains from "./jetbrains";
+import kiro from "./kiro";
 import litellm from "./litellm";
 import llmman from "./llmman";
 import llmproxy from "./llmproxy";
 import longcat from "./longcat";
 import manus from "./manus";
 import mimo from "./mimo";
+import minimax from "./minimax";
 import mistral from "./mistral";
 import moonshot from "./moonshot";
 import muse from "./muse";
 import neuralwatt from "./neuralwatt";
 import nous from "./nous";
 import openai from "./openai";
+import opencode from "./opencode";
+import perplexity from "./perplexity";
 import pi from "./pi";
 import poe from "./poe";
 import qoder from "./qoder";
@@ -45,11 +52,14 @@ import replicate from "./replicate";
 import sakana from "./sakana";
 import stepfun from "./stepfun";
 import sub2api from "./sub2api";
+import synthetic from "./synthetic";
 import t3chat from "./t3chat";
 import typesafe from "./typesafe";
 import v0 from "./v0";
 import venice from "./venice";
 import vercel from "./vercel";
+import vertexai from "./vertexai";
+import warp from "./warp";
 import wayfinder from "./wayfinder";
 import windsurf from "./windsurf";
 import xai from "./xai";
@@ -62,6 +72,7 @@ export const PROVIDER_MODULES = {
   aiand,
   alibabatokenplan,
   atlascloud,
+  augment,
   azureopenai,
   bedrock,
   bifrost,
@@ -79,23 +90,29 @@ export const PROVIDER_MODULES = {
   doubao,
   elevenlabs,
   fireworks,
+  gemini,
   gitkraken,
   groq,
   huggingface,
   hyper,
   ibmbob,
+  jetbrains,
+  kiro,
   litellm,
   llmman,
   llmproxy,
   longcat,
   manus,
   mimo,
+  minimax,
   mistral,
   moonshot,
   muse,
   neuralwatt,
   nous,
   openai,
+  opencode,
+  perplexity,
   pi,
   poe,
   qoder,
@@ -104,11 +121,14 @@ export const PROVIDER_MODULES = {
   sakana,
   stepfun,
   sub2api,
+  synthetic,
   t3chat,
   typesafe,
   v0,
   venice,
   vercel,
+  vertexai,
+  warp,
   wayfinder,
   windsurf,
   xai,
