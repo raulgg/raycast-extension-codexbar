@@ -56,39 +56,6 @@ const LEGACY_PROVIDER_CATALOG = {
     subscriptionDashboardUrl: "https://claude.ai/settings/usage",
     statusPageUrl: "https://status.claude.com/",
   },
-  factory: {
-    name: "Droid",
-    iconSlug: "factory",
-    brandColor: "#FF6B35",
-    usageSectionLabels: { primary: "Standard", secondary: "Premium" },
-    dashboardUrl: "https://app.factory.ai/settings/billing",
-    statusPageUrl: "https://status.factory.ai",
-  },
-  zai: {
-    name: "z.ai / GLM",
-    iconSlug: "zai",
-    iconFallback: "Globe",
-    brandColor: "#E85A6A",
-    usageSectionLabels: { primary: "5-hour", secondary: "Weekly" },
-    dashboardUrl: "https://z.ai/manage-apikey/coding-plan/personal/my-plan",
-  },
-  amp: {
-    name: "Amp",
-    iconSlug: "amp",
-    iconFallback: "Bolt",
-    brandColor: "#DC2626",
-    usageSectionLabels: { primary: "Amp Free", secondary: "Balance" },
-    dashboardUrl: "https://ampcode.com/settings/usage",
-  },
-  grok: {
-    name: "Grok",
-    iconSlug: "grok",
-    iconFallback: "Stars",
-    brandColor: "#10A37F",
-    usageSectionLabels: { primary: "Credits", secondary: "On-demand" },
-    dashboardUrl: "https://grok.com/?_s=usage",
-    statusPageUrl: "https://status.x.ai",
-  },
 } satisfies Record<string, ProviderCatalogEntry>;
 
 const CATALOG_PROVIDER_ORDER = [
@@ -186,6 +153,4 @@ export const PROVIDER_CATALOG = assembleProviderCatalog(
   PROVIDER_MODULES,
 );
 
-export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  "z.ai": "zai",
-};
+export const PROVIDER_ID_ALIASES: Record<string, string> = {};

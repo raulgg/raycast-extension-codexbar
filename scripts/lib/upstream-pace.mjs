@@ -302,11 +302,33 @@ function resolvedCustomRule(providerId, field, fingerprint, expected) {
     return { type: "windowDurationAtMost", minutes: Number(match[1]) };
   }
 
+  if (expected.matcher === "predicate") {
+    if (typeof expected.id !== "string" || expected.id === "") {
+      throw new Error(`${providerId}: CUSTOM_PACE_RULES ${field} predicate is missing id.`);
+    }
+    return { type: "predicate", id: expected.id };
+  }
+
   if (expected.matcher !== undefined) {
     throw new Error(`${providerId}: CUSTOM_PACE_RULES ${field} has unknown matcher "${expected.matcher}".`);
   }
 
   return { type: "custom", id: expected.id };
+}
+
+// A module predicate keeps its matches function. JSON comparison drops functions,
+// so strip a real function and fail a predicate that has none. The upstream side
+// is only { type, id }: that id is what the fingerprint resolved to.
+function comparablePaceRule(rule, expectation) {
+  if (rule?.type !== "predicate") {
+    return rule;
+  }
+
+  const { matches, ...rest } = rule;
+  if (!expectation && typeof matches !== "function") {
+    return { ...rest, matches: false };
+  }
+  return rest;
 }
 
 export function resolveUpstreamCustomRules(capability, providerId, customRules) {
@@ -358,8 +380,8 @@ export function comparePaceCapabilities(ours, upstreamById, customRules) {
 
     const oursCapability = ours.get(id) ?? DEFAULT_PACE_CAPABILITY;
     for (const field of GUI_PACE_FIELDS) {
-      const oursRule = guiField(oursCapability, field);
-      const upstreamRule = guiField(resolved, field);
+      const oursRule = comparablePaceRule(guiField(oursCapability, field), false);
+      const upstreamRule = comparablePaceRule(guiField(resolved, field), true);
       if (JSON.stringify(oursRule) !== JSON.stringify(upstreamRule)) {
         problems.push(`${id}: ${field} ${formatRule(oursRule)} != upstream ${formatRule(upstreamRule)}`);
       }

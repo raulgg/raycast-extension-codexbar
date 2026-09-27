@@ -264,7 +264,8 @@ CLI `resolvedKind` lanes are parsed so an unknown field still throws, but they a
 inlined. An unknown custom, a changed body, or a new `pace:` on a previously-unsupported provider
 fails the check. Notion's rolling-session closure (`minutes <= 360`) and Ollama's five-hour
 closure (`minutes <= 300`) are not named ids: that fingerprint resolves to `windowDurationAtMost`.
-A different body still fails.
+Amp, Z.ai, and Grok closures resolve to the predicate on that module pace field
+(`matcher: "predicate"`, same id). The pace engine calls the function. A different body still fails.
 Presentation-only paths (`usesAbacusPace`, `usesSyntheticRollingRegen`), Codex
 `showsHeadroomHint` (`UNPORTABLE_HEADROOM_HINT`), secondary `sessionPaceDetail` in
 `secondaryMetric`, and `extraRateWindowPaceDetail` provider names are scanned the same way
@@ -368,7 +369,8 @@ When the check fails:
    `.calendarMonthResetWindow`, `.custom { }`, …) go in the table as data. A `.custom { }` needs a
    named function plus a `CUSTOM_PACE_RULES` fingerprint of the Swift body. A closure that only
    accepts a present duration of at most N minutes can be `windowDurationAtMost` instead, with
-   `matcher: "windowDurationAtMost"` on that fingerprint.
+   `matcher: "windowDurationAtMost"` on that fingerprint. A module predicate uses
+   `matcher: "predicate"` and the same id; the module's `matches` function is what runs.
    CLI `resolvedKind` lanes stay out of the table.
 2. `computeSlotUsagePacing` already evaluates the table. Add a gating test in
    [`normalize.test.ts`](../src/usage/normalize.test.ts) for the new rule.

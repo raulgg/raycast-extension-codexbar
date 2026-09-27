@@ -6,12 +6,23 @@ export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
 export const MONTHLY_WINDOW_SENTINEL_MINUTES = 30 * 24 * 60;
 
-export type PaceCustomId =
-  | "ampRenewsInDescription"
-  | "claudeSessionAlways"
-  | "codexSessionRejectsWeeklyMonthly"
-  | "grokWeeklyCredits"
-  | "zaiMonthlyMcp";
+export type PaceCustomId = "claudeSessionAlways" | "codexSessionRejectsWeeklyMonthly";
+
+export type PacePredicateId = "ampRenewsInDescription" | "grokWeeklyCredits" | "zaiMonthlyMcp";
+
+export type PaceWindow = {
+  windowMinutes?: number;
+  resetsAt?: string;
+  resetDescription?: string;
+};
+
+export type PacePredicate = (window: PaceWindow, now: number) => boolean;
+
+export type PacePredicateRule = {
+  type: "predicate";
+  id: PacePredicateId;
+  matches: PacePredicate;
+};
 
 export type PaceWindowRule =
   | { type: "unsupported" }
@@ -19,12 +30,14 @@ export type PaceWindowRule =
   | { type: "windowDurationPresent" }
   | { type: "windowDuration"; minutes: number }
   | { type: "windowDurationAtMost"; minutes: number }
+  | PacePredicateRule
   | { type: "custom"; id: PaceCustomId };
 
 export type PaceDurationRule =
   | { type: "unsupported" }
   | { type: "windowDurationMissing" }
   | { type: "windowDuration"; minutes: number }
+  | PacePredicateRule
   | { type: "custom"; id: PaceCustomId };
 
 export type PaceCapability = {
@@ -35,12 +48,6 @@ export type PaceCapability = {
   secondaryAllowsDefaultWindow?: boolean;
   // Swift default is true. OpenCode Go sets false so estimated local costs do not pace.
   allowsEstimatedUsage?: boolean;
-};
-
-export type PaceWindow = {
-  windowMinutes?: number;
-  resetsAt?: string;
-  resetDescription?: string;
 };
 
 export type SlotTitle = "Primary" | "Secondary" | "Tertiary";
@@ -57,62 +64,7 @@ const UNSUPPORTED: PaceCapability = {
   sessionPaceWindowRule: { type: "unsupported" },
 };
 
-export function grokWindowDurationMs(
-  windowMinutes: number | undefined,
-  resetsAt: string | undefined,
-  now: number,
-): number {
-  if (windowMinutes !== undefined) {
-    return windowMinutes * 60 * 1000;
-  }
-
-  if (resetsAt) {
-    return Date.parse(resetsAt) - now;
-  }
-
-  return Number.NaN;
-}
-
-// Mirrors GrokProviderDescriptor.primaryLabel(duration:).
-export function grokPrimaryDisplayTitle(durationMs: number): string | undefined {
-  if (!Number.isFinite(durationMs) || durationMs <= 60 * 60 * 1000) {
-    return undefined;
-  }
-
-  const days = Math.round(durationMs / (24 * 60 * 60 * 1000));
-  if (days >= 4 && days <= 12) {
-    return "Weekly";
-  }
-
-  if (days >= 20 && days <= 45) {
-    return "Monthly";
-  }
-
-  return undefined;
-}
-
-function grokWeeklyCredits(window: PaceWindow, now: number): boolean {
-  if (!window.resetsAt) {
-    return false;
-  }
-
-  if (grokPrimaryDisplayTitle(grokWindowDurationMs(window.windowMinutes, window.resetsAt, now)) !== "Weekly") {
-    return false;
-  }
-
-  const resetAtMs = Date.parse(window.resetsAt);
-  if (Number.isNaN(resetAtMs)) {
-    return false;
-  }
-
-  const windowMinutes = window.windowMinutes ?? WEEKLY_PACE_DEFAULT_WINDOW_MINUTES;
-  const timeUntilResetSeconds = (resetAtMs - now) / 1000;
-  return windowMinutes > 0 && timeUntilResetSeconds > 0 && timeUntilResetSeconds <= windowMinutes * 60;
-}
-
 export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now: number) => boolean> = {
-  ampRenewsInDescription: (window) =>
-    window.windowMinutes !== undefined && (window.resetDescription?.startsWith("renews in ") ?? false),
   claudeSessionAlways: () => true,
   codexSessionRejectsWeeklyMonthly: (window) => {
     if (window.windowMinutes === undefined) {
@@ -121,9 +73,6 @@ export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now:
 
     return window.windowMinutes !== 7 * 24 * 60 && window.windowMinutes !== 30 * 24 * 60;
   },
-  grokWeeklyCredits,
-  zaiMonthlyMcp: (window) =>
-    window.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES && window.resetDescription === "MCP",
 };
 
 function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number): boolean {
@@ -138,6 +87,8 @@ function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number):
       return window.windowMinutes === rule.minutes;
     case "windowDurationAtMost":
       return window.windowMinutes !== undefined && window.windowMinutes <= rule.minutes;
+    case "predicate":
+      return rule.matches(window, now);
     case "custom":
       return CUSTOM_WINDOW_RULES[rule.id](window, now);
   }
@@ -151,6 +102,8 @@ function matchDurationRule(rule: PaceDurationRule, window: PaceWindow, now: numb
       return window.windowMinutes === undefined;
     case "windowDuration":
       return window.windowMinutes === rule.minutes;
+    case "predicate":
+      return rule.matches(window, now);
     case "custom":
       return CUSTOM_WINDOW_RULES[rule.id](window, now);
   }
@@ -323,11 +276,6 @@ export function resolveExtraWindowPace(
 }
 
 export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
-  amp: {
-    resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "unsupported" },
-  },
   claude: {
     resetWindowPace: { type: "unsupported" },
     inferredMonthlyDuration: { type: "unsupported" },
@@ -338,16 +286,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
     secondaryAllowsDefaultWindow: true,
-  },
-  grok: {
-    resetWindowPace: { type: "custom", id: "grokWeeklyCredits" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "unsupported" },
-  },
-  zai: {
-    resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },
-    inferredMonthlyDuration: { type: "custom", id: "zaiMonthlyMcp" },
-    sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
   },
 };
 
@@ -367,20 +305,9 @@ export type DynamicTitleOptions = {
   now: number;
 };
 
-function windowRenders(window: DynamicWindow): boolean {
-  return window.usedPercent !== undefined;
-}
-
 export type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions) => string | undefined;
 
 export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
-  factory(slotTitle, options) {
-    if (!windowRenders(options.windows.Tertiary)) {
-      return undefined;
-    }
-
-    return slotTitle === "Primary" ? "5-hour" : slotTitle === "Secondary" ? "Weekly" : "Monthly";
-  },
   codex(slotTitle, options) {
     if (slotTitle !== "Primary" && slotTitle !== "Secondary") {
       return undefined;
@@ -397,43 +324,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     if (windowMinutes === 30 * 24 * 60) {
       return "Monthly";
-    }
-
-    return undefined;
-  },
-  grok(slotTitle, options) {
-    if (slotTitle !== "Primary") {
-      return undefined;
-    }
-
-    const window = options.windows.Primary;
-    const durationMs = grokWindowDurationMs(window.windowMinutes, window.resetsAt, options.now);
-    const dynamicTitle = grokPrimaryDisplayTitle(durationMs);
-    if (dynamicTitle) {
-      return dynamicTitle;
-    }
-
-    if (window.windowMinutes === undefined && window.resetsAt) {
-      return "Weekly";
-    }
-
-    return undefined;
-  },
-  amp(slotTitle, options) {
-    if (slotTitle === "Primary" && options.hasAgentDetailRow) {
-      return "Agent usage";
-    }
-
-    if (!windowRenders(options.windows.Secondary)) {
-      return undefined;
-    }
-
-    if (slotTitle === "Primary") {
-      return "Other usage";
-    }
-
-    if (slotTitle === "Secondary") {
-      return "Orb usage";
     }
 
     return undefined;

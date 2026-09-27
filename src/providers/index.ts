@@ -3,6 +3,7 @@ import abacus from "./abacus";
 import aiand from "./aiand";
 import alibaba from "./alibaba";
 import alibabatokenplan from "./alibabatokenplan";
+import amp from "./amp";
 import antigravity from "./antigravity";
 import atlascloud from "./atlascloud";
 import augment from "./augment";
@@ -24,9 +25,11 @@ import devin from "./devin";
 import devpass from "./devpass";
 import doubao from "./doubao";
 import elevenlabs from "./elevenlabs";
+import factory from "./factory";
 import fireworks from "./fireworks";
 import gemini from "./gemini";
 import gitkraken from "./gitkraken";
+import grok from "./grok";
 import groq from "./groq";
 import helmcode from "./helmcode";
 import huggingface from "./huggingface";
@@ -74,6 +77,7 @@ import warp from "./warp";
 import wayfinder from "./wayfinder";
 import windsurf from "./windsurf";
 import xai from "./xai";
+import zai from "./zai";
 import zed from "./zed";
 import zenmux from "./zenmux";
 import zoommate from "./zoommate";
@@ -83,6 +87,7 @@ export const PROVIDER_MODULES = {
   aiand,
   alibaba,
   alibabatokenplan,
+  amp,
   antigravity,
   atlascloud,
   augment,
@@ -104,9 +109,11 @@ export const PROVIDER_MODULES = {
   devpass,
   doubao,
   elevenlabs,
+  factory,
   fireworks,
   gemini,
   gitkraken,
+  grok,
   groq,
   helmcode,
   huggingface,
@@ -154,6 +161,7 @@ export const PROVIDER_MODULES = {
   wayfinder,
   windsurf,
   xai,
+  zai,
   zed,
   zenmux,
   zoommate,

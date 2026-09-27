@@ -66,8 +66,10 @@ const PACE_RENDERER_PATHS = [
 ];
 
 // Custom Swift closures, keyed provider.field. fingerprint is the expanded Swift body.
-// matcher: "windowDurationAtMost" resolves that fingerprint to the structured rule
-// instead of a custom id. The fingerprint still has to match the Swift body.
+// matcher: "windowDurationAtMost" resolves that fingerprint to the structured rule.
+// matcher: "predicate" resolves it to { type: "predicate", id } on the module. The
+// pace engine calls that field's matches function. The fingerprint still has to
+// match the Swift body.
 const CUSTOM_PACE_RULES = {
   "claude.sessionPaceWindowRule": {
     id: "claudeSessionAlways",
@@ -79,6 +81,7 @@ const CUSTOM_PACE_RULES = {
       "window, _ in guard let minutes = window.windowMinutes else { return true } return minutes != 7 * 24 * 60 && minutes != 30 * 24 * 60",
   },
   "grok.resetWindowPace": {
+    matcher: "predicate",
     id: "grokWeeklyCredits",
     fingerprint:
       'window, now in guard Self.primaryLabel(window: window, now: now) == "Weekly", let resetsAt = window.resetsAt else { return false } let windowMinutes = window.windowMinutes ?? 7 * 24 * 60 let timeUntilReset = resetsAt.timeIntervalSince(now) return windowMinutes > 0 && timeUntilReset > 0 && timeUntilReset <= TimeInterval(windowMinutes) * 60',
@@ -89,14 +92,17 @@ const CUSTOM_PACE_RULES = {
       "window, _ in guard let minutes = window.windowMinutes else { return false } return minutes <= 360",
   },
   "zai.resetWindowPace": {
+    matcher: "predicate",
     id: "zaiMonthlyMcp",
     fingerprint: 'window.windowMinutes == 43200 && window.resetDescription == "MCP"',
   },
   "zai.inferredMonthlyDuration": {
+    matcher: "predicate",
     id: "zaiMonthlyMcp",
     fingerprint: 'window.windowMinutes == 43200 && window.resetDescription == "MCP"',
   },
   "amp.resetWindowPace": {
+    matcher: "predicate",
     id: "ampRenewsInDescription",
     fingerprint: 'window, _ in window.windowMinutes != nil && window.resetDescription?.hasPrefix("renews in ") == true',
   },
