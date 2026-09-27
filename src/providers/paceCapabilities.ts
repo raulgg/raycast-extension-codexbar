@@ -1,4 +1,6 @@
 import type { ProviderUsagePacingContext } from "../usage/types";
+import { PROVIDER_MODULES } from "./index";
+import type { ProviderModuleMap } from "./module";
 import { isKnownProviderId } from "./registry";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
@@ -204,8 +206,8 @@ function resolveResetWindow(capability: PaceCapability, window: PaceWindow): Pac
   return { ...window, windowMinutes: minutes };
 }
 
-export function getPaceCapability(providerId: string): PaceCapability {
-  return PACE_CAPABILITIES[providerId] ?? UNSUPPORTED;
+export function getPaceCapability(providerId: string, modules: ProviderModuleMap = PROVIDER_MODULES): PaceCapability {
+  return modules[providerId]?.pace ?? PACE_CAPABILITIES[providerId] ?? UNSUPPORTED;
 }
 
 export function resolveSlotPace(
@@ -213,12 +215,13 @@ export function resolveSlotPace(
   slot: SlotTitle,
   window: PaceWindow,
   now: number,
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): ResolvedSlotPace | undefined {
-  if (!isKnownProviderId(providerId)) {
+  if (!isKnownProviderId(providerId) && modules[providerId] === undefined) {
     return undefined;
   }
 
-  const capability = getPaceCapability(providerId);
+  const capability = getPaceCapability(providerId, modules);
   const resetPace = (): ResolvedSlotPace | undefined => {
     if (!matchWindowRule(capability.resetWindowPace, window, now)) {
       return undefined;
@@ -387,7 +390,7 @@ export type DynamicWindow = {
   resetDescription?: string;
 };
 
-type DynamicTitleOptions = {
+export type DynamicTitleOptions = {
   windows: Record<SlotTitle, DynamicWindow>;
   hasAgentDetailRow: boolean;
   now: number;
@@ -397,7 +400,7 @@ function windowRenders(window: DynamicWindow): boolean {
   return window.usedPercent !== undefined;
 }
 
-type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions) => string | undefined;
+export type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions) => string | undefined;
 
 export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
   factory(slotTitle, options) {
@@ -533,6 +536,11 @@ export function resolveDynamicSlotTitle(
   providerId: string,
   slotTitle: SlotTitle,
   options: DynamicTitleOptions,
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): string | undefined {
+  const displayTitle = modules[providerId]?.displayTitle;
+  if (displayTitle) {
+    return displayTitle(slotTitle, options);
+  }
   return DYNAMIC_SLOT_TITLES[providerId]?.(slotTitle, options);
 }

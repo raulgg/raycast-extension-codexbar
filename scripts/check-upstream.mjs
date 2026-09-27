@@ -13,9 +13,12 @@
 //   CODEXBAR_DIR=~/code/CodexBar npm run ...    # compare against a local checkout
 //
 // Exits 1 on any undocumented divergence, missing provider, stale allowlist entry,
-// unported dynamic override, or pace-capability mismatch.
+// unported dynamic override, pace-capability mismatch, or provider-module index
+// that does not match the directories under src/providers.
 
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
 import {
   DYNAMIC_SLOT_TITLES,
@@ -23,6 +26,7 @@ import {
   PACE_CAPABILITIES,
   UNPORTABLE_DYNAMIC_TITLES,
 } from "../src/providers/paceCapabilities.ts";
+import { checkProviderModuleIndex } from "./lib/provider-modules.mjs";
 import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./lib/upstream.mjs";
 import { compareProviders, parseDescriptorMetadata, parseDynamicOverrideProviders } from "./lib/upstream-metadata.mjs";
 import {
@@ -33,6 +37,7 @@ import {
   parseSecondarySessionPaceProviders,
 } from "./lib/upstream-pace.mjs";
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DESCRIPTOR_DIR = "Sources/CodexBarCore/Providers";
 // Renderer files that set usage-bar titles. A dynamic override in any of them must be
 // ported or listed as unportable. Fixed list: a renamed or deleted file fails on read,
@@ -335,10 +340,11 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
 
 async function main() {
   const source = await createUpstreamSource();
-  const result = await checkUpstream(source);
-  if (result.problems.length > 0) {
+  const [indexProblems, result] = await Promise.all([checkProviderModuleIndex(ROOT), checkUpstream(source)]);
+  const problems = [...indexProblems, ...result.problems];
+  if (problems.length > 0) {
     console.error(`Catalog out of sync with ${result.label}:\n`);
-    for (const problem of result.problems) {
+    for (const problem of problems) {
       console.error(`  - ${problem}`);
     }
     process.exitCode = 1;

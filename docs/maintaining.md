@@ -93,10 +93,13 @@ src/
     accessoryIcon.ts          Two-bar list accessory icon.
 
   providers/                  Upstream-synced provider knowledge. Script-guarded; see upstream-parity.md.
-    catalog.ts                Raycast-free provider metadata + aliases. Imported by upstream:check.
-    registry.ts               Raycast adapter over catalog.ts (icons, palettes, lookups).
+    catalog.ts                Legacy provider metadata + aliases, merged with provider modules.
+                              Imported by upstream:check. Deleted once the last legacy entry moves.
+    index.ts                  Generated import list of provider directories.
+    zoommate/index.ts         ZoomMate's metadata and mock source. Later provider modules use this shape.
+    registry.ts               Raycast adapter over the assembled catalog (icons, palettes, lookups).
     paceCapabilities.ts       GUI pace gating table + dynamic usage-bar title map. Imported by
-                              upstream:check.
+                              upstream:check. A module pace row or label wins when the module sets it.
 
   usage/                      Raw payload -> domain model. Pure: no Raycast, no IO.
     types.ts                  Shared domain types (ProviderDetailData, sections, pacing, status).
@@ -122,9 +125,12 @@ src/
                               useRelativeUpdateTime.
 
 scripts/
-  check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating.
-  bump-upstream.mjs           npm run upstream:bump       check latest release, then pin lockfile.
+  check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating, module index.
+  bump-upstream.mjs           npm run upstream:bump       prune removals, check latest release, then pin lockfile.
+  prune-removed-providers.mjs npm run upstream:prune      delete providers upstream no longer ships.
   sync-provider-icons.mjs     npm run upstream:sync-icons icon harvest / drift guard.
+  lib/provider-modules.mjs    Provider directory index: render, list, and drift check.
+  lib/register-ts-paths.mjs   Resolves extensionless TypeScript imports for the upstream scripts.
   lib/upstream.mjs            Shared upstream source (ref resolution, GitHub / local checkout).
   lib/upstream-metadata.mjs   Catalog/descriptor parse and compare (unit-tested).
   lib/upstream-pace.mjs       Descriptor pace: parse and compare (unit-tested).
@@ -147,8 +153,9 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
 | `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
-| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release, then run both guards. |
-| `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. |
+| `npm run upstream:prune [-- --check]` | Delete providers the lockfile SHA no longer ships, including their icons. `--check` writes nothing. |
+| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after pruning removals and running both guards. |
+| `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
 
 Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
 
@@ -209,16 +216,18 @@ Upstream ships often. A periodic sync pass:
 3. **Fix what they flag.** New provider → add a `PROVIDER_CATALOG` entry (name, brandColor,
    labels, URLs, iconSlug) transcribed from its `…ProviderDescriptor.swift`; **don't invent values**.
    The overview renders that Provider until the entry lands
-   ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); this check still fails. New
-   alias → `PROVIDER_ID_ALIASES` in `catalog.ts`. Field mismatch → update the catalog, or record an
-   intentional `ALLOWED_DIVERGENCES` entry with a reason. New/removed dynamic override → port it
-   into `DYNAMIC_SLOT_TITLES` or mark it unportable. New descriptor `pace:` → add a
-   `paceCapabilities.ts` row (GUI fields only, plus a `CUSTOM_PACE_RULES` fingerprint for `.custom`
-   closures), or mark presentation-only paths in `UNPORTABLE_PRESENTATION_PACE` /
-   `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the `-- --check` and let the sync script
-   write them. Removed provider → delete the catalog entry and every leftover that names it
-   (aliases, mocks, dynamic titles, pace rows, tests, and `assets/provider-icons/<slug>.svg`).
-   The icon script reports a stale SVG and leaves the file in place.
+   ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); this check still fails.
+   ZoomMate already lives in `src/providers/zoommate/index.ts`; edit that module instead of putting
+   it back in the legacy object, and keep `src/providers/index.ts` equal to the directories.
+   New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`, or `aliases` on a provider module. Field
+   mismatch → update the catalog, or record an intentional `ALLOWED_DIVERGENCES` entry with a
+   reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or mark it unportable.
+   New descriptor `pace:` → add a `paceCapabilities.ts` row (GUI fields only, plus a
+   `CUSTOM_PACE_RULES` fingerprint for `.custom` closures), or mark presentation-only paths in
+   `UNPORTABLE_PRESENTATION_PACE` / `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the
+   `-- --check` and let the sync script write them. Removed provider → `npm run upstream:prune`
+   deletes the legacy catalog entry, a `src/providers/<id>/` directory, aliases, mocks, pace rows,
+   dynamic titles, provider rules, exclusive tests, and the SVG, then rewrites `src/providers/index.ts`.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.
@@ -230,4 +239,3 @@ Upstream ships often. A periodic sync pass:
 The `plans/*.local.md` files (gitignored) capture larger in-flight parity efforts (missing providers,
 pace-indicator parity). They snapshot an upstream SHA and are working notes, not the source of
 truth. Upstream Swift always wins over a plan's snapshot.
-</content>

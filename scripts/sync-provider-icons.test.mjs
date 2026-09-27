@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertSafeIconSlug, optimizeSvg } from "./sync-provider-icons.mjs";
+import { assertSafeIconSlug, listStaleIconSlugs, optimizeSvg } from "./sync-provider-icons.mjs";
 
 describe("assertSafeIconSlug", () => {
   it("accepts harvested slugs", () => {
@@ -11,6 +11,12 @@ describe("assertSafeIconSlug", () => {
     expect(() => assertSafeIconSlug("../x")).toThrow(/Unsafe/);
     expect(() => assertSafeIconSlug("/etc/passwd")).toThrow(/Unsafe/);
     expect(() => assertSafeIconSlug("foo/bar")).toThrow(/Unsafe/);
+  });
+});
+
+describe("listStaleIconSlugs", () => {
+  it("reports svg files whose slug is not in the catalog", () => {
+    expect(listStaleIconSlugs(["codex.svg", "crof.svg", "notes.txt"], ["codex"])).toEqual(["crof"]);
   });
 });
 

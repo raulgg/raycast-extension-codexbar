@@ -6,6 +6,8 @@ import {
   type DynamicWindow,
   type SlotTitle,
 } from "../providers/paceCapabilities";
+import { PROVIDER_MODULES } from "../providers/index";
+import type { ProviderModuleMap } from "../providers/module";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
 import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
@@ -40,8 +42,12 @@ function extractDataConfidence(payload: RawProviderPayload): string | undefined 
   return toTrimmedString(usage?.dataConfidence) ?? toTrimmedString(payload.dataConfidence);
 }
 
-function allowsUsagePacing(providerId: string, payload: RawProviderPayload): boolean {
-  if (getPaceCapability(providerId).allowsEstimatedUsage !== false) {
+function allowsUsagePacing(
+  providerId: string,
+  payload: RawProviderPayload,
+  modules: ProviderModuleMap = PROVIDER_MODULES,
+): boolean {
+  if (getPaceCapability(providerId, modules).allowsEstimatedUsage !== false) {
     return true;
   }
 
@@ -121,16 +127,22 @@ type MeterContext = {
   providerId: string;
   pacingAllowed: boolean;
   now: number;
+  modules: ProviderModuleMap;
 };
 
-function meterContext(providerId: string, payload: RawProviderPayload, now: number): MeterContext {
-  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload), now };
+function meterContext(
+  providerId: string,
+  payload: RawProviderPayload,
+  now: number,
+  modules: ProviderModuleMap = PROVIDER_MODULES,
+): MeterContext {
+  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules };
 }
 
 function computeMeterPacing(
   slot: SlotTitle | "extra",
   input: MeterInput,
-  { providerId, pacingAllowed, now }: MeterContext,
+  { providerId, pacingAllowed, now, modules }: MeterContext,
 ): ProviderUsagePacing | undefined {
   if (!pacingAllowed || !input.resetsAt) {
     return undefined;
@@ -142,7 +154,9 @@ function computeMeterPacing(
     resetDescription: input.resetDescription,
   };
   const resolved =
-    slot === "extra" ? resolveExtraWindowPace(providerId, window) : resolveSlotPace(providerId, slot, window, now);
+    slot === "extra"
+      ? resolveExtraWindowPace(providerId, window)
+      : resolveSlotPace(providerId, slot, window, now, modules);
   if (!resolved) {
     return undefined;
   }
@@ -206,7 +220,12 @@ function dynamicWindow(record: Record<string, unknown> | undefined, resetTimesta
   };
 }
 
-function buildUsageSections(providerId: string, payload: RawProviderPayload, now = Date.now()): ProviderSection[] {
+function buildUsageSections(
+  providerId: string,
+  payload: RawProviderPayload,
+  now = Date.now(),
+  modules: ProviderModuleMap = PROVIDER_MODULES,
+): ProviderSection[] {
   const usage = toRecord(payload.usage);
   const sections: ProviderSection[] = [];
   const resetsAtByTitle: Partial<Record<"Primary" | "Secondary", string | undefined>> = {};
@@ -239,7 +258,7 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
     Tertiary: dynamicWindow(slotFallbacks[2].record, slotFallbacks[2].resetTimestamp),
   };
   const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
-  const context = meterContext(providerId, payload, now);
+  const context = meterContext(providerId, payload, now, modules);
 
   for (const slot of slotFallbacks) {
     const record = slot.record ?? {};
@@ -257,11 +276,16 @@ function buildUsageSections(providerId: string, payload: RawProviderPayload, now
     const windowMinutes = toFiniteNumber(record.windowMinutes);
     const resetDescription = toTrimmedString(record.resetDescription);
     const displayTitle =
-      resolveDynamicSlotTitle(providerId, slot.title, {
-        windows,
-        hasAgentDetailRow,
-        now,
-      }) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title);
+      resolveDynamicSlotTitle(
+        providerId,
+        slot.title,
+        {
+          windows,
+          hasAgentDetailRow,
+          now,
+        },
+        modules,
+      ) ?? getProviderUsageSectionDisplayTitle(providerId, slot.title);
     sections.push(
       buildUsageMeter(
         slot.title,
@@ -292,11 +316,12 @@ function buildExtraRateWindowSections(
   providerId: string,
   payload: RawProviderPayload,
   now = Date.now(),
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): ProviderSection[] {
   const usage = toRecord(payload.usage);
   const extraRateWindows = Array.isArray(usage?.extraRateWindows) ? usage.extraRateWindows : [];
   const sections: ProviderSection[] = [];
-  const context = meterContext(providerId, payload, now);
+  const context = meterContext(providerId, payload, now, modules);
 
   for (const entry of extraRateWindows) {
     const record = toRecord(entry);
@@ -351,6 +376,7 @@ function buildPresentationMeterSections(
   providerId: string,
   payload: RawProviderPayload,
   now = Date.now(),
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): { schemaVersion: number; sections: ProviderSection[] } | undefined {
   const presentation = toRecord(payload.presentation);
   const schemaVersion = toFiniteNumber(presentation?.schemaVersion);
@@ -359,7 +385,7 @@ function buildPresentationMeterSections(
   }
 
   const sections: ProviderSection[] = [];
-  const context = meterContext(providerId, payload, now);
+  const context = meterContext(providerId, payload, now, modules);
   for (const entry of presentation.meters) {
     const meter = toRecord(entry);
     const kind = toPresentationMeterKind(meter?.kind);
@@ -483,22 +509,36 @@ export function extractProviderErrorMessage(payload: unknown, providerId: string
   return candidate ? getNestedErrorMessage(candidate.payload) : undefined;
 }
 
-function normalizePayload(providerId: string, payload: RawProviderPayload, now = Date.now()): ProviderDetailData {
+function normalizePayload(
+  providerId: string,
+  payload: RawProviderPayload,
+  now = Date.now(),
+  modules: ProviderModuleMap = PROVIDER_MODULES,
+): ProviderDetailData {
   const metadata = getProviderMetadata(providerId);
   const updatedAt = extractUpdatedAt(payload);
   const fetchedAt = new Date(now).toISOString();
   const accountEmail = extractAccountEmail(payload);
   const accountOrganization = extractAccountOrganization(payload);
-  const planText = formatPlanText(metadata.id, payload);
-  const presentation = buildPresentationMeterSections(metadata.id, payload, now);
+  const genericPlanText = formatPlanText(metadata.id, payload);
+  const presentation = buildPresentationMeterSections(metadata.id, payload, now, modules);
   const rawSections = presentation?.sections ?? [
-    ...buildUsageSections(metadata.id, payload, now),
-    ...buildExtraRateWindowSections(metadata.id, payload, now),
+    ...buildUsageSections(metadata.id, payload, now, modules),
+    ...buildExtraRateWindowSections(metadata.id, payload, now, modules),
     ...buildCodexCodeReviewSection(payload, now),
     ...buildSupplementalMapperSections(payload, now),
     ...buildCodexResetCreditSection(metadata.id, payload, now),
   ];
-  const sections = applyAntigravityDetailRules(metadata.id, payload, presentation !== undefined, rawSections);
+  const builtSections = applyAntigravityDetailRules(metadata.id, payload, presentation !== undefined, rawSections);
+  const interpreted = modules[metadata.id]?.interpret?.({
+    payload,
+    sections: builtSections,
+    planText: genericPlanText,
+    hasPresentationMeters: presentation !== undefined,
+    now,
+  });
+  const sections = interpreted?.sections ?? builtSections;
+  const planText = interpreted?.planText ?? genericPlanText;
 
   return {
     id: metadata.id,
@@ -518,11 +558,12 @@ export function normalizeProviderDetailPayload(
   payload: unknown,
   providerId: string,
   now = Date.now(),
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): ProviderDetailData {
   const candidates = collectCandidates(payload);
   const matched = candidates.find((entry) => entry.id === providerId);
   if (matched) {
-    return normalizePayload(providerId, matched.payload, now);
+    return normalizePayload(providerId, matched.payload, now, modules);
   }
 
   if (candidates.some((entry) => entry.id !== undefined)) {
@@ -531,13 +572,13 @@ export function normalizeProviderDetailPayload(
 
   const candidate = candidates[0];
   if (candidate) {
-    return normalizePayload(providerId, candidate.payload, now);
+    return normalizePayload(providerId, candidate.payload, now, modules);
   }
 
   const record = toRecord(payload);
   if (record) {
-    return normalizePayload(providerId, record, now);
+    return normalizePayload(providerId, record, now, modules);
   }
 
-  return normalizePayload(providerId, { provider: providerId }, now);
+  return normalizePayload(providerId, { provider: providerId }, now, modules);
 }

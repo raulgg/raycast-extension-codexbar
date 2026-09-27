@@ -6,6 +6,8 @@ import {
   type ProviderIconFallback,
   type ProviderUsageSectionLabels,
 } from "./catalog";
+import { PROVIDER_MODULES } from "./index";
+import type { ProviderModuleMap } from "./module";
 
 export type { ProviderUsageSectionLabels };
 
@@ -52,7 +54,12 @@ function iconFromFallback(name: ProviderIconFallback | undefined): Icon {
   return value;
 }
 
-export function resolveProviderId(id: string): string {
+export function resolveProviderId(id: string, modules: ProviderModuleMap = PROVIDER_MODULES): string {
+  for (const [providerId, providerModule] of Object.entries(modules)) {
+    if (providerModule.aliases?.includes(id)) {
+      return providerId;
+    }
+  }
   return PROVIDER_ID_ALIASES[id] ?? id;
 }
 
@@ -203,18 +210,24 @@ export function resolveDashboardUrl(
   providerId: string,
   planText?: string,
   accountOrganization?: string,
+  modules: ProviderModuleMap = PROVIDER_MODULES,
 ): string | undefined {
-  const metadata = getProviderMetadata(providerId);
+  const canonicalId = resolveProviderId(providerId, modules);
+  const moduleDashboard = modules[canonicalId]?.dashboardUrl;
+  if (moduleDashboard) {
+    return moduleDashboard({ planText, accountOrganization });
+  }
+  const metadata = getProviderMetadata(canonicalId);
   // Claude serves two audiences: API accounts get the console billing page, subscription
   // plans get claude.ai usage (upstream StatusItemController+Actions.swift:273-277 plan switch).
-  if (resolveProviderId(providerId) === "claude") {
+  if (canonicalId === "claude") {
     return isClaudeSubscriptionLoginMethod(planText)
       ? (metadata.subscriptionDashboardUrl ?? metadata.dashboardUrl)
       : metadata.dashboardUrl;
   }
   // HelmcodeProviderDescriptor.dashboardURL(snapshot:) switches host when the
   // account organization is NaN Builders. The catalog URL stays the helmcode.com default.
-  if (resolveProviderId(providerId) === "helmcode" && accountOrganization === NAN_BUILDERS_ORGANIZATION) {
+  if (canonicalId === "helmcode" && accountOrganization === NAN_BUILDERS_ORGANIZATION) {
     return NAN_BUILDERS_DASHBOARD_URL;
   }
   // Other dual-URL providers have no plan detection, and the usage this extension meters
