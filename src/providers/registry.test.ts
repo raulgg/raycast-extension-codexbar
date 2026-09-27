@@ -72,6 +72,10 @@ describe("provider registry", () => {
     expect(resolveProviderId("bob")).toBe("ibmbob");
     expect(resolveProviderId("sub-2-api")).toBe("sub2api");
     expect(resolveProviderId("kiro-cli")).toBe("kiro");
+    expect(resolveProviderId("mini-max")).toBe("minimax");
+    expect(resolveProviderId("warp-ai")).toBe("warp");
+    expect(resolveProviderId("warp-terminal")).toBe("warp");
+    expect(resolveProviderId("synthetic.new")).toBe("synthetic");
     expect(resolveProviderId("hf")).toBe("huggingface");
     expect(resolveProviderId("gk")).toBe("gitkraken");
     expect(resolveProviderId("muse-code")).toBe("muse");
