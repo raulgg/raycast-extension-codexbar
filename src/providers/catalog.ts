@@ -79,14 +79,6 @@ const LEGACY_PROVIDER_CATALOG = {
     usageSectionLabels: { primary: "5-hour", secondary: "Weekly" },
     dashboardUrl: "https://z.ai/manage-apikey/coding-plan/personal/my-plan",
   },
-  kilo: {
-    name: "Kilo",
-    iconSlug: "kilo",
-    iconFallback: "BarChart",
-    brandColor: "#F27027",
-    usageSectionLabels: { primary: "Credits", secondary: "Kilo Pass" },
-    dashboardUrl: "https://app.kilo.ai/usage",
-  },
   amp: {
     name: "Amp",
     iconSlug: "amp",
@@ -236,7 +228,6 @@ export const PROVIDER_CATALOG = assembleProviderCatalog(
 );
 
 export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  "kilo-ai": "kilo",
   or: "openrouter",
   "z.ai": "zai",
   "notion-ai": "notion",

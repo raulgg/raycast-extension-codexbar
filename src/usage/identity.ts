@@ -1,6 +1,5 @@
 import { firstString, toRecord } from "./json";
 import { extractClaudePlanText } from "./providerRules/claude";
-import { extractKiloPass } from "./providerRules/kilo";
 import type { RawProviderPayload } from "./types";
 
 // Account identity shown in the detail header: the account email and the plan
@@ -87,19 +86,21 @@ function formatSlugLabel(raw: string): string {
     .join(" ");
 }
 
+// Labels a plan slug the way formatPlanText does (tier_99 -> Tier 99, oauth -> OAuth).
+// Mixed-case or multi-word text is left unchanged.
+export function labelLowercaseSlug(raw: string): string {
+  if (/^[a-z0-9_-]+$/i.test(raw) && raw === raw.toLowerCase()) {
+    return formatSlugLabel(raw);
+  }
+
+  return raw;
+}
+
 export function formatPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
   const rawPlanText = extractRawPlanText(providerId, payload);
   if (!rawPlanText) {
     return undefined;
   }
 
-  const providerScopedPlanText = providerId === "kilo" ? (extractKiloPass(rawPlanText) ?? rawPlanText) : rawPlanText;
-  if (
-    /^[a-z0-9_-]+$/i.test(providerScopedPlanText) &&
-    providerScopedPlanText === providerScopedPlanText.toLowerCase()
-  ) {
-    return formatSlugLabel(providerScopedPlanText);
-  }
-
-  return providerScopedPlanText;
+  return labelLowercaseSlug(rawPlanText);
 }
