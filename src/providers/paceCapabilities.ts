@@ -1,6 +1,5 @@
 import type { ProviderUsagePacingContext } from "../usage/types";
 import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES } from "./catalog";
-import { PROVIDER_MODULES } from "./index";
 import type { ProviderModuleMap } from "./module";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
@@ -206,7 +205,7 @@ function resolveResetWindow(capability: PaceCapability, window: PaceWindow): Pac
   return { ...window, windowMinutes: minutes };
 }
 
-export function getPaceCapability(providerId: string, modules: ProviderModuleMap = PROVIDER_MODULES): PaceCapability {
+export function getPaceCapability(providerId: string, modules: ProviderModuleMap): PaceCapability {
   return modules[providerId]?.pace ?? PACE_CAPABILITIES[providerId] ?? UNSUPPORTED;
 }
 
@@ -225,7 +224,7 @@ export function resolveSlotPace(
   slot: SlotTitle,
   window: PaceWindow,
   now: number,
-  modules: ProviderModuleMap = PROVIDER_MODULES,
+  modules: ProviderModuleMap,
 ): ResolvedSlotPace | undefined {
   if (modules[providerId] === undefined && !isKnownProviderId(providerId, modules)) {
     return undefined;
@@ -281,18 +280,28 @@ export function resolveSlotPace(
 }
 
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
+export type ExtraWindowPace = "session-or-weekly" | "weekly-only";
+
 export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex", "cursor"]);
 const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude", "cursor"]);
 
-export function resolveExtraWindowPace(providerId: string, window: PaceWindow): ResolvedSlotPace | undefined {
-  if (!EXTRA_WINDOW_PACE_PROVIDER_IDS.has(providerId)) {
+export function resolveExtraWindowPace(
+  providerId: string,
+  window: PaceWindow,
+  modules: ProviderModuleMap,
+): ResolvedSlotPace | undefined {
+  const fromModule = modules[providerId]?.extraWindowPace;
+  const fromLegacy = EXTRA_WINDOW_PACE_PROVIDER_IDS.has(providerId)
+    ? WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS.has(providerId)
+      ? "weekly-only"
+      : "session-or-weekly"
+    : undefined;
+  const pace = fromModule ?? fromLegacy;
+  if (!pace) {
     return undefined;
   }
 
-  if (
-    WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS.has(providerId) &&
-    window.windowMinutes !== WEEKLY_PACE_DEFAULT_WINDOW_MINUTES
-  ) {
+  if (pace === "weekly-only" && window.windowMinutes !== WEEKLY_PACE_DEFAULT_WINDOW_MINUTES) {
     return undefined;
   }
 
@@ -546,7 +555,7 @@ export function resolveDynamicSlotTitle(
   providerId: string,
   slotTitle: SlotTitle,
   options: DynamicTitleOptions,
-  modules: ProviderModuleMap = PROVIDER_MODULES,
+  modules: ProviderModuleMap,
 ): string | undefined {
   const displayTitle = modules[providerId]?.displayTitle;
   if (displayTitle) {

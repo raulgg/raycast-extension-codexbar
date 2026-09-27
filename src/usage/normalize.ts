@@ -155,7 +155,7 @@ function computeMeterPacing(
   };
   const resolved =
     slot === "extra"
-      ? resolveExtraWindowPace(providerId, window)
+      ? resolveExtraWindowPace(providerId, window, modules)
       : resolveSlotPace(providerId, slot, window, now, modules);
   if (!resolved) {
     return undefined;

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-// Checks catalog.ts and paceCapabilities.ts against the upstream CodexBar provider
-// descriptors so the Raycast extension shows the same provider names, usage-bar
-// labels, dashboard and status URLs, brand colors, and pace gating as the CodexBar
-// GUI. Also verifies that every dynamic label override in the upstream renderers is
-// either ported to DYNAMIC_SLOT_TITLES or documented as unportable.
+// Checks catalog.ts, provider modules, and paceCapabilities.ts against the upstream
+// CodexBar provider descriptors so the Raycast extension shows the same provider
+// names, usage-bar labels, dashboard and status URLs, brand colors, and pace gating
+// as the CodexBar GUI. A module pace, displayTitle, or extraWindowPace replaces that
+// id in the legacy tables. Every dynamic label override in the upstream renderers is
+// either ported or documented as unportable. The check also fails when two modules
+// share an alias, or an alias is any provider id.
 //
 // Usage:
 //   npm run upstream:check                      # compare against codexbar-upstream.lock
@@ -20,6 +22,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
+import { PROVIDER_MODULES } from "../src/providers/index.ts";
 import {
   DYNAMIC_SLOT_TITLES,
   EXTRA_WINDOW_PACE_PROVIDER_IDS,
@@ -31,6 +34,10 @@ import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./
 import { compareProviders, parseDescriptorMetadata, parseDynamicOverrideProviders } from "./lib/upstream-metadata.mjs";
 import {
   comparePaceCapabilities,
+  dynamicTitleIdsForCheck,
+  extraWindowIdsForCheck,
+  moduleAliasProblems,
+  paceCapabilitiesForCheck,
   parseDescriptorPace,
   parseExtraRateWindowPaceProviders,
   parsePresentationPaceFlags,
@@ -176,6 +183,7 @@ const ALLOWED_DIVERGENCES = {
 
 export const DEFAULT_POLICY = {
   catalog: PROVIDER_CATALOG,
+  modules: PROVIDER_MODULES,
   paceCapabilities: PACE_CAPABILITIES,
   extraWindowIds: EXTRA_WINDOW_PACE_PROVIDER_IDS,
   implementedTitles: new Set(Object.keys(DYNAMIC_SLOT_TITLES)),
@@ -191,6 +199,7 @@ export const DEFAULT_POLICY = {
 export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   const {
     catalog,
+    modules = {},
     paceCapabilities,
     extraWindowIds,
     implementedTitles,
@@ -203,7 +212,9 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
     paceRendererPaths,
   } = policy;
 
-  const paceEntries = new Map(Object.entries(paceCapabilities));
+  const paceEntries = new Map(Object.entries(paceCapabilitiesForCheck(paceCapabilities, modules)));
+  const titleIds = dynamicTitleIdsForCheck(implementedTitles, modules);
+  const effectiveExtraWindowIds = extraWindowIdsForCheck(extraWindowIds, modules);
 
   // `<Name>ProviderDescriptor.swift` files only. The bare ProviderDescriptor.swift is
   // the shared registry/protocol file, not a provider.
@@ -231,6 +242,7 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   const problems = compareProviders(catalog, upstreamById, allowedDivergences);
   const paceComparison = comparePaceCapabilities(paceEntries, upstreamById, customPaceRules);
   problems.push(...paceComparison.problems);
+  problems.push(...moduleAliasProblems(modules, Object.keys(catalog)));
 
   const dynamicOverrides = parseDynamicOverrideProviders(rendererFiles);
   for (const metadata of upstreamById.values()) {
@@ -239,35 +251,35 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
     }
   }
   for (const providerId of dynamicOverrides) {
-    if (implementedTitles.has(providerId) || Object.hasOwn(unportableTitles, providerId)) {
+    if (titleIds.has(providerId) || Object.hasOwn(unportableTitles, providerId)) {
       continue;
     }
     problems.push(
       `${providerId}: upstream renderers apply a dynamic label override the extension does not implement ` +
-        `(port it in paceCapabilities.ts DYNAMIC_SLOT_TITLES)`,
+        `(port it on the provider module or in paceCapabilities.ts DYNAMIC_SLOT_TITLES)`,
     );
   }
-  for (const providerId of [...implementedTitles, ...Object.keys(unportableTitles)]) {
+  for (const providerId of [...titleIds, ...Object.keys(unportableTitles)]) {
     if (!dynamicOverrides.has(providerId)) {
       problems.push(
         `${providerId}: listed as a dynamic override but upstream renderers no longer apply one. ` +
-          `remove it from DYNAMIC_SLOT_TITLES / UNPORTABLE_DYNAMIC_TITLES.`,
+          `remove it from the provider module / DYNAMIC_SLOT_TITLES / UNPORTABLE_DYNAMIC_TITLES.`,
       );
     }
   }
 
   const extraWindowProviders = parseExtraRateWindowPaceProviders(paceRendererFiles);
   for (const id of extraWindowProviders) {
-    if (!extraWindowIds.has(id)) {
+    if (!effectiveExtraWindowIds.has(id)) {
       problems.push(
-        `${id}: MenuCardView paces extra rate windows but EXTRA_WINDOW_PACE_PROVIDER_IDS does not include it`,
+        `${id}: MenuCardView paces extra rate windows but neither EXTRA_WINDOW_PACE_PROVIDER_IDS nor a module extraWindowPace includes it`,
       );
     }
   }
-  for (const id of extraWindowIds) {
+  for (const id of effectiveExtraWindowIds) {
     if (!extraWindowProviders.has(id)) {
       problems.push(
-        `${id}: EXTRA_WINDOW_PACE_PROVIDER_IDS lists extra-window pace but MenuCardView extraRateWindowPaceDetail no longer names it`,
+        `${id}: extra-window pace is set but MenuCardView extraRateWindowPaceDetail no longer names it`,
       );
     }
   }

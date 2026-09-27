@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
+import { PROVIDER_MODULES } from "../src/providers/index.ts";
 import { checkUpstream } from "./check-upstream.mjs";
 import {
   compareProviders,
@@ -8,7 +10,11 @@ import {
 } from "./lib/upstream-metadata.mjs";
 import {
   comparePaceCapabilities,
+  dynamicTitleIdsForCheck,
   expandCustomFingerprint,
+  extraWindowIdsForCheck,
+  moduleAliasProblems,
+  paceCapabilitiesForCheck,
   parseDescriptorPace,
   parseExtraRateWindowPaceProviders,
   parseSecondarySessionPaceProviders,
@@ -628,6 +634,143 @@ describe("checkUpstream", () => {
       TOY_POLICY,
     );
     expect(result.problems.some((problem) => problem.includes("toy: resetWindowPace"))).toBe(true);
+  });
+
+  it("uses a module pace row instead of the legacy table", async () => {
+    const result = await checkUpstream(toyTree({ pace: "ProviderPaceCapability(resetWindowPace: .windowDurationPresent)" }), {
+      ...TOY_POLICY,
+      modules: { toy: { pace: WINDOW_PACE } },
+    });
+    expect(result.problems).toEqual([]);
+  });
+
+  it("does not keep the legacy pace row when the module sets pace", async () => {
+    const result = await checkUpstream(toyTree({ pace: "ProviderPaceCapability(resetWindowPace: .windowDurationPresent)" }), {
+      ...TOY_POLICY,
+      paceCapabilities: { toy: WINDOW_PACE },
+      modules: { toy: { pace: TOY_PACE.toy } },
+    });
+    expect(result.problems.some((problem) => problem.includes("toy: resetWindowPace"))).toBe(true);
+  });
+
+  it("keeps the legacy pace row when the module sets no pace", async () => {
+    const result = await checkUpstream(toyTree(), {
+      ...TOY_POLICY,
+      modules: { toy: { aliases: ["toy-alias"] } },
+    });
+    expect(result.problems).toEqual([]);
+  });
+
+  it("treats a module displayTitle as the dynamic label override", async () => {
+    const result = await checkUpstream(toyTree({ extra: "let labeler = rateWindowLabeler: { _, _, _ in }" }), {
+      ...TOY_POLICY,
+      modules: { toy: { displayTitle: () => "Toy" } },
+    });
+    expect(result.problems).toEqual([]);
+  });
+
+  it("reports a module displayTitle the renderers no longer apply", async () => {
+    const result = await checkUpstream(toyTree(), {
+      ...TOY_POLICY,
+      modules: { toy: { displayTitle: () => "Toy" } },
+    });
+    expect(result.problems.some((problem) => problem.includes("toy: listed as a dynamic override"))).toBe(true);
+  });
+
+  it("treats module extraWindowPace as extra-window membership", async () => {
+    const result = await checkUpstream(toyTree({}, TOY_EXTRA_RENDERER), {
+      ...TOY_POLICY,
+      modules: { toy: { extraWindowPace: "weekly-only" } },
+    });
+    expect(result.problems).toEqual([]);
+  });
+
+  it("still requires the legacy extra-window set when the module sets none", async () => {
+    const result = await checkUpstream(toyTree({}, TOY_EXTRA_RENDERER), TOY_POLICY);
+    expect(result.problems.some((problem) => problem.includes("toy: MenuCardView paces extra rate windows"))).toBe(true);
+  });
+
+  it("fails when two modules share an alias", async () => {
+    const result = await checkUpstream(toyTree(), {
+      ...TOY_POLICY,
+      modules: {
+        other: { aliases: ["shared"] },
+        toy: { aliases: ["shared"] },
+      },
+    });
+    expect(result.problems).toEqual([`alias "shared" is shared by other and toy`]);
+  });
+
+  it("fails when an alias is a provider id", async () => {
+    const result = await checkUpstream(toyTree(), {
+      ...TOY_POLICY,
+      modules: { moved: { aliases: ["toy"] } },
+    });
+    expect(result.problems).toEqual([`moved: alias "toy" is a provider id`]);
+  });
+});
+
+const WINDOW_PACE = {
+  resetWindowPace: { type: "windowDurationPresent" },
+  inferredMonthlyDuration: { type: "unsupported" },
+  sessionPaceWindowRule: { type: "unsupported" },
+};
+
+const TOY_EXTRA_RENDERER = `func extraRateWindowPaceDetail(provider: UsageProvider) -> PaceDetail? {
+  if provider == .toy { return nil }
+  return nil
+}
+`;
+
+function toyTree(descriptor = {}, paceRenderer = PACE_RENDERER) {
+  return fakeSource({
+    "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift": descriptorFixture({ id: "toy", ...descriptor }),
+    "Sources/CodexBar/MenuDescriptor.swift": LABEL_RENDERER,
+    "Sources/CodexBar/MenuCardView.swift": paceRenderer,
+  });
+}
+
+describe("provider module pace overlay", () => {
+  it("replaces a legacy pace row and leaves a module with no pace on the old table", () => {
+    const modulePace = { ...WINDOW_PACE };
+    expect(paceCapabilitiesForCheck({ toy: TOY_PACE.toy }, { toy: { pace: modulePace } }).toy).toBe(modulePace);
+    expect(paceCapabilitiesForCheck({ toy: TOY_PACE.toy }, { toy: {} }).toy).toEqual(TOY_PACE.toy);
+    expect(paceCapabilitiesForCheck({}, { plain: {} }).plain).toBeUndefined();
+  });
+
+  it("counts a module displayTitle and either extra-window pace", () => {
+    expect([...dynamicTitleIdsForCheck(new Set(["factory"]), { toy: { displayTitle: () => "Toy" }, plain: {} })]).toEqual([
+      "factory",
+      "toy",
+    ]);
+    expect(
+      [
+        ...extraWindowIdsForCheck(new Set(["codex"]), {
+          claude: { extraWindowPace: "weekly-only" },
+          antigravity: { extraWindowPace: "session-or-weekly" },
+          plain: {},
+        }),
+      ].sort(),
+    ).toEqual(["antigravity", "claude", "codex"]);
+  });
+
+  it("fails when aliases collide with each other or with a provider id", () => {
+    expect(
+      moduleAliasProblems(
+        {
+          one: { aliases: ["shared", "toy"] },
+          two: { aliases: ["shared"] },
+        },
+        ["toy", "legacy"],
+      ),
+    ).toEqual([`one: alias "toy" is a provider id`, `alias "shared" is shared by one and two`]);
+    expect(moduleAliasProblems({ one: { aliases: ["two"] }, two: {} }, [])).toEqual([
+      `one: alias "two" is a provider id`,
+    ]);
+  });
+
+  it("accepts the committed module aliases", () => {
+    expect(moduleAliasProblems(PROVIDER_MODULES, Object.keys(PROVIDER_CATALOG))).toEqual([]);
   });
 });
 

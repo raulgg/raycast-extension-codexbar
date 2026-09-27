@@ -1,5 +1,6 @@
 // Swift `pace:` parsing and comparison against PACE_CAPABILITIES. String-in /
-// object-out so tests can feed fixture descriptors.
+// object-out so tests can feed fixture descriptors. A module field replaces that
+// id in the legacy pace, title, and extra-window tables.
 
 import { extractBalancedCall } from "./upstream-metadata.mjs";
 
@@ -351,7 +352,7 @@ export function comparePaceCapabilities(ours, upstreamById, customRules) {
 
   for (const id of ours.keys()) {
     if (!upstreamById.has(id)) {
-      problems.push(`${id}: present in paceCapabilities.ts but has no upstream descriptor.`);
+      problems.push(`${id}: present in pace capabilities but has no upstream descriptor.`);
     }
   }
 
@@ -428,4 +429,68 @@ export function parseExtraRateWindowPaceProviders(rendererSources) {
     throw new Error("extraRateWindowPaceDetail not found in pace renderer files. Did upstream move it?");
   }
   return providers;
+}
+
+const EXTRA_WINDOW_PACE_VALUES = new Set(["session-or-weekly", "weekly-only"]);
+
+export function paceCapabilitiesForCheck(paceCapabilities, modules = {}) {
+  const merged = { ...paceCapabilities };
+  for (const [id, providerModule] of Object.entries(modules)) {
+    if (providerModule?.pace) {
+      merged[id] = providerModule.pace;
+    }
+  }
+  return merged;
+}
+
+export function dynamicTitleIdsForCheck(implementedTitles, modules = {}) {
+  const ids = new Set(implementedTitles);
+  for (const [id, providerModule] of Object.entries(modules)) {
+    if (providerModule?.displayTitle) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
+export function extraWindowIdsForCheck(extraWindowIds, modules = {}) {
+  const ids = new Set(extraWindowIds);
+  for (const [id, providerModule] of Object.entries(modules)) {
+    if (EXTRA_WINDOW_PACE_VALUES.has(providerModule?.extraWindowPace)) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
+export function moduleAliasProblems(modules = {}, providerIds = []) {
+  const problems = [];
+  const owner = new Map();
+  const ids = new Set(providerIds);
+  for (const id of Object.keys(modules)) {
+    ids.add(id);
+  }
+
+  for (const id of Object.keys(modules).sort()) {
+    const aliases = modules[id]?.aliases;
+    if (!Array.isArray(aliases)) {
+      continue;
+    }
+    for (const alias of aliases) {
+      if (typeof alias !== "string") {
+        continue;
+      }
+      if (ids.has(alias)) {
+        problems.push(`${id}: alias "${alias}" is a provider id`);
+      }
+      const previous = owner.get(alias);
+      if (previous !== undefined && previous !== id) {
+        problems.push(`alias "${alias}" is shared by ${previous} and ${id}`);
+      } else if (previous === undefined) {
+        owner.set(alias, id);
+      }
+    }
+  }
+
+  return problems;
 }

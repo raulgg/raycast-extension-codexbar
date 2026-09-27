@@ -1,6 +1,6 @@
 import type { ProviderCatalogEntry } from "./catalog";
 import { PROVIDER_MODULES } from "./index";
-import type { DynamicTitleFn, PaceCapability } from "./paceCapabilities";
+import type { DynamicTitleFn, ExtraWindowPace, PaceCapability } from "./paceCapabilities";
 import type { ProviderSection, RawProviderPayload } from "../usage/types";
 
 export type ProviderMock = {
@@ -30,6 +30,7 @@ export type ProviderModule = {
   metadata: ProviderCatalogEntry;
   aliases?: readonly string[];
   pace?: PaceCapability;
+  extraWindowPace?: ExtraWindowPace;
   mock?: ProviderMock;
   displayTitle?: DynamicTitleFn;
   dashboardUrl?: (input: ProviderDashboardInput) => string | undefined;
