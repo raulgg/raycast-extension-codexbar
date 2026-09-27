@@ -262,9 +262,9 @@ membership in `EXTRA_WINDOW_PACE_PROVIDER_IDS` and `WEEKLY_ONLY_EXTRA_WINDOW_PRO
 CLI `resolvedKind` lanes are parsed so an unknown field still throws, but they are not compared.
 `.custom { ... }` closures are Swift fingerprints in `CUSTOM_PACE_RULES`. `Self.foo` wrappers are
 inlined. An unknown custom, a changed body, or a new `pace:` on a previously-unsupported provider
-fails the check. Notion's rolling-session closure is not a named id: that same fingerprint
-(`guard let minutes`, `minutes <= 360`) resolves to `windowDurationAtMost`. A different body still
-fails. Ollama's `minutes <= 300` closure stays `ollamaSessionAtMostFiveHours`.
+fails the check. Notion's rolling-session closure (`minutes <= 360`) and Ollama's five-hour
+closure (`minutes <= 300`) are not named ids: that fingerprint resolves to `windowDurationAtMost`.
+A different body still fails.
 Presentation-only paths (`usesAbacusPace`, `usesSyntheticRollingRegen`), Codex
 `showsHeadroomHint` (`UNPORTABLE_HEADROOM_HINT`), secondary `sessionPaceDetail` in
 `secondaryMetric`, and `extraRateWindowPaceDetail` provider names are scanned the same way

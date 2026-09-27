@@ -11,7 +11,6 @@ export type PaceCustomId =
   | "claudeSessionAlways"
   | "codexSessionRejectsWeeklyMonthly"
   | "grokWeeklyCredits"
-  | "ollamaSessionAtMostFiveHours"
   | "zaiMonthlyMcp";
 
 export type PaceWindowRule =
@@ -123,8 +122,6 @@ export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now:
     return window.windowMinutes !== 7 * 24 * 60 && window.windowMinutes !== 30 * 24 * 60;
   },
   grokWeeklyCredits,
-  ollamaSessionAtMostFiveHours: (window) =>
-    window.windowMinutes !== undefined && window.windowMinutes <= SESSION_PACE_DEFAULT_WINDOW_MINUTES,
   zaiMonthlyMcp: (window) =>
     window.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES && window.resetDescription === "MCP",
 };
@@ -347,11 +344,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "unsupported" },
   },
-  ollama: {
-    resetWindowPace: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
-    inferredMonthlyDuration: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
-    sessionPaceWindowRule: { type: "custom", id: "ollamaSessionAtMostFiveHours" },
-  },
   zai: {
     resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },
     inferredMonthlyDuration: { type: "custom", id: "zaiMonthlyMcp" },
@@ -442,13 +434,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     if (slotTitle === "Secondary") {
       return "Orb usage";
-    }
-
-    return undefined;
-  },
-  ollama(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windows.Primary.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
-      return "Monthly";
     }
 
     return undefined;

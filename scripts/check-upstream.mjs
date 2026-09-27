@@ -101,7 +101,7 @@ const CUSTOM_PACE_RULES = {
     fingerprint: 'window, _ in window.windowMinutes != nil && window.resetDescription?.hasPrefix("renews in ") == true',
   },
   "ollama.sessionPaceWindowRule": {
-    id: "ollamaSessionAtMostFiveHours",
+    matcher: "windowDurationAtMost",
     fingerprint:
       "window, _ in guard let minutes = window.windowMinutes else { return false } return minutes <= 300",
   },
