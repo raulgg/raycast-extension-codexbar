@@ -1,6 +1,7 @@
 import type { ProviderModule } from "./module";
 import abacus from "./abacus";
 import aiand from "./aiand";
+import alibabatokenplan from "./alibabatokenplan";
 import atlascloud from "./atlascloud";
 import azureopenai from "./azureopenai";
 import bedrock from "./bedrock";
@@ -10,11 +11,13 @@ import clawrouter from "./clawrouter";
 import clinepass from "./clinepass";
 import codebuff from "./codebuff";
 import coderabbit from "./coderabbit";
+import commandcode from "./commandcode";
 import deepgram from "./deepgram";
 import deepinfra from "./deepinfra";
 import deepseek from "./deepseek";
 import devin from "./devin";
 import devpass from "./devpass";
+import doubao from "./doubao";
 import elevenlabs from "./elevenlabs";
 import fireworks from "./fireworks";
 import gitkraken from "./gitkraken";
@@ -27,6 +30,8 @@ import llmman from "./llmman";
 import llmproxy from "./llmproxy";
 import longcat from "./longcat";
 import manus from "./manus";
+import mimo from "./mimo";
+import mistral from "./mistral";
 import moonshot from "./moonshot";
 import muse from "./muse";
 import neuralwatt from "./neuralwatt";
@@ -35,8 +40,11 @@ import openai from "./openai";
 import pi from "./pi";
 import poe from "./poe";
 import qoder from "./qoder";
+import qwencloud from "./qwencloud";
 import replicate from "./replicate";
 import sakana from "./sakana";
+import stepfun from "./stepfun";
+import sub2api from "./sub2api";
 import t3chat from "./t3chat";
 import typesafe from "./typesafe";
 import v0 from "./v0";
@@ -52,6 +60,7 @@ import zoommate from "./zoommate";
 export const PROVIDER_MODULES = {
   abacus,
   aiand,
+  alibabatokenplan,
   atlascloud,
   azureopenai,
   bedrock,
@@ -61,11 +70,13 @@ export const PROVIDER_MODULES = {
   clinepass,
   codebuff,
   coderabbit,
+  commandcode,
   deepgram,
   deepinfra,
   deepseek,
   devin,
   devpass,
+  doubao,
   elevenlabs,
   fireworks,
   gitkraken,
@@ -78,6 +89,8 @@ export const PROVIDER_MODULES = {
   llmproxy,
   longcat,
   manus,
+  mimo,
+  mistral,
   moonshot,
   muse,
   neuralwatt,
@@ -86,8 +99,11 @@ export const PROVIDER_MODULES = {
   pi,
   poe,
   qoder,
+  qwencloud,
   replicate,
   sakana,
+  stepfun,
+  sub2api,
   t3chat,
   typesafe,
   v0,
