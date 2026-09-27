@@ -76,6 +76,7 @@ const CUSTOM_PACE_RULES = {
     fingerprint: "_, _ in true",
   },
   "codex.sessionPaceWindowRule": {
+    matcher: "predicate",
     id: "codexSessionRejectsWeeklyMonthly",
     fingerprint:
       "window, _ in guard let minutes = window.windowMinutes else { return true } return minutes != 7 * 24 * 60 && minutes != 30 * 24 * 60",

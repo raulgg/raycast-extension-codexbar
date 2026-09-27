@@ -79,6 +79,39 @@ describe("provider module pace and titles", () => {
 describe("resolveSlotPace", () => {
   const now = Date.parse("2026-03-23T10:30:00Z");
 
+  it("session-paces Codex unless the window is weekly or monthly", () => {
+    expect(
+      resolveSlotPace("codex", "Primary", { resetsAt: "2026-03-23T13:00:00Z" }, now, PROVIDER_MODULES)?.context,
+    ).toBe("session");
+    expect(
+      resolveSlotPace(
+        "codex",
+        "Primary",
+        { windowMinutes: 300, resetsAt: "2026-03-23T13:00:00Z" },
+        now,
+        PROVIDER_MODULES,
+      )?.context,
+    ).toBe("session");
+    expect(
+      resolveSlotPace(
+        "codex",
+        "Primary",
+        { windowMinutes: 7 * 24 * 60, resetsAt: "2026-03-28T10:30:00Z" },
+        now,
+        PROVIDER_MODULES,
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveSlotPace(
+        "codex",
+        "Primary",
+        { windowMinutes: 30 * 24 * 60, resetsAt: "2026-04-12T10:30:00Z" },
+        now,
+        PROVIDER_MODULES,
+      ),
+    ).toBeUndefined();
+  });
+
   it("does not session-pace OpenCode Go's 5-hour primary", () => {
     expect(
       resolveSlotPace(
