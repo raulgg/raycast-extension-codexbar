@@ -97,15 +97,6 @@ const LEGACY_PROVIDER_CATALOG = {
     dashboardUrl: "https://grok.com/?_s=usage",
     statusPageUrl: "https://status.x.ai",
   },
-  notion: {
-    name: "Notion AI",
-    iconSlug: "notion",
-    iconFallback: "AppWindow",
-    brandColor: "#337EA9",
-    usageSectionLabels: { primary: "Rolling", secondary: "Monthly" },
-    dashboardUrl: "https://app.notion.com/",
-    statusPageUrl: "https://status.notion.so/",
-  },
 } satisfies Record<string, ProviderCatalogEntry>;
 
 const CATALOG_PROVIDER_ORDER = [
@@ -205,6 +196,4 @@ export const PROVIDER_CATALOG = assembleProviderCatalog(
 
 export const PROVIDER_ID_ALIASES: Record<string, string> = {
   "z.ai": "zai",
-  "notion-ai": "notion",
-  notionai: "notion",
 };

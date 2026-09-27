@@ -285,6 +285,31 @@ function guiField(capability, field) {
   return capability?.[field] ?? DEFAULT_PACE_CAPABILITY[field];
 }
 
+// Present duration of at most N minutes. Missing windowMinutes does not match.
+// Ollama's `minutes <= 300` closure is the same shape but stays a named custom
+// unless its CUSTOM_PACE_RULES entry sets this matcher.
+const WINDOW_DURATION_AT_MOST_FINGERPRINT =
+  /^window, _ in guard let minutes = window\.windowMinutes else \{ return false \} return minutes <= (\d+)$/;
+
+function resolvedCustomRule(providerId, field, fingerprint, expected) {
+  if (expected.matcher === "windowDurationAtMost") {
+    const match = WINDOW_DURATION_AT_MOST_FINGERPRINT.exec(fingerprint);
+    if (!match) {
+      throw new Error(
+        `${providerId}: CUSTOM_PACE_RULES ${field} is marked windowDurationAtMost, ` +
+          `but the fingerprint is not that closure ("${fingerprint}").`,
+      );
+    }
+    return { type: "windowDurationAtMost", minutes: Number(match[1]) };
+  }
+
+  if (expected.matcher !== undefined) {
+    throw new Error(`${providerId}: CUSTOM_PACE_RULES ${field} has unknown matcher "${expected.matcher}".`);
+  }
+
+  return { type: "custom", id: expected.id };
+}
+
 export function resolveUpstreamCustomRules(capability, providerId, customRules) {
   const resolved = { ...capability };
   for (const field of GUI_PACE_FIELDS) {
@@ -305,7 +330,7 @@ export function resolveUpstreamCustomRules(capability, providerId, customRules) 
           `recorded "${expected.fingerprint}" actual "${rule.fingerprint}". Re-review the Swift body.`,
       );
     }
-    resolved[field] = { type: "custom", id: expected.id };
+    resolved[field] = resolvedCustomRule(providerId, field, rule.fingerprint, expected);
   }
   return resolved;
 }

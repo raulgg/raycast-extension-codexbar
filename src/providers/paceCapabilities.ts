@@ -11,7 +11,6 @@ export type PaceCustomId =
   | "claudeSessionAlways"
   | "codexSessionRejectsWeeklyMonthly"
   | "grokWeeklyCredits"
-  | "notionRollingSession"
   | "ollamaSessionAtMostFiveHours"
   | "zaiMonthlyMcp";
 
@@ -20,6 +19,7 @@ export type PaceWindowRule =
   | { type: "resetDatePresent" }
   | { type: "windowDurationPresent" }
   | { type: "windowDuration"; minutes: number }
+  | { type: "windowDurationAtMost"; minutes: number }
   | { type: "custom"; id: PaceCustomId };
 
 export type PaceDurationRule =
@@ -123,7 +123,6 @@ export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now:
     return window.windowMinutes !== 7 * 24 * 60 && window.windowMinutes !== 30 * 24 * 60;
   },
   grokWeeklyCredits,
-  notionRollingSession: (window) => window.windowMinutes !== undefined && window.windowMinutes <= 6 * 60,
   ollamaSessionAtMostFiveHours: (window) =>
     window.windowMinutes !== undefined && window.windowMinutes <= SESSION_PACE_DEFAULT_WINDOW_MINUTES,
   zaiMonthlyMcp: (window) =>
@@ -140,6 +139,8 @@ function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number):
       return window.windowMinutes !== undefined;
     case "windowDuration":
       return window.windowMinutes === rule.minutes;
+    case "windowDurationAtMost":
+      return window.windowMinutes !== undefined && window.windowMinutes <= rule.minutes;
     case "custom":
       return CUSTOM_WINDOW_RULES[rule.id](window, now);
   }
@@ -324,12 +325,6 @@ export function resolveExtraWindowPace(
   return undefined;
 }
 
-const CALENDAR_MONTH: PaceCapability = {
-  resetWindowPace: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
-  inferredMonthlyDuration: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
-  sessionPaceWindowRule: { type: "unsupported" },
-};
-
 export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
   amp: {
     resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
@@ -351,10 +346,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     resetWindowPace: { type: "custom", id: "grokWeeklyCredits" },
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "unsupported" },
-  },
-  notion: {
-    ...CALENDAR_MONTH,
-    sessionPaceWindowRule: { type: "custom", id: "notionRollingSession" },
   },
   ollama: {
     resetWindowPace: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },

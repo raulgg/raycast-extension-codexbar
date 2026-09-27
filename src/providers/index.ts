@@ -47,6 +47,7 @@ import mistral from "./mistral";
 import moonshot from "./moonshot";
 import muse from "./muse";
 import neuralwatt from "./neuralwatt";
+import notion from "./notion";
 import nous from "./nous";
 import openai from "./openai";
 import opencode from "./opencode";
@@ -125,6 +126,7 @@ export const PROVIDER_MODULES = {
   moonshot,
   muse,
   neuralwatt,
+  notion,
   nous,
   openai,
   opencode,
