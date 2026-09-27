@@ -459,6 +459,103 @@ function rewriteImportSpecifiers(statement, names) {
   return `${statement.slice(0, braceOpen)}{${body}}${statement.slice(braceClose + 1)}`;
 }
 
+export function importTargetsProvider(specifier, id) {
+  const pathOnly = specifier.split(/[?#]/, 1)[0].replace(/\\/g, "/");
+  const withoutExtension = pathOnly.replace(/\.(?:tsx?|jsx?|mjs|cjs)$/, "");
+  const segments = withoutExtension
+    .split("/")
+    .filter((segment) => segment !== "" && segment !== "." && segment !== "..");
+  if (segments.length === 0) return false;
+  const leaf = segments.at(-1) === "index" ? segments.at(-2) : segments.at(-1);
+  return leaf === id;
+}
+
+function importLocalBindings(statement) {
+  const from = statement.search(/\bfrom\s*["'`]/);
+  const clause =
+    from === -1
+      ? ""
+      : statement
+          .slice(statement.indexOf("import") + "import".length, from)
+          .replace(/^\s*type\s+/, "")
+          .trim();
+  const names = [];
+  const brace = clause.indexOf("{");
+  const head = (brace === -1 ? clause : clause.slice(0, brace)).replace(/,\s*$/, "").trim();
+  if (head.startsWith("* as ")) {
+    names.push(head.slice("* as ".length).trim());
+  } else if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(head)) {
+    names.push(head);
+  }
+  if (brace !== -1) {
+    const close = clause.lastIndexOf("}");
+    for (const part of clause.slice(brace + 1, close).split(",")) {
+      const piece = part.trim().replace(/^type\s+/, "");
+      if (!piece) continue;
+      const local = piece.split(/\s+as\s+/).pop()?.trim();
+      if (local && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(local)) names.push(local);
+    }
+  }
+  return names;
+}
+
+function isImportStatementStart(source, index) {
+  return (
+    source.startsWith("import", index) &&
+    source[index + 6] !== "(" &&
+    !/[A-Za-z0-9_$]/.test(source[index + 6] ?? "")
+  );
+}
+
+export function removeProviderModuleImports(source, id) {
+  const bindings = [];
+  let text = "";
+  let index = 0;
+  while (index < source.length) {
+    const next = consumeBoundary(source, index);
+    if (next !== index) {
+      text += source.slice(index, next);
+      index = next;
+      continue;
+    }
+    if (isImportStatementStart(source, index)) {
+      const end = statementEnd(source, index);
+      const statement = source.slice(index, end);
+      const specifier = stringLiterals(statement).at(-1);
+      if (specifier && importTargetsProvider(specifier, id)) {
+        bindings.push(...importLocalBindings(statement));
+        index = end;
+        if (source[index] === "\n") index += 1;
+        continue;
+      }
+    }
+    text += source[index];
+    index += 1;
+  }
+  return { source: text, bindings };
+}
+
+export function withoutImportStatements(source) {
+  let text = "";
+  let index = 0;
+  while (index < source.length) {
+    const next = consumeBoundary(source, index);
+    if (next !== index) {
+      text += source.slice(index, next);
+      index = next;
+      continue;
+    }
+    if (isImportStatementStart(source, index)) {
+      index = statementEnd(source, index);
+      if (source[index] === "\n") index += 1;
+      continue;
+    }
+    text += source[index];
+    index += 1;
+  }
+  return text;
+}
+
 export function removeImportsFrom(source, specifierSuffix) {
   let text = "";
   let index = 0;

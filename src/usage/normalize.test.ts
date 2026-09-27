@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractSvgMarkup } from "../../test/svg-markdown";
 import { buildProviderDetailMarkdown } from "../render/detailCard";
+import type { ProviderModule } from "../providers/module";
 import { extractProviderErrorMessage, normalizeProviderDetailPayload } from "./normalize";
 import type { ProviderSection, ProviderUsagePacing } from "./types";
 
@@ -1478,5 +1479,44 @@ describe("usage pacing gating", () => {
       NOW,
     ).sections;
     expect(usagePacing(spark)).toMatchObject({ context: "session" });
+  });
+});
+
+describe("provider module interpretation", () => {
+  const fixture: ProviderModule = {
+    metadata: {
+      name: "Fixture",
+      iconSlug: "fixture",
+      brandColor: "#112233",
+      usageSectionLabels: { primary: "Primary", secondary: "Secondary" },
+    },
+    displayTitle: () => "Fixture window",
+    interpret: ({ sections, planText, hasPresentationMeters }) => ({
+      sections: [...sections, { kind: "info", title: "Fixture", items: [{ label: "Seen", value: planText ?? "" }] }],
+      planText: hasPresentationMeters ? planText : "Fixture plan",
+    }),
+  };
+
+  it("applies a module label and interpretation after the shared sections exist", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "fixture",
+        usage: {
+          primary: { usedPercent: 20, resetsAt: "2026-03-23T12:00:00Z" },
+          loginMethod: "pro",
+        },
+      },
+      "fixture",
+      Date.parse("2026-03-23T10:30:00Z"),
+      { fixture },
+    );
+
+    expect(detail.planText).toBe("Fixture plan");
+    expect(detail.sections[0]).toMatchObject({ kind: "usage", displayTitle: "Fixture window", remainingPercent: 80 });
+    expect(detail.sections.at(-1)).toEqual({
+      kind: "info",
+      title: "Fixture",
+      items: [{ label: "Seen", value: "Pro" }],
+    });
   });
 });

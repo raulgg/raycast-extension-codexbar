@@ -1,3 +1,6 @@
+import { PROVIDER_MODULES } from "./index";
+import { assertDistinctProviderModules, providerModuleMetadata } from "./module";
+
 export type ProviderUsageSectionLabels = {
   primary: string;
   secondary?: string;
@@ -33,7 +36,7 @@ export type ProviderCatalogEntry = {
   statusPageUrl?: string;
 };
 
-export const PROVIDER_CATALOG = {
+const LEGACY_PROVIDER_CATALOG = {
   codex: {
     name: "Codex",
     iconSlug: "codex",
@@ -557,15 +560,6 @@ export const PROVIDER_CATALOG = {
     usageSectionLabels: { primary: "Spend", secondary: "Spend" },
     dashboardUrl: "https://console.aiand.com",
   },
-  zoommate: {
-    name: "ZoomMate",
-    iconSlug: "zoommate",
-    iconFallback: "TwoPeople",
-    brandColor: "#0B5CFF",
-    usageSectionLabels: { primary: "Credits", secondary: "Credits" },
-    dashboardUrl: "https://zoommate.zoom.us/#/?settings=credit-usage",
-    statusPageUrl: "https://www.zoomstatus.com/",
-  },
   xai: {
     name: "xAI",
     iconSlug: "xai",
@@ -726,6 +720,13 @@ export const PROVIDER_CATALOG = {
     dashboardUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway",
   },
 } satisfies Record<string, ProviderCatalogEntry>;
+
+assertDistinctProviderModules(LEGACY_PROVIDER_CATALOG, PROVIDER_MODULES);
+
+export const PROVIDER_CATALOG = {
+  ...LEGACY_PROVIDER_CATALOG,
+  ...providerModuleMetadata(PROVIDER_MODULES),
+};
 
 export const PROVIDER_ID_ALIASES: Record<string, string> = {
   "alibaba-coding-plan": "alibaba",

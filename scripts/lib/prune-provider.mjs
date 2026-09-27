@@ -1,7 +1,8 @@
 // Deletes one provider that upstream no longer ships: catalog entry, aliases, mocks,
-// pace rows, dynamic titles, allowlists, the provider-rules module, icons, and tests
-// that only mention that provider. Shared tests that use the id as one sample among
-// several are left in place.
+// pace rows, dynamic titles, allowlists, the provider-rules module, a provider
+// directory, icons, and tests that only mention that provider. Shared tests that use
+// the id as one sample among several are left in place. The module index is rewritten
+// from the directories that remain.
 
 import {
   countIdentifiers,
@@ -11,10 +12,13 @@ import {
   removeArrayElements,
   removeImportSpecifiers,
   removeImportsFrom,
+  removeProviderModuleImports,
   removeUnionMember,
   replaceProviderTernary,
   transformSource,
+  withoutImportStatements,
 } from "./ts-text.mjs";
+import { PROVIDER_INDEX_PATH, providerModuleIdsFromFiles, renderProviderIndex } from "./provider-modules.mjs";
 
 const CATALOG = "src/providers/catalog.ts";
 const PACE = "src/providers/paceCapabilities.ts";
@@ -119,17 +123,20 @@ function transformTree(files, ctx) {
     if (source === undefined || !filePath.startsWith("src/")) continue;
     try {
       let text = removeImportsFrom(source, `providerRules/${ctx.id}`);
-      text = removeImportSpecifiers(text, ctx.dropBindings);
+      const providerImports = removeProviderModuleImports(text, ctx.id);
+      text = providerImports.source;
+      const dropBindings = new Set([...ctx.dropBindings, ...providerImports.bindings]);
+      text = removeImportSpecifiers(text, dropBindings);
       text = replaceProviderTernary(text, ctx.id);
-      if (ctx.dropBindings.size > 0) {
+      if (dropBindings.size > 0) {
         text = removeArrayElements(text, (value) => {
-          for (const name of ctx.dropBindings) {
+          for (const name of dropBindings) {
             if (countIdentifiers(value, name) > 0) return true;
           }
           return false;
         });
       }
-      const transformed = transformSource(text, ctx);
+      const transformed = transformSource(text, { ...ctx, dropBindings });
       files[filePath] = transformed.text;
       removedTexts.push(...transformed.removedTexts);
     } catch (error) {
@@ -158,10 +165,21 @@ export function pruneProviderSources(files, provider) {
     }
   };
 
+  const modulePrefix = `src/providers/${id}/`;
+  let removedModule = false;
+  for (const filePath of Object.keys(next)) {
+    if (!filePath.startsWith(modulePrefix)) continue;
+    delete next[filePath];
+    deleted.push(filePath);
+    removedModule = true;
+  }
+
   if (next[CATALOG] !== undefined) {
     const catalogEdit = editObject(next[CATALOG], "PROVIDER_CATALOG", keyIsProvider(id));
-    removedCatalogEntry = catalogEdit.removed.length > 0;
     record(CATALOG, catalogEdit);
+    const legacyEdit = editObject(next[CATALOG], "LEGACY_PROVIDER_CATALOG", keyIsProvider(id));
+    record(CATALOG, legacyEdit);
+    removedCatalogEntry = catalogEdit.removed.length > 0 || legacyEdit.removed.length > 0;
     record(
       CATALOG,
       editObject(next[CATALOG], "PROVIDER_ID_ALIASES", (property) => {
@@ -169,6 +187,10 @@ export function pruneProviderSources(files, provider) {
         return (value.startsWith('"') || value.startsWith("'")) && value.slice(1, -1) === id;
       }),
     );
+  }
+
+  if (removedModule && next[PROVIDER_INDEX_PATH] !== undefined) {
+    next[PROVIDER_INDEX_PATH] = renderProviderIndex(providerModuleIdsFromFiles(next));
   }
 
   const customIds = [];
@@ -220,7 +242,7 @@ export function pruneProviderSources(files, provider) {
     deleted.push(rulesPath);
   }
 
-  if (iconSlug && removedCatalogEntry && provider.deleteIcon !== false) {
+  if (iconSlug && (removedCatalogEntry || removedModule) && provider.deleteIcon !== false) {
     deleted.push(`assets/provider-icons/${iconSlug}.svg`);
   }
 
@@ -242,6 +264,13 @@ export function pruneProviderSources(files, provider) {
   const dead = eliminateDeadDeclarations(next, seeds);
   if (dead.size > 0) {
     transformTree(next, { id: "\0", knownIds: new Set(), dropBindings: dead });
+  }
+
+  for (const [filePath, source] of Object.entries(next)) {
+    if (!isTestPath(filePath) || source === undefined || files[filePath] === source) continue;
+    if (withoutImportStatements(source).trim() !== "") continue;
+    delete next[filePath];
+    deleted.push(filePath);
   }
 
   const leftovers = [];

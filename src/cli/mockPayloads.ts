@@ -1,4 +1,5 @@
 import { environment } from "@raycast/api";
+import { providerModuleById } from "../providers/module";
 import { getProviderMetadata, PROVIDER_IDS } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../usage/types";
 
@@ -96,7 +97,6 @@ const MOCK_SOURCES: Record<string, string> = {
   sub2api: "api",
   zenmux: "api",
   aiand: "api",
-  zoommate: "web",
   xai: "api",
   notion: "web",
   ibmbob: "api",
@@ -812,11 +812,11 @@ function buildGrok(now: Date): RawProviderPayload {
   });
 }
 
-function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2): MockBuilder {
+function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source?: string): MockBuilder {
   return (now) => {
     const seed = hashSeed(providerId);
     return buildPayload(providerId, {
-      source: MOCK_SOURCES[providerId] ?? "api",
+      source: source ?? MOCK_SOURCES[providerId] ?? "api",
       version: MOCK_VERSIONS[providerId] ?? null,
       status: null,
       usage: buildUsage(
@@ -898,7 +898,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   sub2api: buildGenericProvider("sub2api"),
   zenmux: buildGenericProvider("zenmux"),
   aiand: buildGenericProvider("aiand"),
-  zoommate: buildGenericProvider("zoommate"),
   xai: buildGenericProvider("xai"),
   notion: buildNotion,
   ibmbob: buildGenericProvider("ibmbob"),
@@ -920,7 +919,7 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   vercel: buildGenericProvider("vercel"),
 };
 
-const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id]);
+const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);
 if (missingMockProviderIds.length > 0) {
   throw new Error(`Missing mock provider builders: ${missingMockProviderIds.join(", ")}`);
 }
@@ -943,6 +942,11 @@ export function getMockAvailableProviders(): AvailableProvider[] {
 }
 
 export function getMockProviderPayload(providerId: string, now: Date = new Date()): RawProviderPayload {
+  const mock = providerModuleById(providerId)?.mock;
+  if (mock) {
+    return buildGenericProvider(providerId, mock.windowCount ?? 2, mock.source)(now);
+  }
+
   const builder = MOCK_BUILDERS[providerId];
   if (!builder) {
     throw new Error(`Unknown mock provider id: ${providerId}`);

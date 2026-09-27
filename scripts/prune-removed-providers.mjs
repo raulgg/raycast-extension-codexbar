@@ -122,6 +122,15 @@ async function prune() {
     await rm(path.join(ROOT, relative), { force: true });
     console.log(`Deleted ${relative}`);
   }
+  const removedModuleDirs = new Set(
+    [...deleted]
+      .map((relative) => relative.match(/^(src\/providers\/[^/]+)\/index\.ts$/)?.[1])
+      .filter((directory) => directory !== undefined),
+  );
+  for (const directory of removedModuleDirs) {
+    await rm(path.join(ROOT, directory), { recursive: true, force: true });
+    console.log(`Deleted ${directory}`);
+  }
 
   if (testMentions.length > 0) {
     console.log("Tests still mention a removed provider as one sample among several:");

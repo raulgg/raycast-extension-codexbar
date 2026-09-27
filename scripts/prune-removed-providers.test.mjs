@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { renderProviderIndex } from "./lib/provider-modules.mjs";
 import { pruneProviderSources } from "./lib/prune-provider.mjs";
 
 const knownIds = ["codex", "claude", "kilo", "zoommate", "helmcode"];
@@ -209,6 +210,105 @@ export function formatPlanText(providerId: string, rawPlanText: string) {
     );
     expect(result.files["src/usage/identity.ts"]).not.toContain("extractKiloPass");
     expect(result.files["src/usage/providerRules/kilo.ts"]).toBeUndefined();
+    expect(result.leftovers).toEqual([]);
+  });
+
+  it("removes a legacy key when provider modules are spread into the catalog", () => {
+    const source = `const LEGACY_PROVIDER_CATALOG = {
+  codex: { name: "Codex", iconSlug: "codex" },
+  claude: { name: "Claude", iconSlug: "claude" },
+};
+
+export const PROVIDER_CATALOG = {
+  ...LEGACY_PROVIDER_CATALOG,
+  ...providerModuleMetadata(PROVIDER_MODULES),
+};
+`;
+    const result = prune({ "src/providers/catalog.ts": source }, "codex", "codex");
+    const catalog = result.files["src/providers/catalog.ts"];
+    expect(catalog).toContain("claude:");
+    expect(catalog).not.toContain("codex:");
+    expect(catalog).toContain("...LEGACY_PROVIDER_CATALOG");
+    expect(catalog).toContain("...providerModuleMetadata(PROVIDER_MODULES)");
+    expect(result.deleted).toEqual(["assets/provider-icons/codex.svg"]);
+  });
+
+  it("deletes a provider directory and rewrites the module index", () => {
+    const result = prune(
+      {
+        "src/providers/index.ts": renderProviderIndex(["codex", "zoommate"]),
+        "src/providers/codex/index.ts": "export default { metadata: { name: \"Codex\" } };\n",
+        "src/providers/zoommate/index.ts": `const zoommate = {
+  metadata: { name: "ZoomMate", iconSlug: "zoommate" },
+};
+export default zoommate;
+`,
+      },
+      "zoommate",
+    );
+
+    expect(result.files["src/providers/zoommate/index.ts"]).toBeUndefined();
+    expect(result.files["src/providers/codex/index.ts"]).toContain("Codex");
+    expect(result.files["src/providers/index.ts"]).toBe(renderProviderIndex(["codex"]));
+    expect(result.deleted).toEqual(["src/providers/zoommate/index.ts", "assets/provider-icons/zoommate.svg"]);
+    expect(result.leftovers).toEqual([]);
+  });
+
+  it("deletes a test file that only imported the removed provider", () => {
+    const result = prune(
+      {
+        "src/providers/module.test.ts": `import { describe, expect, it } from "vitest";
+import zoommate from "./zoommate";
+
+describe("provider modules", () => {
+  it("reads the module", () => {
+    expect(zoommate.metadata.name).toBe("ZoomMate");
+  });
+});
+`,
+        "src/cli/mockPayloads.test.ts": `import { describe, expect, it } from "vitest";
+import { getMockProviderPayload } from "./mockPayloads";
+
+describe("getMockProviderPayload", () => {
+  it("reads the mock", () => {
+    expect(getMockProviderPayload("zoommate").source).toBe("web");
+  });
+});
+`,
+      },
+      "zoommate",
+    );
+
+    expect(result.files["src/providers/module.test.ts"]).toBeUndefined();
+    expect(result.files["src/cli/mockPayloads.test.ts"]).toBeUndefined();
+    expect(result.deleted).toEqual(["src/providers/module.test.ts", "src/cli/mockPayloads.test.ts"]);
+    expect(result.leftovers).toEqual([]);
+  });
+
+  it("removes a provider module import and keeps the other tests", () => {
+    const result = prune(
+      {
+        "src/providers/registry.test.ts": `import zoommate from "./zoommate";
+import { resolveProviderId } from "./registry";
+
+describe("provider registry", () => {
+  it("reads the module", () => {
+    expect(zoommate.metadata.name).toBe("ZoomMate");
+  });
+
+  it("resolves codex", () => {
+    expect(resolveProviderId("codex")).toBe("codex");
+  });
+});
+`,
+      },
+      "zoommate",
+    );
+
+    const test = result.files["src/providers/registry.test.ts"];
+    expect(test).not.toContain("zoommate");
+    expect(test).toContain('from "./registry"');
+    expect(test).toContain('toBe("codex")');
     expect(result.leftovers).toEqual([]);
   });
 

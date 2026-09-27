@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { calculateUsagePacing } from "../usage/pacing";
+import type { ProviderModule } from "./module";
 import {
+  getPaceCapability,
   inferredMonthlyWindowMinutes,
   PACE_CAPABILITIES,
+  resolveDynamicSlotTitle,
   resolveExtraWindowPace,
   resolveSlotPace,
 } from "./paceCapabilities";
@@ -11,6 +14,48 @@ describe("inferredMonthlyWindowMinutes", () => {
   it("uses the previous calendar month in UTC, clamping the day", () => {
     expect(inferredMonthlyWindowMinutes("2026-03-31T00:00:00Z")).toBe(31 * 24 * 60);
     expect(inferredMonthlyWindowMinutes("2026-03-01T00:00:00Z")).toBe(28 * 24 * 60);
+  });
+});
+
+describe("provider module pace and titles", () => {
+  const now = Date.parse("2026-03-23T10:30:00Z");
+  const fixture: ProviderModule = {
+    metadata: {
+      name: "Fixture",
+      iconSlug: "fixture",
+      brandColor: "#000000",
+      usageSectionLabels: { primary: "Primary" },
+    },
+    pace: {
+      resetWindowPace: { type: "unsupported" },
+      inferredMonthlyDuration: { type: "unsupported" },
+      sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
+    },
+    displayTitle: () => "Fixture window",
+  };
+
+  it("uses the module pace row when the provider sets one", () => {
+    expect(getPaceCapability("fixture", { fixture })).toEqual(fixture.pace);
+    expect(getPaceCapability("codex")).toEqual(PACE_CAPABILITIES.codex);
+    expect(
+      resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now, {
+        fixture,
+      })?.context,
+    ).toBe("session");
+    expect(
+      resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now),
+    ).toBeUndefined();
+  });
+
+  it("uses the module label instead of the shared title table", () => {
+    const windows = {
+      Primary: { present: true, usedPercent: 10 },
+      Secondary: { present: false },
+      Tertiary: { present: true, usedPercent: 10 },
+    };
+    expect(
+      resolveDynamicSlotTitle("factory", "Primary", { windows, hasAgentDetailRow: false, now }, { factory: fixture }),
+    ).toBe("Fixture window");
   });
 });
 

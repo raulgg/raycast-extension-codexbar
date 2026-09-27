@@ -3,6 +3,7 @@ import path from "node:path";
 import { Color, Icon } from "@raycast/api";
 import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG, type ProviderCatalogEntry } from "./catalog";
+import type { ProviderModule } from "./module";
 import {
   getProviderMetadata,
   getProviderProgressPalette,
@@ -41,6 +42,19 @@ describe("provider registry", () => {
     expect(resolveProviderId("groqcloud")).toBe("groq");
     expect(resolveProviderId("codex")).toBe("codex");
     expect(resolveProviderId("unknown-provider")).toBe("unknown-provider");
+    expect(
+      resolveProviderId("fw", {
+        other: {
+          metadata: {
+            name: "Other",
+            iconSlug: "other",
+            brandColor: "#000000",
+            usageSectionLabels: { primary: "Primary" },
+          },
+          aliases: ["fw"],
+        },
+      }),
+    ).toBe("other");
 
     expect(isKnownProviderId("alibaba-coding-plan")).toBe(true);
     expect(getProviderMetadata("alibaba-coding-plan").id).toBe("alibaba");
@@ -399,6 +413,21 @@ describe("provider registry", () => {
       expect(resolveDashboardUrl("helmcode", undefined, "NaN Builders")).toBe("https://cloud.nan.builders/dashboard");
       expect(resolveDashboardUrl("helmcode", undefined, "Helmcode")).toBe("https://cloud.helmcode.com/dashboard");
       expect(resolveDashboardUrl("helmcode")).toBe("https://cloud.helmcode.com/dashboard");
+    });
+
+    it("uses a provider module dashboard when the module defines one", () => {
+      const fixture: ProviderModule = {
+        metadata: {
+          name: "Fixture",
+          iconSlug: "fixture",
+          brandColor: "#112233",
+          usageSectionLabels: { primary: "Primary" },
+        },
+        dashboardUrl: ({ planText, accountOrganization }) =>
+          `https://fixture.example/${planText}/${accountOrganization}`,
+      };
+
+      expect(resolveDashboardUrl("fixture", "Pro", "Acme", { fixture })).toBe("https://fixture.example/Pro/Acme");
     });
 
     it("resolves Claude via alias ids as well", () => {
