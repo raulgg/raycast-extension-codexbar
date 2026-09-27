@@ -64,13 +64,6 @@ const LEGACY_PROVIDER_CATALOG = {
     dashboardUrl: "https://app.factory.ai/settings/billing",
     statusPageUrl: "https://status.factory.ai",
   },
-  antigravity: {
-    name: "Antigravity",
-    iconSlug: "antigravity",
-    brandColor: "#60BA7E",
-    usageSectionLabels: { primary: "Gemini Models", secondary: "Claude and GPT" },
-    statusPageUrl: "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
-  },
   zai: {
     name: "z.ai / GLM",
     iconSlug: "zai",

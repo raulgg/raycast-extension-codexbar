@@ -282,7 +282,7 @@ export function resolveSlotPace(
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
 export type ExtraWindowPace = "session-or-weekly" | "weekly-only";
 
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex"]);
+export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["claude", "codex"]);
 const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude"]);
 
 export function resolveExtraWindowPace(
@@ -335,11 +335,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "unsupported" },
-  },
-  antigravity: {
-    resetWindowPace: { type: "unsupported" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
   },
   claude: {
     resetWindowPace: { type: "unsupported" },

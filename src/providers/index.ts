@@ -3,6 +3,7 @@ import abacus from "./abacus";
 import aiand from "./aiand";
 import alibaba from "./alibaba";
 import alibabatokenplan from "./alibabatokenplan";
+import antigravity from "./antigravity";
 import atlascloud from "./atlascloud";
 import augment from "./augment";
 import azureopenai from "./azureopenai";
@@ -80,6 +81,7 @@ export const PROVIDER_MODULES = {
   aiand,
   alibaba,
   alibabatokenplan,
+  antigravity,
   atlascloud,
   augment,
   azureopenai,

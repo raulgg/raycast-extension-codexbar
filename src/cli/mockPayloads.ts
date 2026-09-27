@@ -15,7 +15,6 @@ const MOCK_SOURCES: Record<string, string> = {
   codex: "codex-cli",
   claude: "web",
   factory: "web",
-  antigravity: "local",
   zai: "api",
   amp: "web",
   ollama: "web",
@@ -212,26 +211,6 @@ function buildFactory(now: Date): RawProviderPayload {
   });
 }
 
-function buildAntigravity(now: Date): RawProviderPayload {
-  return buildPayload("antigravity", {
-    source: MOCK_SOURCES.antigravity,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 43, 12 * HOUR, "Model quota"),
-      buildWindow(now, 76, 24 * HOUR, "Workspace quota"),
-      buildWindow(now, 91, 30 * DAY, "Monthly quota"),
-      {
-        ...buildIdentity("antigravity", "dev@example.com", null, "enterprise"),
-      },
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildZai(now: Date): RawProviderPayload {
   return buildPayload("zai", {
     source: MOCK_SOURCES.zai,
@@ -356,7 +335,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   codex: buildCodex,
   claude: buildClaude,
   factory: buildFactory,
-  antigravity: buildAntigravity,
   zai: buildZai,
   amp: buildAmp,
   ollama: buildOllama,
