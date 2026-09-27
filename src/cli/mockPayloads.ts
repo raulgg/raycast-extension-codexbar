@@ -14,14 +14,9 @@ type MockBuilder = (now: Date) => RawProviderPayload;
 const MOCK_SOURCES: Record<string, string> = {
   codex: "codex-cli",
   claude: "web",
-  cursor: "web",
-  opencodego: "web",
-  alibaba: "web",
   factory: "web",
   antigravity: "local",
-  copilot: "api",
   zai: "api",
-  kimi: "api",
   kilo: "api",
   amp: "web",
   ollama: "web",
@@ -114,17 +109,6 @@ function buildClaudeProviderCost(now: Date): Record<string, unknown> {
   return {
     used: 1.42,
     limit: 20,
-    currencyCode: "USD",
-    period: "monthly",
-    resetsAt: offsetIso(now, 30 * DAY),
-    updatedAt: iso(now),
-  };
-}
-
-function buildCursorProviderCost(now: Date): Record<string, unknown> {
-  return {
-    used: 3.08,
-    limit: 25,
     currencyCode: "USD",
     period: "monthly",
     resetsAt: offsetIso(now, 30 * DAY),
@@ -229,62 +213,6 @@ function buildClaude(now: Date): RawProviderPayload {
   });
 }
 
-function buildCursor(now: Date): RawProviderPayload {
-  return buildPayload("cursor", {
-    source: MOCK_SOURCES.cursor,
-    version: null,
-    status: buildStatus("Cursor operational", "https://status.cursor.com", now),
-    usage: buildUsage(
-      now,
-      buildWindow(now, 34, 3 * HOUR, "Resets in 3h", undefined, 24 * 60),
-      buildWindow(now, 68, 24 * HOUR, "Resets tomorrow"),
-      buildWindow(now, 79, 7 * DAY, "Resets next week"),
-      {
-        providerCost: buildCursorProviderCost(now),
-        ...buildIdentity("cursor", "dev@example.com", null, "Pro"),
-      },
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildOpenCodeGo(now: Date): RawProviderPayload {
-  return buildPayload("opencodego", {
-    source: MOCK_SOURCES.opencodego,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 24, 90 * MINUTE, null),
-      buildWindow(now, 44, 5 * DAY, null),
-      buildWindow(now, 83, 20 * DAY, null, undefined, 43_200),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildAlibaba(now: Date): RawProviderPayload {
-  return buildPayload("alibaba", {
-    source: MOCK_SOURCES.alibaba,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 39, 5 * HOUR, "39 / 100 used"),
-      buildWindow(now, 63, 24 * HOUR, "63 / 100 used"),
-      buildWindow(now, 88, 20 * DAY, "88 / 100 used", undefined, 43_200),
-      buildIdentity("alibaba", null, null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildFactory(now: Date): RawProviderPayload {
   return buildPayload("factory", {
     source: MOCK_SOURCES.factory,
@@ -323,24 +251,6 @@ function buildAntigravity(now: Date): RawProviderPayload {
   });
 }
 
-function buildCopilot(now: Date): RawProviderPayload {
-  return buildPayload("copilot", {
-    source: MOCK_SOURCES.copilot,
-    version: null,
-    status: buildStatus("GitHub Copilot operational", "https://www.githubstatus.com/", now),
-    usage: buildUsage(
-      now,
-      buildWindow(now, 45, 20 * DAY, null),
-      buildWindow(now, 67, null, null),
-      null,
-      buildIdentity("copilot", null, null, "Business"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildZai(now: Date): RawProviderPayload {
   return buildPayload("zai", {
     source: MOCK_SOURCES.zai,
@@ -352,24 +262,6 @@ function buildZai(now: Date): RawProviderPayload {
       buildWindow(now, 58, 30 * DAY, "Monthly"),
       buildWindow(now, 74, 2 * HOUR, "5 hours window"),
       buildIdentity("zai", null, null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildKimi(now: Date): RawProviderPayload {
-  return buildPayload("kimi", {
-    source: MOCK_SOURCES.kimi,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 49, 5 * DAY, "42/200 requests", undefined, 10_080),
-      buildWindow(now, 61, 90 * MINUTE, "Rate: 15/60 per 5 hours", undefined, 300),
-      null,
-      buildIdentity("kimi", null, null, null),
     ),
     credits: null,
     antigravityPlanInfo: null,
@@ -515,14 +407,9 @@ function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source
 const MOCK_BUILDERS: Record<string, MockBuilder> = {
   codex: buildCodex,
   claude: buildClaude,
-  cursor: buildCursor,
-  opencodego: buildOpenCodeGo,
-  alibaba: buildAlibaba,
   factory: buildFactory,
   antigravity: buildAntigravity,
-  copilot: buildCopilot,
   zai: buildZai,
-  kimi: buildKimi,
   kilo: buildKilo,
   amp: buildAmp,
   ollama: buildOllama,

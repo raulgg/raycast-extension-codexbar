@@ -282,8 +282,8 @@ export function resolveSlotPace(
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
 export type ExtraWindowPace = "session-or-weekly" | "weekly-only";
 
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex", "cursor"]);
-const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude", "cursor"]);
+export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["antigravity", "claude", "codex"]);
+const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude"]);
 
 export function resolveExtraWindowPace(
   providerId: string,
@@ -331,7 +331,6 @@ const CALENDAR_MONTH: PaceCapability = {
 };
 
 export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
-  alibaba: CALENDAR_MONTH,
   amp: {
     resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
     inferredMonthlyDuration: { type: "unsupported" },
@@ -353,26 +352,10 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     sessionPaceWindowRule: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
     secondaryAllowsDefaultWindow: true,
   },
-  copilot: {
-    resetWindowPace: { type: "resetDatePresent" },
-    inferredMonthlyDuration: { type: "windowDurationMissing" },
-    sessionPaceWindowRule: { type: "unsupported" },
-  },
-  cursor: {
-    resetWindowPace: { type: "windowDurationPresent" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "unsupported" },
-  },
   grok: {
     resetWindowPace: { type: "custom", id: "grokWeeklyCredits" },
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "unsupported" },
-  },
-  kimi: {
-    resetWindowPace: { type: "windowDuration", minutes: 10_080 },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
-    secondarySessionPace: true,
   },
   notion: {
     ...CALENDAR_MONTH,
@@ -382,10 +365,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     resetWindowPace: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
     inferredMonthlyDuration: { type: "windowDuration", minutes: MONTHLY_WINDOW_SENTINEL_MINUTES },
     sessionPaceWindowRule: { type: "custom", id: "ollamaSessionAtMostFiveHours" },
-  },
-  opencodego: {
-    ...CALENDAR_MONTH,
-    allowsEstimatedUsage: false,
   },
   zai: {
     resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },

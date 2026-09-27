@@ -1,6 +1,7 @@
 import type { ProviderModule } from "./module";
 import abacus from "./abacus";
 import aiand from "./aiand";
+import alibaba from "./alibaba";
 import alibabatokenplan from "./alibabatokenplan";
 import atlascloud from "./atlascloud";
 import augment from "./augment";
@@ -13,6 +14,8 @@ import clinepass from "./clinepass";
 import codebuff from "./codebuff";
 import coderabbit from "./coderabbit";
 import commandcode from "./commandcode";
+import copilot from "./copilot";
+import cursor from "./cursor";
 import deepgram from "./deepgram";
 import deepinfra from "./deepinfra";
 import deepseek from "./deepseek";
@@ -28,6 +31,7 @@ import huggingface from "./huggingface";
 import hyper from "./hyper";
 import ibmbob from "./ibmbob";
 import jetbrains from "./jetbrains";
+import kimi from "./kimi";
 import kiro from "./kiro";
 import litellm from "./litellm";
 import llmman from "./llmman";
@@ -43,6 +47,7 @@ import neuralwatt from "./neuralwatt";
 import nous from "./nous";
 import openai from "./openai";
 import opencode from "./opencode";
+import opencodego from "./opencodego";
 import perplexity from "./perplexity";
 import pi from "./pi";
 import poe from "./poe";
@@ -70,6 +75,7 @@ import zoommate from "./zoommate";
 export const PROVIDER_MODULES = {
   abacus,
   aiand,
+  alibaba,
   alibabatokenplan,
   atlascloud,
   augment,
@@ -82,6 +88,8 @@ export const PROVIDER_MODULES = {
   codebuff,
   coderabbit,
   commandcode,
+  copilot,
+  cursor,
   deepgram,
   deepinfra,
   deepseek,
@@ -97,6 +105,7 @@ export const PROVIDER_MODULES = {
   hyper,
   ibmbob,
   jetbrains,
+  kimi,
   kiro,
   litellm,
   llmman,
@@ -112,6 +121,7 @@ export const PROVIDER_MODULES = {
   nous,
   openai,
   opencode,
+  opencodego,
   perplexity,
   pi,
   poe,
