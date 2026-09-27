@@ -86,15 +86,21 @@ function formatSlugLabel(raw: string): string {
     .join(" ");
 }
 
+// Labels a plan slug the way formatPlanText does (tier_99 -> Tier 99, oauth -> OAuth).
+// Mixed-case or multi-word text is left unchanged.
+export function labelLowercaseSlug(raw: string): string {
+  if (/^[a-z0-9_-]+$/i.test(raw) && raw === raw.toLowerCase()) {
+    return formatSlugLabel(raw);
+  }
+
+  return raw;
+}
+
 export function formatPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
   const rawPlanText = extractRawPlanText(providerId, payload);
   if (!rawPlanText) {
     return undefined;
   }
 
-  if (/^[a-z0-9_-]+$/i.test(rawPlanText) && rawPlanText === rawPlanText.toLowerCase()) {
-    return formatSlugLabel(rawPlanText);
-  }
-
-  return rawPlanText;
+  return labelLowercaseSlug(rawPlanText);
 }
