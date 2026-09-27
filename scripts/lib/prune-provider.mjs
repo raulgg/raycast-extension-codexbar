@@ -1,306 +1,377 @@
-// Deletes one provider that upstream no longer ships: catalog entry, aliases, mocks,
-// pace rows, dynamic titles, allowlists, the provider-rules module, a provider
-// directory, icons, and tests that only mention that provider. Shared tests that use
-// the id as one sample among several are left in place. The module index is rewritten
-// from the directories that remain.
+// Plans the closed edit that drops a Provider upstream no longer ships.
+// The edit deletes that Provider's directory, regenerates the module index,
+// and drops the id from the catalog order and the upstream allowlists.
+// A production reference that would survive the edit blocks the write.
 
-import {
-  countIdentifiers,
-  editNamedObject,
-  editNamedSet,
-  literalLocations,
-  removeArrayElements,
-  removeImportSpecifiers,
-  removeImportsFrom,
-  removeProviderModuleImports,
-  removeUnionMember,
-  replaceProviderTernary,
-  transformSource,
-  withoutImportStatements,
-} from "./ts-text.mjs";
 import { PROVIDER_INDEX_PATH, providerModuleIdsFromFiles, renderProviderIndex } from "./provider-modules.mjs";
 
-const CATALOG = "src/providers/catalog.ts";
-const PACE = "src/providers/paceCapabilities.ts";
-const MOCKS = "src/cli/mockPayloads.ts";
-const CHECK = "scripts/check-upstream.mjs";
+const ORDER_PATH = "scripts/lib/provider-modules.mjs";
+const CHECK_PATH = "scripts/check-upstream.mjs";
+const PACE_PATH = "src/providers/paceCapabilities.ts";
 
-export function providerRulesPath(id) {
-  return `src/usage/providerRules/${id}.ts`;
-}
+const ALLOWLISTS = [
+  [CHECK_PATH, "CUSTOM_PACE_RULES", (key, id) => key === id || key.startsWith(`${id}.`)],
+  [CHECK_PATH, "ALLOWED_DIVERGENCES", (key, id) => key === id],
+  [CHECK_PATH, "UNPORTABLE_PRESENTATION_PACE", (key, id) => key === id],
+  [CHECK_PATH, "UNPORTABLE_HEADROOM_HINT", (key, id) => key === id],
+  [PACE_PATH, "UNPORTABLE_DYNAMIC_TITLES", (key, id) => key === id],
+];
 
-export function isTestPath(filePath) {
-  return /\.test\.(tsx?|mjs)$/.test(filePath);
-}
+const REWRITTEN = new Set([PROVIDER_INDEX_PATH, ORDER_PATH, CHECK_PATH, PACE_PATH]);
 
-function exportedBindings(source) {
-  const names = new Set();
-  for (const match of source.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)) {
-    names.add(match[1]);
+export function planPrune(files, removed) {
+  try {
+    return planOrThrow(files, removed);
+  } catch (error) {
+    return {
+      ok: false,
+      files,
+      updates: [],
+      deleted: [],
+      blockers: [error instanceof Error ? error.message : String(error)],
+      testMentions: [],
+    };
   }
-  for (const match of source.matchAll(/export\s+(?:const|class|type|interface|enum)\s+([A-Za-z0-9_]+)/g)) {
-    names.add(match[1]);
-  }
-  for (const match of source.matchAll(/export\s*\{([^}]+)\}/g)) {
-    for (const part of match[1].split(",")) {
-      const piece = part.trim();
-      if (!piece) continue;
-      const name = piece.split(/\s+as\s+/).pop()?.trim();
-      if (name && /^[A-Za-z0-9_]+$/.test(name)) names.add(name);
-    }
-  }
-  return [...names];
 }
 
-function customIdsIn(text) {
-  return [...text.matchAll(/\bid:\s*["']([A-Za-z0-9_]+)["']/g)].map((match) => match[1]);
-}
-
-function bareIdentifier(value) {
-  const trimmed = value.trim();
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(trimmed) ? trimmed : undefined;
-}
-
-function editObject(source, name, shouldRemove) {
-  return editNamedObject(source, name, shouldRemove);
-}
-
-function keyIsProvider(id) {
-  return (property) => property.key === id || property.key.startsWith(`${id}.`);
-}
-
-function productionSources(files) {
-  return Object.entries(files).filter(([filePath]) => !isTestPath(filePath));
-}
-
-function identifierCount(files, name, { tests = true } = {}) {
-  let count = 0;
-  for (const [filePath, source] of Object.entries(files)) {
-    if (!tests && isTestPath(filePath)) continue;
-    if (source === undefined) continue;
-    count += countIdentifiers(source, name);
-  }
-  return count;
-}
-
-function declaredIn(files, name) {
-  for (const [filePath, source] of productionSources(files)) {
-    if (new RegExp(`(?:function|const|class|type|interface|enum)\\s+${name}\\b`).test(source)) {
-      return filePath;
-    }
-  }
-  return undefined;
-}
-
-function eliminateDeadDeclarations(files, seeds) {
-  const pending = [...seeds];
-  const removed = new Set();
-  let guard = 0;
-  while (pending.length > 0 && guard < 200) {
-    guard += 1;
-    const name = pending.shift();
-    if (!name || removed.has(name)) continue;
-    const filePath = declaredIn(files, name);
-    if (!filePath) continue;
-    if (identifierCount(files, name, { tests: false }) !== 1) continue;
-
-    const before = files[filePath];
-    const transformed = transformSource(before, { id: "\0", dropDeclaration: name });
-    if (transformed.text === before) continue;
-    files[filePath] = transformed.text;
-    removed.add(name);
-    const declarationText = transformed.removedTexts.join("\n");
-    for (const match of declarationText.matchAll(/\b([A-Za-z_$][A-Za-z0-9_$]*)\b/g)) {
-      if (declaredIn(files, match[1])) pending.push(match[1]);
-    }
-  }
-  return removed;
-}
-
-function transformTree(files, ctx) {
-  const removedTexts = [];
-  for (const [filePath, source] of Object.entries(files)) {
-    if (source === undefined || !filePath.startsWith("src/")) continue;
-    try {
-      let text = removeImportsFrom(source, `providerRules/${ctx.id}`);
-      const providerImports = removeProviderModuleImports(text, ctx.id);
-      text = providerImports.source;
-      const dropBindings = new Set([...ctx.dropBindings, ...providerImports.bindings]);
-      text = removeImportSpecifiers(text, dropBindings);
-      text = replaceProviderTernary(text, ctx.id);
-      if (dropBindings.size > 0) {
-        text = removeArrayElements(text, (value) => {
-          for (const name of dropBindings) {
-            if (countIdentifiers(value, name) > 0) return true;
-          }
-          return false;
-        });
-      }
-      const transformed = transformSource(text, { ...ctx, dropBindings });
-      files[filePath] = transformed.text;
-      removedTexts.push(...transformed.removedTexts);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${filePath}: ${message}`);
-    }
-  }
-  return removedTexts;
-}
-
-export function pruneProviderSources(files, provider) {
-  const { id, iconSlug, knownIds } = provider;
+function planOrThrow(files, removed) {
   const next = { ...files };
-  const removedTexts = [];
   const deleted = [];
-  let removedCatalogEntry = false;
+  const ids = removed.map((provider) => provider.id);
 
-  const rulesPath = providerRulesPath(id);
-  const ruleExports = next[rulesPath] ? exportedBindings(next[rulesPath]) : [];
-
-  const record = (filePath, result) => {
-    if (next[filePath] === undefined) return;
-    next[filePath] = result.source;
-    for (const entry of result.removed) {
-      removedTexts.push(typeof entry === "string" ? entry : entry.text);
+  for (const provider of removed) {
+    const prefix = `src/providers/${provider.id}/`;
+    for (const filePath of Object.keys(next)) {
+      if (!filePath.startsWith(prefix) || next[filePath] === undefined) continue;
+      deleted.push(filePath);
+      delete next[filePath];
     }
-  };
-
-  const modulePrefix = `src/providers/${id}/`;
-  let removedModule = false;
-  for (const filePath of Object.keys(next)) {
-    if (!filePath.startsWith(modulePrefix)) continue;
-    delete next[filePath];
-    deleted.push(filePath);
-    removedModule = true;
   }
 
-  if (next[CATALOG] !== undefined) {
-    const catalogEdit = editObject(next[CATALOG], "PROVIDER_CATALOG", keyIsProvider(id));
-    record(CATALOG, catalogEdit);
-    const legacyEdit = editObject(next[CATALOG], "LEGACY_PROVIDER_CATALOG", keyIsProvider(id));
-    record(CATALOG, legacyEdit);
-    removedCatalogEntry = catalogEdit.removed.length > 0 || legacyEdit.removed.length > 0;
-    record(
-      CATALOG,
-      editObject(next[CATALOG], "PROVIDER_ID_ALIASES", (property) => {
-        const value = property.value.trim();
-        return (value.startsWith('"') || value.startsWith("'")) && value.slice(1, -1) === id;
-      }),
-    );
+  if (next[ORDER_PATH] !== undefined) {
+    next[ORDER_PATH] = removeOrderIds(next[ORDER_PATH], ids);
   }
 
-  if (removedModule && next[PROVIDER_INDEX_PATH] !== undefined) {
+  for (const provider of removed) {
+    for (const [filePath, binding, matches] of ALLOWLISTS) {
+      if (next[filePath] === undefined) continue;
+      next[filePath] = removeObjectProperties(next[filePath], binding, (key) => matches(key, provider.id));
+    }
+  }
+
+  if (next[PROVIDER_INDEX_PATH] !== undefined) {
     next[PROVIDER_INDEX_PATH] = renderProviderIndex(providerModuleIdsFromFiles(next));
   }
 
-  const customIds = [];
-  if (next[PACE] !== undefined) {
-    const pace = editObject(next[PACE], "PACE_CAPABILITIES", keyIsProvider(id));
-    for (const entry of pace.removed) customIds.push(...customIdsIn(entry.text));
-    record(PACE, pace);
-    record(PACE, editObject(next[PACE], "DYNAMIC_SLOT_TITLES", keyIsProvider(id)));
-    record(PACE, editObject(next[PACE], "UNPORTABLE_DYNAMIC_TITLES", keyIsProvider(id)));
-    record(
-      PACE,
-      editNamedSet(next[PACE], "EXTRA_WINDOW_PACE_PROVIDER_IDS", (value) => value.trim().slice(1, -1) === id),
-    );
-    record(
-      PACE,
-      editNamedSet(next[PACE], "WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS", (value) => value.trim().slice(1, -1) === id),
-    );
-    for (const customId of customIds) {
-      record(PACE, editObject(next[PACE], "CUSTOM_WINDOW_RULES", (property) => property.key === customId));
-      const withoutMember = removeUnionMember(next[PACE], "PaceCustomId", customId);
-      if (withoutMember !== next[PACE]) {
-        removedTexts.push(customId);
-        next[PACE] = withoutMember;
-      }
-    }
-  }
-
-  if (next[MOCKS] !== undefined) {
-    for (const objectName of ["MOCK_BUILDERS", "MOCK_SOURCES", "MOCK_VERSIONS"]) {
-      const edited = editObject(next[MOCKS], objectName, keyIsProvider(id));
-      for (const entry of edited.removed) {
-        const builder = bareIdentifier(entry.value);
-        if (builder) removedTexts.push(builder);
-      }
-      record(MOCKS, edited);
-    }
-  }
-
-  if (next[CHECK] !== undefined) {
-    record(CHECK, editObject(next[CHECK], "ALLOWED_DIVERGENCES", keyIsProvider(id)));
-    record(CHECK, editObject(next[CHECK], "UNPORTABLE_PRESENTATION_PACE", keyIsProvider(id)));
-    record(CHECK, editObject(next[CHECK], "UNPORTABLE_HEADROOM_HINT", keyIsProvider(id)));
-    record(CHECK, editObject(next[CHECK], "CUSTOM_PACE_RULES", keyIsProvider(id)));
-  }
-
-  if (next[rulesPath] !== undefined) {
-    removedTexts.push(next[rulesPath]);
-    delete next[rulesPath];
-    deleted.push(rulesPath);
-  }
-
-  if (iconSlug && (removedCatalogEntry || removedModule) && provider.deleteIcon !== false) {
-    deleted.push(`assets/provider-icons/${iconSlug}.svg`);
-  }
-
-  const ctx = {
-    id,
-    knownIds: new Set(knownIds),
-    removedIds: new Set(provider.removedIds ?? [id]),
-    dropBindings: new Set(ruleExports),
-  };
-  removedTexts.push(...transformTree(next, ctx));
-
-  const seeds = new Set(ruleExports);
-  for (const customId of customIds) seeds.add(customId);
-  for (const text of removedTexts) {
-    for (const match of text.matchAll(/\b([A-Za-z_$][A-Za-z0-9_$]*)\b/g)) {
-      if (declaredIn(next, match[1])) seeds.add(match[1]);
-    }
-  }
-  const dead = eliminateDeadDeclarations(next, seeds);
-  if (dead.size > 0) {
-    transformTree(next, { id: "\0", knownIds: new Set(), dropBindings: dead });
-  }
-
+  const usedSlugs = new Set();
   for (const [filePath, source] of Object.entries(next)) {
-    if (!isTestPath(filePath) || source === undefined || files[filePath] === source) continue;
-    if (withoutImportStatements(source).trim() !== "") continue;
-    delete next[filePath];
-    deleted.push(filePath);
+    if (source === undefined || !/^src\/providers\/[^/]+\/index\.ts$/.test(filePath)) continue;
+    const slug = iconSlugOf(source);
+    if (slug) usedSlugs.add(slug);
+  }
+  for (const provider of removed) {
+    if (!provider.iconSlug || usedSlugs.has(provider.iconSlug)) continue;
+    const iconPath = `assets/provider-icons/${provider.iconSlug}.svg`;
+    if (!deleted.includes(iconPath)) deleted.push(iconPath);
   }
 
-  const leftovers = [];
+  const blockers = [];
   const testMentions = [];
-  for (const [filePath, source] of Object.entries(next)) {
-    if (source === undefined || !filePath.startsWith("src/")) continue;
-    let lines = [];
-    try {
-      lines = literalLocations(source, id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${filePath}: ${message}`);
-    }
-    for (const line of lines) {
-      const mention = `${filePath}:${line}`;
-      if (isTestPath(filePath)) testMentions.push(mention);
-      else leftovers.push(mention);
+  for (const provider of removed) {
+    for (const [filePath, source] of Object.entries(next)) {
+      if (source === undefined || REWRITTEN.has(filePath)) continue;
+      if (!filePath.startsWith("src/") && !filePath.startsWith("scripts/")) continue;
+      const hits = mentionLines(source, provider.id, filePath);
+      for (const hit of hits) {
+        const mention = `${filePath}:${hit}: ${provider.id}`;
+        if (isTestPath(filePath)) testMentions.push(mention);
+        else blockers.push(mention);
+      }
     }
   }
 
-  return { files: next, deleted, leftovers, testMentions };
+  const updates = Object.keys(next)
+    .filter((filePath) => next[filePath] !== files[filePath])
+    .sort();
+  deleted.sort();
+  blockers.sort();
+  testMentions.sort();
+
+  return {
+    ok: blockers.length === 0,
+    files: blockers.length === 0 ? next : files,
+    updates: blockers.length === 0 ? updates : [],
+    deleted: blockers.length === 0 ? deleted : [],
+    blockers,
+    testMentions,
+  };
 }
 
-export function keptIconSlugs(catalog, removedIds) {
-  const removed = new Set(removedIds);
-  return new Set(
-    Object.entries(catalog)
-      .filter(([id]) => !removed.has(id))
-      .map(([, entry]) => entry.iconSlug),
-  );
+export function removeOrderIds(source, ids) {
+  const marker = "export const CATALOG_PROVIDER_ORDER = [";
+  const start = source.indexOf(marker);
+  if (start < 0) {
+    return source;
+  }
+  const open = source.indexOf("[", start);
+  const close = source.indexOf("];", open);
+  if (close < 0) {
+    throw new Error("CATALOG_PROVIDER_ORDER is not a closed array");
+  }
+  let body = source.slice(open + 1, close);
+  for (const id of ids) {
+    if (!body.includes(`"${id}"`) && !body.includes(`'${id}'`)) continue;
+    const line = new RegExp(`\\n[ \\t]*(["'])${escapeRegExp(id)}\\1,?[ \\t]*`);
+    const stripped = body.replace(line, "\n");
+    if (stripped === body) {
+      throw new Error(`Could not remove ${id} from CATALOG_PROVIDER_ORDER`);
+    }
+    body = stripped;
+  }
+  return source.slice(0, open + 1) + body + source.slice(close);
 }
 
+export function removeObjectProperties(source, binding, shouldRemove) {
+  const open = findAssignedObject(source, binding);
+  if (open < 0) return source;
+  const { end, props } = walkObject(source, open);
+  const removed = props.filter((prop) => shouldRemove(prop.key));
+  if (removed.length === 0) return source;
 
+  const ranges = [];
+  for (const prop of removed) {
+    if (prop.comma >= 0) {
+      const from = lineStart(source, prop.start);
+      let to = prop.comma + 1;
+      if (source[to] === "\n") to += 1;
+      ranges.push([from, to]);
+      continue;
+    }
+    const previousComma = previousPropertyComma(props, prop);
+    if (previousComma >= 0) {
+      ranges.push([previousComma, prop.valueEnd]);
+      continue;
+    }
+    ranges.push([lineStart(source, prop.start), prop.valueEnd]);
+  }
+
+  let next = source;
+  for (const [from, to] of ranges.sort((left, right) => right[0] - left[0])) {
+    next = next.slice(0, from) + next.slice(to);
+  }
+  const checked = findAssignedObject(next, binding);
+  if (checked < 0) {
+    throw new Error(`Could not parse ${binding} after removing a property`);
+  }
+  walkObject(next, checked);
+  return next;
+}
+
+function findAssignedObject(source, binding) {
+  const at = source.search(new RegExp(`(?:export\\s+)?const\\s+${binding}\\b`));
+  if (at < 0) return -1;
+  let brace = 0;
+  let angle = 0;
+  let i = at;
+  while (i < source.length) {
+    const trivia = skipTrivia(source, i);
+    if (trivia !== i) {
+      i = trivia;
+      continue;
+    }
+    const quote = source[i];
+    if (quote === '"' || quote === "'" || quote === "`") {
+      i = skipString(source, i);
+      continue;
+    }
+    const char = source[i];
+    if (char === "{") brace += 1;
+    else if (char === "}") brace -= 1;
+    else if (char === "<") angle += 1;
+    else if (char === ">") angle -= 1;
+    else if (char === "=" && brace === 0 && angle === 0) {
+      let j = skipTrivia(source, i + 1);
+      while (j < source.length && /\s/.test(source[j])) j += 1;
+      if (source[j] !== "{") {
+        throw new Error(`${binding} is not assigned an object`);
+      }
+      return j;
+    }
+    i += 1;
+  }
+  throw new Error(`Could not find the object assigned to ${binding}`);
+}
+
+function walkObject(source, open) {
+  let i = open + 1;
+  const props = [];
+  while (i < source.length) {
+    i = skipSpace(source, i);
+    if (source[i] === "}") return { end: i, props };
+    if (i >= source.length) break;
+    const start = i;
+    const key = readKey(source, i);
+    i = skipSpace(source, key.end);
+    if (source[i] !== ":") {
+      throw new Error(`Expected ':' after ${key.text} in object`);
+    }
+    const valueEnd = skipValue(source, i + 1);
+    i = skipSpace(source, valueEnd);
+    let comma = -1;
+    if (source[i] === ",") {
+      comma = i;
+      i += 1;
+    }
+    props.push({ key: key.text, start, valueEnd, comma });
+    if (comma < 0) {
+      i = skipSpace(source, i);
+      if (source[i] !== "}") {
+        throw new Error(`Expected ',' or '}' after ${key.text}`);
+      }
+    }
+  }
+  throw new Error("Unterminated object");
+}
+
+function readKey(source, index) {
+  const char = source[index];
+  if (char === '"' || char === "'" || char === "`") {
+    const end = skipString(source, index);
+    return { text: source.slice(index + 1, end - 1), end };
+  }
+  const match = /^[A-Za-z_$][A-Za-z0-9_$]*/.exec(source.slice(index));
+  if (!match) {
+    throw new Error(`Expected a property name at index ${index}`);
+  }
+  return { text: match[0], end: index + match[0].length };
+}
+
+function skipValue(source, index) {
+  let i = skipSpace(source, index);
+  let brace = 0;
+  let bracket = 0;
+  let paren = 0;
+  let started = false;
+  while (i < source.length) {
+    const trivia = skipTrivia(source, i);
+    if (trivia !== i) {
+      i = trivia;
+      continue;
+    }
+    const quote = source[i];
+    if (quote === '"' || quote === "'" || quote === "`") {
+      i = skipString(source, i);
+      started = true;
+      continue;
+    }
+    const char = source[i];
+    if (!started && /\s/.test(char)) {
+      i += 1;
+      continue;
+    }
+    started = true;
+    if (char === "{") brace += 1;
+    else if (char === "}") {
+      if (brace === 0 && bracket === 0 && paren === 0) return i;
+      brace -= 1;
+    } else if (char === "[") bracket += 1;
+    else if (char === "]") bracket -= 1;
+    else if (char === "(") paren += 1;
+    else if (char === ")") paren -= 1;
+    else if (char === "," && brace === 0 && bracket === 0 && paren === 0) return i;
+    i += 1;
+  }
+  throw new Error("Unterminated value");
+}
+
+function skipSpace(source, index) {
+  let i = index;
+  while (i < source.length) {
+    const trivia = skipTrivia(source, i);
+    if (trivia !== i) {
+      i = trivia;
+      continue;
+    }
+    if (!/\s/.test(source[i])) return i;
+    i += 1;
+  }
+  return i;
+}
+
+function skipTrivia(source, index) {
+  if (source.startsWith("//", index)) {
+    const newline = source.indexOf("\n", index);
+    return newline < 0 ? source.length : newline + 1;
+  }
+  if (source.startsWith("/*", index)) {
+    const end = source.indexOf("*/", index + 2);
+    if (end < 0) throw new Error("Unterminated comment");
+    return end + 2;
+  }
+  return index;
+}
+
+function skipString(source, index) {
+  const quote = source[index];
+  let i = index + 1;
+  while (i < source.length) {
+    if (source[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (source[i] === quote) return i + 1;
+    i += 1;
+  }
+  throw new Error("Unterminated string");
+}
+
+function previousPropertyComma(props, prop) {
+  const index = props.indexOf(prop);
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (props[cursor].comma >= 0) return props[cursor].comma;
+  }
+  return -1;
+}
+
+function lineStart(source, index) {
+  const newline = source.lastIndexOf("\n", index - 1);
+  return newline + 1;
+}
+
+function iconSlugOf(source) {
+  const match = source.match(/iconSlug:\s*(["'`])([^"'`]+)\1/);
+  return match?.[2];
+}
+
+function mentionLines(source, id, filePath) {
+  const lines = new Set();
+  const literal = new RegExp(`(["'\`])${escapeRegExp(id)}\\1`, "g");
+  for (const match of source.matchAll(literal)) {
+    const line = lineOf(source, match.index);
+    if (isSharedIconLine(filePath, source.split("\n")[line - 1], id)) continue;
+    lines.add(line);
+  }
+  const pathHit = new RegExp(`(?:providers|providerRules)/${escapeRegExp(id)}(?![A-Za-z0-9_])`, "g");
+  for (const match of source.matchAll(pathHit)) lines.add(lineOf(source, match.index));
+  const urlHit = new RegExp(`/${escapeRegExp(id)}/`, "g");
+  for (const match of source.matchAll(urlHit)) lines.add(lineOf(source, match.index));
+  return [...lines].sort((left, right) => left - right);
+}
+
+function isSharedIconLine(filePath, line, id) {
+  if (!/^src\/providers\/[^/]+\/index\.ts$/.test(filePath)) return false;
+  if (filePath === `src/providers/${id}/index.ts`) return false;
+  return new RegExp(`iconSlug:\\s*(["'\`])${escapeRegExp(id)}\\1`).test(line);
+}
+
+function isTestPath(filePath) {
+  return /\.test\.(tsx?|mjs)$/.test(filePath);
+}
+
+function lineOf(source, index) {
+  return source.slice(0, index).split("\n").length;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

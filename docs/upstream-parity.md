@@ -220,12 +220,16 @@ Every catalog `iconSlug` maps to `assets/provider-icons/<slug>.svg`, harvested f
   slug is no longer in the catalog.
 - `npm run upstream:sync-icons -- --check` does the same comparison but writes nothing and exits
   non-zero if an icon is out of date or a local SVG has no catalog `iconSlug` pointing at it.
-- `npm run upstream:prune` removes every catalog provider that no longer has an upstream descriptor.
-  It deletes the catalog entry, matching `PROVIDER_ID_ALIASES`, mock builders, pace rows, dynamic
-  titles, allowlist entries, the `providerRules/<id>` module and the production code that calls it,
-  tests that only mention that provider, and `assets/provider-icons/<slug>.svg`. A test that uses
-  the id as one sample among several is left in place and printed. `--check` reports the removals
-  and writes nothing.
+- `npm run upstream:prune` removes every catalog Provider that no longer has an upstream descriptor.
+  It deletes `src/providers/<id>/`, rewrites `src/providers/index.ts`, and drops the id from
+  `CATALOG_PROVIDER_ORDER` and the upstream allowlists (`CUSTOM_PACE_RULES`, `ALLOWED_DIVERGENCES`,
+  `UNPORTABLE_PRESENTATION_PACE`, `UNPORTABLE_HEADROOM_HINT`, `UNPORTABLE_DYNAMIC_TITLES`).
+  `assets/provider-icons/<slug>.svg` is deleted only when no remaining Provider's `iconSlug` uses it.
+  A quoted id, a `providers/<id>` or `providerRules/<id>` path, or a `/<id>/` URL in production
+  code that would survive the edit blocks the write, so the catalog row is still there on the next
+  run. A test that mentions the id is printed and left in place. `--check` reports the removals
+  and writes nothing. `npm run upstream:bump` writes the lock only after this prune, `npm run typecheck`,
+  and `npm test`. See [ADR-0011](adr/0011-fail-closed-provider-prune.md).
 
 Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don't matter. The
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that

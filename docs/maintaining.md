@@ -125,8 +125,8 @@ src/
 
 scripts/
   check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating, module index.
-  bump-upstream.mjs           npm run upstream:bump       prune removals, check latest release, then pin lockfile.
-  prune-removed-providers.mjs npm run upstream:prune      delete providers upstream no longer ships.
+  bump-upstream.mjs           npm run upstream:bump       prune, typecheck, test, then pin the lockfile.
+  prune-removed-providers.mjs npm run upstream:prune      delete Provider directories upstream no longer ships.
   sync-provider-icons.mjs     npm run upstream:sync-icons icon harvest / drift guard.
   lib/provider-modules.mjs    Provider directory index: render, list, and drift check.
   lib/register-ts-paths.mjs   Resolves extensionless TypeScript imports for the upstream scripts.
@@ -152,8 +152,8 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
 | `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
-| `npm run upstream:prune [-- --check]` | Delete providers the lockfile SHA no longer ships, including their icons. `--check` writes nothing. |
-| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after pruning removals and running both guards. |
+| `npm run upstream:prune [-- --check]` | Delete Provider directories the lockfile SHA no longer ships, regenerate the module index, and drop allowlist entries. An icon is deleted only when no remaining Provider uses it. Writes nothing when a production reference remains. `--check` writes nothing and exits 1 when a Provider would be removed. |
+| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after a clean prune, `npm run typecheck`, `npm test`, and both guards. A failed typecheck or test restores the prune. |
 | `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
 
 Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
@@ -228,9 +228,11 @@ Upstream ships often. A periodic sync pass:
    `UNPORTABLE_PRESENTATION_PACE` / `UNPORTABLE_HEADROOM_HINT`. A module `extraWindowPace` of
    `session-or-weekly` or `weekly-only` replaces the extra-window id sets for that provider.
    Icons out of date → drop the
-   `-- --check` and let the sync script write them. Removed provider → `npm run upstream:prune`
-   deletes the provider directory, aliases, mocks, pace rows,
-   dynamic titles, provider rules, exclusive tests, and the SVG, then rewrites `src/providers/index.ts`.
+   `-- --check` and let the sync script write them. Removed Provider → `npm run upstream:prune`
+   deletes `src/providers/<id>/`, rewrites `src/providers/index.ts`, and drops the id from
+   `CATALOG_PROVIDER_ORDER` and the upstream allowlists. An icon is deleted only when no
+   remaining Provider uses it. A quoted id, `providers/<id>` path, or `/<id>/` URL that would
+   survive the edit blocks the write ([ADR-0011](adr/0011-fail-closed-provider-prune.md)).
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.
