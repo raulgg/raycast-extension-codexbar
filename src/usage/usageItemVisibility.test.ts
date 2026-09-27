@@ -15,12 +15,9 @@ const cursorSections: ProviderSection[] = [
 ];
 
 describe("usage item visibility", () => {
-  it("maps slot meters, Codex lanes, and presentation extra ids", () => {
-    expect(usageItemIdForSlot("cursor", "Primary")).toBe("metric:primary");
-    expect(usageItemIdForSlot("cursor", "Tertiary")).toBe("metric:tertiary");
-    expect(usageItemIdForSlot("codex", "Primary", 5 * 60)).toBe("metric:primary");
-    expect(usageItemIdForSlot("codex", "Primary", 30 * 24 * 60)).toBe("metric:monthly");
-    expect(usageItemIdForSlot("codex", "Secondary")).toBe("metric:secondary");
+  it("maps slot meters and presentation extra ids", () => {
+    expect(usageItemIdForSlot("Primary")).toBe("metric:primary");
+    expect(usageItemIdForSlot("Tertiary")).toBe("metric:tertiary");
     expect(usageItemIdFromMeterId("extra:claude-routines")).toBe("metric:claude-routines");
     expect(usageItemIdFromMeterId("codex-spark")).toBe("metric:codex-spark");
     expect(usageItemIdFromMeterId("section:credits")).toBe("section:credits");

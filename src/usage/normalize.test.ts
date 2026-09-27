@@ -1057,6 +1057,19 @@ describe("provider normalization", () => {
     expect(claudeWithCredits.sections.some((section) => section.title === "Limit Reset Credits")).toBe(false);
   });
 
+  it("does not render Codex code review for another provider", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "claude",
+        openaiDashboard: { codeReviewRemainingPercent: 40 },
+      },
+      "claude",
+      Date.parse("2026-03-23T10:30:00Z"),
+    );
+
+    expect(detail.sections.some((section) => section.title === "Code review")).toBe(false);
+  });
+
   it("renders Codex reset credit info in the detail markdown", () => {
     const now = Date.parse("2026-03-23T10:30:00Z");
     const detail = normalizeProviderDetailPayload(

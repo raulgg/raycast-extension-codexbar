@@ -233,7 +233,7 @@ export function resolveSlotPace(
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
 export type ExtraWindowPace = "session-or-weekly" | "weekly-only";
 
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["claude", "codex"]);
+export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["claude"]);
 const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude"]);
 
 export function resolveExtraWindowPace(
@@ -281,12 +281,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "custom", id: "claudeSessionAlways" },
   },
-  codex: {
-    resetWindowPace: { type: "unsupported" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
-    secondaryAllowsDefaultWindow: true,
-  },
 };
 
 export type DynamicWindow = {
@@ -307,28 +301,7 @@ export type DynamicTitleOptions = {
 
 export type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions) => string | undefined;
 
-export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
-  codex(slotTitle, options) {
-    if (slotTitle !== "Primary" && slotTitle !== "Secondary") {
-      return undefined;
-    }
-
-    const windowMinutes = options.windows[slotTitle].windowMinutes;
-    if (windowMinutes === 5 * 60) {
-      return "Session";
-    }
-
-    if (windowMinutes === 7 * 24 * 60) {
-      return "Weekly";
-    }
-
-    if (windowMinutes === 30 * 24 * 60) {
-      return "Monthly";
-    }
-
-    return undefined;
-  },
-};
+export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {};
 
 export const UNPORTABLE_DYNAMIC_TITLES: Record<string, { reason: string }> = {
   cursor: { reason: "needs snapshot.detailRow Request quota" },

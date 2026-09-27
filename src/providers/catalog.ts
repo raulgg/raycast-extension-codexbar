@@ -37,15 +37,6 @@ export type ProviderCatalogEntry = {
 };
 
 const LEGACY_PROVIDER_CATALOG = {
-  codex: {
-    name: "Codex",
-    iconSlug: "codex",
-    iconFallback: "Terminal",
-    brandColor: "#49A3B0",
-    usageSectionLabels: { primary: "Session", secondary: "Weekly" },
-    dashboardUrl: "https://chatgpt.com/codex/settings/usage",
-    statusPageUrl: "https://status.openai.com/",
-  },
   claude: {
     name: "Claude",
     iconSlug: "claude",

@@ -2,10 +2,6 @@ import type { ProviderSection, ProviderUsageSectionTitle } from "./types";
 
 // ProviderUsageItemID (ProviderUsageItemVisibility.swift). See docs/upstream-parity.md.
 
-const CODEX_SESSION_WINDOW_MINUTES = 5 * 60;
-const CODEX_WEEKLY_WINDOW_MINUTES = 7 * 24 * 60;
-const CODEX_MONTHLY_WINDOW_MINUTES = 30 * 24 * 60;
-
 const STORED_USAGE_ITEM_PREFIXES = ["metric:", "section:", "detailSection:"] as const;
 
 const SLOT_USAGE_ITEM_IDS: Record<ProviderUsageSectionTitle, string> = {
@@ -14,29 +10,7 @@ const SLOT_USAGE_ITEM_IDS: Record<ProviderUsageSectionTitle, string> = {
   Tertiary: "metric:tertiary",
 };
 
-// CodexConsumerProjection.classifyRateWindow.
-function codexLaneId(slot: "Primary" | "Secondary", windowMinutes: number | undefined): string {
-  if (windowMinutes === CODEX_SESSION_WINDOW_MINUTES) {
-    return "primary";
-  }
-  if (windowMinutes === CODEX_WEEKLY_WINDOW_MINUTES) {
-    return "secondary";
-  }
-  if (windowMinutes === CODEX_MONTHLY_WINDOW_MINUTES) {
-    return "monthly";
-  }
-  return slot === "Primary" ? "primary" : "secondary";
-}
-
-export function usageItemIdForSlot(
-  providerId: string,
-  slot: ProviderUsageSectionTitle,
-  windowMinutes?: number,
-): string {
-  if (providerId === "codex" && slot !== "Tertiary") {
-    return `metric:${codexLaneId(slot, windowMinutes)}`;
-  }
-
+export function usageItemIdForSlot(slot: ProviderUsageSectionTitle): string {
   return SLOT_USAGE_ITEM_IDS[slot];
 }
 
