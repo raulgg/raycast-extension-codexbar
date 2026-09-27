@@ -2,7 +2,7 @@ import { environment } from "@raycast/api";
 import { providerModuleById } from "../providers/module";
 import { getProviderMetadata, PROVIDER_IDS } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../usage/types";
-import { buildIdentity, buildPayload, buildUsage, buildWindow, DAY, HOUR, iso, offsetIso } from "./mockShape";
+import { buildIdentity, buildPayload, buildUsage, buildWindow, DAY, HOUR } from "./mockShape";
 
 // TODO: add CODEXBAR_MOCK_ERROR fixtures later.
 
@@ -11,63 +11,12 @@ const DEV_MOCK = false;
 
 type MockBuilder = (now: Date) => RawProviderPayload;
 
-const MOCK_SOURCES: Record<string, string> = {
-  claude: "web",
-};
+const MOCK_SOURCES: Record<string, string> = {};
 
-const MOCK_VERSIONS: Record<string, string | null> = {
-  claude: "1.0.0",
-};
+const MOCK_VERSIONS: Record<string, string | null> = {};
 
 function isCodexBarMockMode(): boolean {
   return environment.isDevelopment && DEV_MOCK;
-}
-
-function buildStatus(
-  description: string,
-  url: string,
-  now: Date,
-  indicator: "none" | "minor" | "major" | "critical" | "maintenance" | "unknown" = "none",
-): Record<string, unknown> {
-  return {
-    indicator,
-    description,
-    url,
-    updatedAt: iso(now),
-  };
-}
-
-function buildClaudeProviderCost(now: Date): Record<string, unknown> {
-  return {
-    used: 1.42,
-    limit: 20,
-    currencyCode: "USD",
-    period: "monthly",
-    resetsAt: offsetIso(now, 30 * DAY),
-    updatedAt: iso(now),
-  };
-}
-
-function buildClaude(now: Date): RawProviderPayload {
-  return buildPayload("claude", {
-    source: MOCK_SOURCES.claude,
-    version: MOCK_VERSIONS.claude,
-    status: buildStatus("Claude operational", "https://status.anthropic.com", now),
-    usage: buildUsage(
-      now,
-      buildWindow(now, 47, 3 * HOUR, "Session"),
-      buildWindow(now, 71, 7 * DAY, "Weekly", 4),
-      buildWindow(now, 91, 30 * DAY, "Monthly"),
-      {
-        providerCost: buildClaudeProviderCost(now),
-        subscriptionRenewsAt: offsetIso(now, 21 * DAY),
-        ...buildIdentity("claude", "dev@example.com", "Example Labs", "oauth"),
-      },
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
 }
 
 function hashSeed(value: string): number {
@@ -100,9 +49,7 @@ function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source
   };
 }
 
-const MOCK_BUILDERS: Record<string, MockBuilder> = {
-  claude: buildClaude,
-};
+const MOCK_BUILDERS: Record<string, MockBuilder> = {};
 
 const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);
 if (missingMockProviderIds.length > 0) {

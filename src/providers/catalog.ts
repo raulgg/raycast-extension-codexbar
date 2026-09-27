@@ -36,18 +36,7 @@ export type ProviderCatalogEntry = {
   statusPageUrl?: string;
 };
 
-const LEGACY_PROVIDER_CATALOG = {
-  claude: {
-    name: "Claude",
-    iconSlug: "claude",
-    iconFallback: "Bubble",
-    brandColor: "#CC7C5E",
-    usageSectionLabels: { primary: "Session", secondary: "Weekly", tertiary: "Sonnet" },
-    dashboardUrl: "https://console.anthropic.com/settings/billing",
-    subscriptionDashboardUrl: "https://claude.ai/settings/usage",
-    statusPageUrl: "https://status.claude.com/",
-  },
-} satisfies Record<string, ProviderCatalogEntry>;
+const LEGACY_PROVIDER_CATALOG: Record<string, ProviderCatalogEntry> = {};
 
 const CATALOG_PROVIDER_ORDER = [
   "codex",

@@ -153,55 +153,6 @@ export function getProviderProgressPalette(id: string, accentColor?: string): Pr
   return getProviderMetadata(id).progressPalette;
 }
 
-// Ports CodexBarCore/Providers/Claude/ClaudePlan.swift. `fromCompatibilityLoginMethod`
-// splits the login-method / plan string into alphanumeric words and matches the
-// first plan keyword in priority order. `isSubscriptionLoginMethod` then treats
-// Max, Pro, Team, and Ultra as subscriptions while Enterprise is not.
-type ClaudePlan = "max" | "pro" | "team" | "enterprise" | "ultra";
-
-const CLAUDE_SUBSCRIPTION_PLANS = new Set<ClaudePlan>(["max", "pro", "team", "ultra"]);
-
-function normalizedPlanWords(text: string | undefined): string[] {
-  return (text ?? "")
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Za-z])(\d)/g, "$1 $2")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-}
-
-function claudePlanFromLoginMethod(text: string | undefined): ClaudePlan | undefined {
-  const words = normalizedPlanWords(text);
-  if (words.length === 0) {
-    return undefined;
-  }
-  if (words.includes("max") || words.some((word) => word.includes("claudemax"))) {
-    return "max";
-  }
-  if (words.includes("pro") || words.includes("claudepro")) {
-    return "pro";
-  }
-  if (words.includes("team") || words.includes("claudeteam")) {
-    return "team";
-  }
-  if (words.includes("enterprise") || words.includes("claudeenterprise")) {
-    return "enterprise";
-  }
-  if (words.includes("ultra") || words.includes("claudeultra")) {
-    return "ultra";
-  }
-  return undefined;
-}
-
-// Mirrors ClaudePlan.isSubscriptionLoginMethod: true only for Max/Pro/Team/Ultra
-// login methods (case-insensitive, whether the text is a slug like "max" or a
-// prettified label like "Claude Max"). API-key/OAuth/Enterprise/undefined → false.
-export function isClaudeSubscriptionLoginMethod(text: string | undefined): boolean {
-  const plan = claudePlanFromLoginMethod(text);
-  return plan === undefined ? false : CLAUDE_SUBSCRIPTION_PLANS.has(plan);
-}
-
 // Picks the "Open Usage Dashboard" target.
 export function resolveDashboardUrl(
   providerId: string,
@@ -215,13 +166,6 @@ export function resolveDashboardUrl(
     return moduleDashboard({ planText, accountOrganization });
   }
   const metadata = getProviderMetadata(canonicalId);
-  // Claude serves two audiences: API accounts get the console billing page, subscription
-  // plans get claude.ai usage (upstream StatusItemController+Actions.swift:273-277 plan switch).
-  if (canonicalId === "claude") {
-    return isClaudeSubscriptionLoginMethod(planText)
-      ? (metadata.subscriptionDashboardUrl ?? metadata.dashboardUrl)
-      : metadata.dashboardUrl;
-  }
   // Other dual-URL providers have no plan detection, and the usage this extension meters
   // is their subscription usage — so the subscription dashboard is the better target when
   // upstream provides one. Deliberate divergence from upstream, which only plan-switches Claude.

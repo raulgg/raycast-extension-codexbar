@@ -66,13 +66,14 @@ const PACE_RENDERER_PATHS = [
 ];
 
 // Custom Swift closures, keyed provider.field. fingerprint is the expanded Swift body.
+// matcher: "always" resolves an always-true closure (`_, _ in true`) to { type: "always" }.
 // matcher: "windowDurationAtMost" resolves that fingerprint to the structured rule.
 // matcher: "predicate" resolves it to { type: "predicate", id } on the module. The
 // pace engine calls that field's matches function. The fingerprint still has to
 // match the Swift body.
 const CUSTOM_PACE_RULES = {
   "claude.sessionPaceWindowRule": {
-    id: "claudeSessionAlways",
+    matcher: "always",
     fingerprint: "_, _ in true",
   },
   "codex.sessionPaceWindowRule": {

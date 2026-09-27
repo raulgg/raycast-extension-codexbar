@@ -107,10 +107,10 @@ src/
     normalize.ts              Raw payload -> ProviderSection[]: envelope, slots, extra rate
                               windows, presentation meters, dynamic label overrides.
     identity.ts               Account email and plan text for the detail header.
-    providerRules/            Provider-specific interpretation, one file per provider: claude
-                              (plan fields). Codex's weekly cap, code review, reset credits,
-                              and bar names live on its module, with Antigravity's detail
-                              hiding, Kilo's header text, and OpenRouter's credit lines.
+    providerRules/            Unused. Claude's plan fields and menu link live on its module,
+                              with Codex's weekly cap, code review, reset credits, and bar
+                              names, Antigravity's detail hiding, Kilo's header text, and
+                              OpenRouter's credit lines.
     pacing.ts                 The pace formula and labels. Hand-maintained (not script-diffed).
     status.ts                 Parse the CLI status object into a badge model.
 

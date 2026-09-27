@@ -538,6 +538,45 @@ describe("comparePaceCapabilities", () => {
     ]);
   });
 
+  it("maps Claude's always-true session fingerprint onto always", () => {
+    const parsed = parseDescriptorPace(
+      descriptorFixture({
+        pace: `ProviderPaceCapability(
+                sessionPaceWindowRule: .custom { _, _ in true })`,
+      }),
+      "Claude.swift",
+    );
+    const fingerprint = "_, _ in true";
+    expect(parsed.sessionPaceWindowRule.fingerprint).toBe(fingerprint);
+    const rules = {
+      "claude.sessionPaceWindowRule": { matcher: "always", fingerprint },
+    };
+    const upstream = new Map([["claude", { pace: parsed }]]);
+    const claudePace = {
+      resetWindowPace: { type: "unsupported" },
+      inferredMonthlyDuration: { type: "unsupported" },
+      sessionPaceWindowRule: { type: "always" },
+    };
+    expect(comparePaceCapabilities(new Map([["claude", claudePace]]), upstream, rules).problems).toEqual([]);
+    expect(
+      comparePaceCapabilities(
+        new Map([
+          [
+            "claude",
+            {
+              ...claudePace,
+              sessionPaceWindowRule: { type: "custom", id: "claudeSessionAlways" },
+            },
+          ],
+        ]),
+        upstream,
+        rules,
+      ).problems,
+    ).toEqual([
+      'claude: sessionPaceWindowRule {"type":"custom","id":"claudeSessionAlways"} != upstream {"type":"always"}',
+    ]);
+  });
+
   it("maps Ollama's at-most-five-hours fingerprint onto windowDurationAtMost", () => {
     const parsed = parseDescriptorPace(
       descriptorFixture({

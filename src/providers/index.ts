@@ -11,6 +11,7 @@ import azureopenai from "./azureopenai";
 import bedrock from "./bedrock";
 import bifrost from "./bifrost";
 import chutes from "./chutes";
+import claude from "./claude";
 import clawrouter from "./clawrouter";
 import clinepass from "./clinepass";
 import codebuff from "./codebuff";
@@ -96,6 +97,7 @@ export const PROVIDER_MODULES = {
   bedrock,
   bifrost,
   chutes,
+  claude,
   clawrouter,
   clinepass,
   codebuff,

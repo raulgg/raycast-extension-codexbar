@@ -6,7 +6,7 @@ export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
 export const MONTHLY_WINDOW_SENTINEL_MINUTES = 30 * 24 * 60;
 
-export type PaceCustomId = "claudeSessionAlways" | "codexSessionRejectsWeeklyMonthly";
+export type PaceCustomId = "codexSessionRejectsWeeklyMonthly";
 
 export type PacePredicateId = "ampRenewsInDescription" | "grokWeeklyCredits" | "zaiMonthlyMcp";
 
@@ -26,6 +26,7 @@ export type PacePredicateRule = {
 
 export type PaceWindowRule =
   | { type: "unsupported" }
+  | { type: "always" }
   | { type: "resetDatePresent" }
   | { type: "windowDurationPresent" }
   | { type: "windowDuration"; minutes: number }
@@ -65,7 +66,6 @@ const UNSUPPORTED: PaceCapability = {
 };
 
 export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now: number) => boolean> = {
-  claudeSessionAlways: () => true,
   codexSessionRejectsWeeklyMonthly: (window) => {
     if (window.windowMinutes === undefined) {
       return true;
@@ -79,6 +79,8 @@ function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number):
   switch (rule.type) {
     case "unsupported":
       return false;
+    case "always":
+      return true;
     case "resetDatePresent":
       return window.resetsAt !== undefined;
     case "windowDurationPresent":
@@ -233,8 +235,8 @@ export function resolveSlotPace(
 // MenuCardView+ModelHelpers.extraRateWindowPaceDetail.
 export type ExtraWindowPace = "session-or-weekly" | "weekly-only";
 
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["claude"]);
-const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set(["claude"]);
+export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set<string>();
+const WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS = new Set<string>();
 
 export function resolveExtraWindowPace(
   providerId: string,
@@ -275,13 +277,7 @@ export function resolveExtraWindowPace(
   return undefined;
 }
 
-export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
-  claude: {
-    resetWindowPace: { type: "unsupported" },
-    inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "custom", id: "claudeSessionAlways" },
-  },
-};
+export const PACE_CAPABILITIES: Record<string, PaceCapability> = {};
 
 export type DynamicWindow = {
   // Swift `snapshot.* != nil`, before a missing record is replaced with {}.
