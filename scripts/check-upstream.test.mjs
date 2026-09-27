@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
 import { PROVIDER_MODULES } from "../src/providers/index.ts";
-import { checkUpstream } from "./check-upstream.mjs";
+import { checkUpstream, DEFAULT_POLICY } from "./check-upstream.mjs";
 import {
   compareProviders,
   parseDescriptorMetadata,
@@ -579,6 +579,75 @@ describe("comparePaceCapabilities", () => {
     ).toEqual([
       'ollama: sessionPaceWindowRule {"type":"windowDurationAtMost","minutes":360} != upstream {"type":"windowDurationAtMost","minutes":300}',
     ]);
+  });
+
+  it("maps Amp's renews-in fingerprint onto the module predicate", () => {
+    const fingerprint =
+      'window, _ in window.windowMinutes != nil && window.resetDescription?.hasPrefix("renews in ") == true';
+    const parsed = parseDescriptorPace(
+      descriptorFixture({
+        pace: `ProviderPaceCapability(
+                resetWindowPace: .custom { window, _ in
+                    window.windowMinutes != nil && window.resetDescription?.hasPrefix("renews in ") == true
+                })`,
+      }),
+      "Amp.swift",
+    );
+    expect(parsed.resetWindowPace.fingerprint).toBe(fingerprint);
+    const rules = {
+      "amp.resetWindowPace": { matcher: "predicate", id: "ampRenewsInDescription", fingerprint },
+    };
+    const upstream = new Map([["amp", { pace: parsed }]]);
+    const ampPace = {
+      resetWindowPace: { type: "predicate", id: "ampRenewsInDescription", matches: () => true },
+      inferredMonthlyDuration: { type: "unsupported" },
+      sessionPaceWindowRule: { type: "unsupported" },
+    };
+    expect(comparePaceCapabilities(new Map([["amp", ampPace]]), upstream, rules).problems).toEqual([]);
+    expect(
+      comparePaceCapabilities(
+        new Map([
+          [
+            "amp",
+            {
+              ...ampPace,
+              resetWindowPace: { type: "predicate", id: "grokWeeklyCredits", matches: () => true },
+            },
+          ],
+        ]),
+        upstream,
+        rules,
+      ).problems,
+    ).toEqual([
+      'amp: resetWindowPace {"type":"predicate","id":"grokWeeklyCredits"} != upstream {"type":"predicate","id":"ampRenewsInDescription"}',
+    ]);
+    expect(
+      comparePaceCapabilities(
+        new Map([
+          [
+            "amp",
+            {
+              ...ampPace,
+              resetWindowPace: { type: "predicate", id: "ampRenewsInDescription" },
+            },
+          ],
+        ]),
+        upstream,
+        rules,
+      ).problems,
+    ).toEqual([
+      'amp: resetWindowPace {"type":"predicate","id":"ampRenewsInDescription","matches":false} != upstream {"type":"predicate","id":"ampRenewsInDescription"}',
+    ]);
+  });
+
+  it("binds moved custom fingerprints to the module predicates", () => {
+    for (const [key, rule] of Object.entries(DEFAULT_POLICY.customPaceRules)) {
+      if (rule.matcher !== "predicate") continue;
+      const [providerId, field] = key.split(".");
+      const paceRule = PROVIDER_MODULES[providerId].pace[field];
+      expect(paceRule, key).toMatchObject({ type: "predicate", id: rule.id });
+      expect(typeof paceRule.matches, key).toBe("function");
+    }
   });
 
   it("prints the field that diverged", () => {

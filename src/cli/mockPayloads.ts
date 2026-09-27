@@ -14,10 +14,6 @@ type MockBuilder = (now: Date) => RawProviderPayload;
 const MOCK_SOURCES: Record<string, string> = {
   codex: "codex-cli",
   claude: "web",
-  factory: "web",
-  zai: "api",
-  amp: "web",
-  grok: "web",
 };
 
 const MOCK_VERSIONS: Record<string, string | null> = {
@@ -191,60 +187,6 @@ function buildClaude(now: Date): RawProviderPayload {
   });
 }
 
-function buildFactory(now: Date): RawProviderPayload {
-  return buildPayload("factory", {
-    source: MOCK_SOURCES.factory,
-    version: null,
-    status: buildStatus("Factory operational", "https://status.factory.ai", now),
-    usage: buildUsage(
-      now,
-      buildWindow(now, 56, 2 * DAY, "Resets in 2d"),
-      buildWindow(now, 81, 7 * DAY, "Resets in 7d"),
-      null,
-      buildIdentity("factory", "dev@example.com", "Example Labs", "Factory Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildZai(now: Date): RawProviderPayload {
-  return buildPayload("zai", {
-    source: MOCK_SOURCES.zai,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 35, 4 * HOUR, "1 week window", undefined, 300),
-      buildWindow(now, 58, 30 * DAY, "Monthly"),
-      buildWindow(now, 74, 2 * HOUR, "5 hours window"),
-      buildIdentity("zai", null, null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
-function buildAmp(now: Date): RawProviderPayload {
-  return buildPayload("amp", {
-    source: MOCK_SOURCES.amp,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 57, 4 * HOUR, null),
-      null,
-      null,
-      buildIdentity("amp", null, null, "Amp Free"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function hashSeed(value: string): number {
   let hash = 0;
   for (const character of value) {
@@ -252,24 +194,6 @@ function hashSeed(value: string): number {
   }
 
   return Math.abs(hash);
-}
-
-function buildGrok(now: Date): RawProviderPayload {
-  return buildPayload("grok", {
-    source: MOCK_SOURCES.grok,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 42, 5 * DAY, null),
-      buildWindow(now, 8, 20 * DAY, null),
-      null,
-      buildIdentity("grok", "dev@example.com", null, "SuperGrok"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
 }
 
 function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source?: string): MockBuilder {
@@ -296,10 +220,6 @@ function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source
 const MOCK_BUILDERS: Record<string, MockBuilder> = {
   codex: buildCodex,
   claude: buildClaude,
-  factory: buildFactory,
-  zai: buildZai,
-  amp: buildAmp,
-  grok: buildGrok,
 };
 
 const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);

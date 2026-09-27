@@ -65,7 +65,8 @@ describe("provider module pace and titles", () => {
     };
     const options = { windows, hasAgentDetailRow: false, now };
     expect(resolveDynamicSlotTitle("factory", "Primary", options, { factory: fixture })).toBe("Fixture window");
-    expect(resolveDynamicSlotTitle("factory", "Primary", options, legacyModules)).toBe("5-hour");
+    expect(resolveDynamicSlotTitle("factory", "Primary", options, PROVIDER_MODULES)).toBe("5-hour");
+    expect(resolveDynamicSlotTitle("factory", "Primary", options, legacyModules)).toBeUndefined();
   });
 });
 
@@ -91,7 +92,7 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z", resetDescription: "renews in 12 days" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       )?.context,
     ).toBe("window");
     expect(
@@ -100,8 +101,43 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       ),
+    ).toBeUndefined();
+  });
+
+  it("calls the predicate the module gave it", () => {
+    const modules = {
+      toy: {
+        metadata: {
+          name: "Toy",
+          iconSlug: "toy",
+          brandColor: "#000000",
+          usageSectionLabels: { primary: "Primary" },
+        },
+        pace: {
+          resetWindowPace: { type: "predicate" as const, id: "ampRenewsInDescription" as const, matches: () => true },
+          inferredMonthlyDuration: { type: "unsupported" as const },
+          sessionPaceWindowRule: { type: "unsupported" as const },
+        },
+      },
+    };
+    expect(resolveSlotPace("toy", "Primary", {}, now, modules)?.context).toBe("window");
+  });
+
+  it("rewrites Z.ai's monthly MCP window and ignores the same window without MCP", () => {
+    const reset = "2026-04-22T10:30:00Z";
+    expect(
+      resolveSlotPace(
+        "zai",
+        "Primary",
+        { windowMinutes: 43_200, resetsAt: reset, resetDescription: "MCP" },
+        now,
+        PROVIDER_MODULES,
+      )?.windowMinutes,
+    ).toBe(inferredMonthlyWindowMinutes(reset));
+    expect(
+      resolveSlotPace("zai", "Primary", { windowMinutes: 43_200, resetsAt: reset }, now, PROVIDER_MODULES),
     ).toBeUndefined();
   });
 
