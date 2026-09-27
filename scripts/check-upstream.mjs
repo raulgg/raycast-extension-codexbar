@@ -288,14 +288,14 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   for (const id of rendererSessionProviders) {
     if (paceEntries.get(id)?.secondarySessionPace !== true) {
       problems.push(
-        `${id}: MenuCardView session-paces the secondary window but paceCapabilities.ts is missing secondarySessionPace: true`,
+        `${id}: MenuCardView session-paces the secondary window but neither the provider module nor paceCapabilities.ts sets secondarySessionPace: true`,
       );
     }
   }
   for (const [id, capability] of paceEntries) {
     if (capability.secondarySessionPace && !rendererSessionProviders.has(id)) {
       problems.push(
-        `${id}: paceCapabilities.ts sets secondarySessionPace but MenuCardView no longer session-paces that slot`,
+        `${id}: the provider module or paceCapabilities.ts sets secondarySessionPace but MenuCardView no longer session-paces that slot`,
       );
     }
   }

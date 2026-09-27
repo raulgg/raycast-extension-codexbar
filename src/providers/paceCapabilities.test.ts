@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateUsagePacing } from "../usage/pacing";
+import { PROVIDER_MODULES } from "./index";
 import type { ProviderModule, ProviderModuleMap } from "./module";
 import {
   getPaceCapability,
@@ -229,9 +230,9 @@ describe("resolveExtraWindowPace", () => {
 
 describe("secondaryAllowsDefaultWindow", () => {
   it("is pinned to Codex only", () => {
-    const ids = Object.entries(PACE_CAPABILITIES)
-      .filter(([, capability]) => capability.secondaryAllowsDefaultWindow)
-      .map(([id]) => id);
+    const ids = [...new Set([...Object.keys(PACE_CAPABILITIES), ...Object.keys(PROVIDER_MODULES)])]
+      .filter((id) => getPaceCapability(id, PROVIDER_MODULES).secondaryAllowsDefaultWindow)
+      .sort();
     expect(ids).toEqual(["codex"]);
   });
 });

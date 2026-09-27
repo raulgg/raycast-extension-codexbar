@@ -64,7 +64,7 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 | 1 | Provider metadata (names, labels, dashboard/status URLs, brand colors) | `catalog.ts` `PROVIDER_CATALOG` | `npm run upstream:check` | `Sources/CodexBarCore/Providers/**/…ProviderDescriptor.swift` |
 | 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES`, or a module `displayTitle` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
-| 4 | Pacing, gating | `paceCapabilities.ts` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
+| 4 | Pacing, gating | `paceCapabilities.ts`, or a module `pace` / `extraWindowPace` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
@@ -189,10 +189,10 @@ map `normalize.ts` uses). A module `displayTitle` replaces that id, and the tabl
 also used. `cursor` is unportable. MenuCardView keys on
 `snapshot.detailRow(label: "Request quota")`, which the CLI JSON does not expose.
 
-A green check means every scanned id is a key of that map or the unportable list. Presentation
-meters (`schemaVersion === 1`) still use the CLI's `meter.label` and never call
-`resolveDynamicSlotTitle`. If upstream adds a dynamic override, the check fails until you add a
-map entry or mark it unportable.
+A green check means every scanned id is a module `displayTitle`, a `DYNAMIC_SLOT_TITLES` key, or an
+unportable entry. Presentation meters (`schemaVersion === 1`) still use the CLI's `meter.label` and
+never call `resolveDynamicSlotTitle`. If upstream adds a dynamic override, the check fails until
+you add a module `displayTitle`, a map entry, or mark it unportable.
 
 The renderer files scanned are pinned in `RENDERER_PATHS`:
 
