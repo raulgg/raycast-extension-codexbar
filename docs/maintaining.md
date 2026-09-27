@@ -220,12 +220,16 @@ Upstream ships often. A periodic sync pass:
    Plain providers, including ZoomMate, already live in `src/providers/<id>/index.ts`. Edit that
    module instead of putting the id back in the legacy object, and keep `src/providers/index.ts`
    equal to the directories.
-   New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`, or `aliases` on a provider module. Field
+   New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`, or `aliases` on a provider module. Two
+   modules cannot share an alias, and an alias cannot be a provider id. Field
    mismatch → update the catalog, or record an intentional `ALLOWED_DIVERGENCES` entry with a
-   reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or mark it unportable.
-   New descriptor `pace:` → add a `paceCapabilities.ts` row (GUI fields only, plus a
+   reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or the module's
+   `displayTitle`, or mark it unportable.
+   New descriptor `pace:` → add a `paceCapabilities.ts` row or a module `pace` (GUI fields only, plus a
    `CUSTOM_PACE_RULES` fingerprint for `.custom` closures), or mark presentation-only paths in
-   `UNPORTABLE_PRESENTATION_PACE` / `UNPORTABLE_HEADROOM_HINT`. Icons out of date → drop the
+   `UNPORTABLE_PRESENTATION_PACE` / `UNPORTABLE_HEADROOM_HINT`. A module `extraWindowPace` of
+   `session-or-weekly` or `weekly-only` replaces the extra-window id sets for that provider.
+   Icons out of date → drop the
    `-- --check` and let the sync script write them. Removed provider → `npm run upstream:prune`
    deletes the legacy catalog entry, a `src/providers/<id>/` directory, aliases, mocks, pace rows,
    dynamic titles, provider rules, exclusive tests, and the SVG, then rewrites `src/providers/index.ts`.

@@ -62,9 +62,9 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 | # | What | Where it lives here | How drift is caught | Upstream source |
 | - | --- | --- | --- | --- |
 | 1 | Provider metadata (names, labels, dashboard/status URLs, brand colors) | `catalog.ts` `PROVIDER_CATALOG` | `npm run upstream:check` | `Sources/CodexBarCore/Providers/**/…ProviderDescriptor.swift` |
-| 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
+| 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES`, or a module `displayTitle` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
-| 4 | Pacing, gating | `paceCapabilities.ts` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
+| 4 | Pacing, gating | `paceCapabilities.ts`, or a module `pace` / `extraWindowPace` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
@@ -185,13 +185,14 @@ from payload contents. We port these into `DYNAMIC_SLOT_TITLES` (`paceCapabiliti
 `upstream:check` scans the renderer files for override call sites, plus any descriptor that
 defines `primaryLabel` or sets `rateWindowLabeler:`, and cross-checks them against
 `DYNAMIC_SLOT_TITLES` and `UNPORTABLE_DYNAMIC_TITLES` in `paceCapabilities.ts` (imported, the same
-map `normalize.ts` uses). `cursor` is unportable. MenuCardView keys on
+map `normalize.ts` uses). A module `displayTitle` replaces that id, and the table entry is not
+also used. `cursor` is unportable. MenuCardView keys on
 `snapshot.detailRow(label: "Request quota")`, which the CLI JSON does not expose.
 
-A green check means every scanned id is a key of that map or the unportable list. Presentation
-meters (`schemaVersion === 1`) still use the CLI's `meter.label` and never call
-`resolveDynamicSlotTitle`. If upstream adds a dynamic override, the check fails until you add a
-map entry or mark it unportable.
+A green check means every scanned id is a module `displayTitle`, a `DYNAMIC_SLOT_TITLES` key, or an
+unportable entry. Presentation meters (`schemaVersion === 1`) still use the CLI's `meter.label` and
+never call `resolveDynamicSlotTitle`. If upstream adds a dynamic override, the check fails until
+you add a module `displayTitle`, a map entry, or mark it unportable.
 
 The renderer files scanned are pinned in `RENDERER_PATHS`:
 
@@ -252,7 +253,9 @@ Those two disagree for some providers. The GUI wins.
 
 `upstream:check` imports `PACE_CAPABILITIES` and diffs the GUI fields (`resetWindowPace`,
 `inferredMonthlyDuration`, `sessionPaceWindowRule`, `allowsEstimatedUsage`) against each
-descriptor `pace:` argument.
+descriptor `pace:` argument. A module `pace` replaces that id's table row. With neither, pace is
+unsupported. `extraWindowPace` on the module (`session-or-weekly` or `weekly-only`) replaces
+membership in `EXTRA_WINDOW_PACE_PROVIDER_IDS` and `WEEKLY_ONLY_EXTRA_WINDOW_PROVIDER_IDS`.
 `secondaryAllowsDefaultWindow` is TypeScript-only, not a Swift `pace:` field. A unit test in
 `paceCapabilities.test.ts` pins it to Codex.
 CLI `resolvedKind` lanes are parsed so an unknown field still throws, but they are not compared.
@@ -343,7 +346,9 @@ The CLI accepts alternate spellings for a provider id (its `cliName` plus upstre
 in `catalog.ts` resolves each to the canonical id, the upstream enum case name, which is what
 `config.json` and the payloads use. A config listing either spelling renders one row. When
 upstream adds an alias, add it here, or a user's config that uses the new spelling falls through to
-the title-cased fallback row.
+the title-cased fallback row. Provider modules may carry `aliases` too. `upstream:check` fails if
+two modules share one, or if an alias equals any legacy or module provider id. That check does not
+compare the spellings to upstream.
 
 ---
 

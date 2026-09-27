@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateUsagePacing } from "../usage/pacing";
-import type { ProviderModule } from "./module";
+import { PROVIDER_MODULES } from "./index";
+import type { ProviderModule, ProviderModuleMap } from "./module";
 import {
   getPaceCapability,
   inferredMonthlyWindowMinutes,
@@ -9,6 +10,8 @@ import {
   resolveExtraWindowPace,
   resolveSlotPace,
 } from "./paceCapabilities";
+
+const legacyModules: ProviderModuleMap = {};
 
 describe("inferredMonthlyWindowMinutes", () => {
   it("uses the previous calendar month in UTC, clamping the day", () => {
@@ -36,14 +39,21 @@ describe("provider module pace and titles", () => {
 
   it("uses the module pace row when the provider sets one", () => {
     expect(getPaceCapability("fixture", { fixture })).toEqual(fixture.pace);
-    expect(getPaceCapability("codex")).toEqual(PACE_CAPABILITIES.codex);
+    expect(getPaceCapability("codex", legacyModules)).toEqual(PACE_CAPABILITIES.codex);
+    expect(getPaceCapability("codex", { codex: { metadata: fixture.metadata } })).toEqual(PACE_CAPABILITIES.codex);
     expect(
       resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now, {
         fixture,
       })?.context,
     ).toBe("session");
     expect(
-      resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now),
+      resolveSlotPace(
+        "fixture",
+        "Primary",
+        { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" },
+        now,
+        legacyModules,
+      ),
     ).toBeUndefined();
   });
 
@@ -53,9 +63,9 @@ describe("provider module pace and titles", () => {
       Secondary: { present: false },
       Tertiary: { present: true, usedPercent: 10 },
     };
-    expect(
-      resolveDynamicSlotTitle("factory", "Primary", { windows, hasAgentDetailRow: false, now }, { factory: fixture }),
-    ).toBe("Fixture window");
+    const options = { windows, hasAgentDetailRow: false, now };
+    expect(resolveDynamicSlotTitle("factory", "Primary", options, { factory: fixture })).toBe("Fixture window");
+    expect(resolveDynamicSlotTitle("factory", "Primary", options, legacyModules)).toBe("5-hour");
   });
 });
 
@@ -64,7 +74,13 @@ describe("resolveSlotPace", () => {
 
   it("does not session-pace OpenCode Go's 5-hour primary", () => {
     expect(
-      resolveSlotPace("opencodego", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T13:00:00Z" }, now),
+      resolveSlotPace(
+        "opencodego",
+        "Primary",
+        { windowMinutes: 300, resetsAt: "2026-03-23T13:00:00Z" },
+        now,
+        legacyModules,
+      ),
     ).toBeUndefined();
   });
 
@@ -75,29 +91,54 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z", resetDescription: "renews in 12 days" },
         now,
+        legacyModules,
       )?.context,
     ).toBe("window");
     expect(
-      resolveSlotPace("amp", "Primary", { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" }, now),
+      resolveSlotPace(
+        "amp",
+        "Primary",
+        { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
+        now,
+        legacyModules,
+      ),
     ).toBeUndefined();
   });
 
   it("session-paces Ollama windows of at most 5 hours and monthly-paces the sentinel", () => {
     expect(
-      resolveSlotPace("ollama", "Primary", { windowMinutes: 90, resetsAt: "2026-03-23T13:00:00Z" }, now)?.context,
+      resolveSlotPace("ollama", "Primary", { windowMinutes: 90, resetsAt: "2026-03-23T13:00:00Z" }, now, legacyModules)
+        ?.context,
     ).toBe("session");
     expect(
-      resolveSlotPace("ollama", "Primary", { windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" }, now),
+      resolveSlotPace(
+        "ollama",
+        "Primary",
+        { windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" },
+        now,
+        legacyModules,
+      ),
     ).toBeUndefined();
     expect(
-      resolveSlotPace("ollama", "Primary", { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" }, now)
-        ?.windowMinutes,
+      resolveSlotPace(
+        "ollama",
+        "Primary",
+        { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
+        now,
+        legacyModules,
+      )?.windowMinutes,
     ).toBe(inferredMonthlyWindowMinutes("2026-04-22T10:30:00Z"));
   });
 
   it("does not generic-weekly-pace a factory tertiary, even mid-window", () => {
     expect(
-      resolveSlotPace("factory", "Tertiary", { windowMinutes: 43_200, resetsAt: "2026-04-12T10:30:00Z" }, now),
+      resolveSlotPace(
+        "factory",
+        "Tertiary",
+        { windowMinutes: 43_200, resetsAt: "2026-04-12T10:30:00Z" },
+        now,
+        legacyModules,
+      ),
     ).toBeUndefined();
   });
 
@@ -107,6 +148,7 @@ describe("resolveSlotPace", () => {
       "Tertiary",
       { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
       now,
+      legacyModules,
     );
     expect(resolved?.context).toBe("window");
     expect(resolved?.windowMinutes).not.toBe(43_200);
@@ -115,14 +157,19 @@ describe("resolveSlotPace", () => {
 
   it("does not rewrite copilot duration when windowMinutes is present", () => {
     expect(
-      resolveSlotPace("copilot", "Primary", { windowMinutes: 10_080, resetsAt: "2026-03-31T00:00:00Z" }, now)
-        ?.windowMinutes,
+      resolveSlotPace(
+        "copilot",
+        "Primary",
+        { windowMinutes: 10_080, resetsAt: "2026-03-31T00:00:00Z" },
+        now,
+        legacyModules,
+      )?.windowMinutes,
     ).toBe(10_080);
   });
 
   it("paces a 31-day March window past the elapsed floor", () => {
     const reset = "2026-03-31T00:00:00Z";
-    const resolved = resolveSlotPace("copilot", "Primary", { resetsAt: reset }, now);
+    const resolved = resolveSlotPace("copilot", "Primary", { resetsAt: reset }, now, legacyModules);
     expect(resolved?.windowMinutes).toBe(31 * 24 * 60);
     expect(
       calculateUsagePacing(
@@ -135,30 +182,57 @@ describe("resolveSlotPace", () => {
 });
 
 describe("resolveExtraWindowPace", () => {
+  const metadata = {
+    name: "Fixture",
+    iconSlug: "fixture",
+    brandColor: "#000000",
+    usageSectionLabels: { primary: "Primary" },
+  };
+
   it("session-paces Codex and Antigravity 5-hour extras, weekly-paces 7-day extras", () => {
-    expect(resolveExtraWindowPace("codex", { windowMinutes: 300 })?.context).toBe("session");
-    expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 })?.context).toBe("session");
-    expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 })?.context).toBe("window");
-    expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 })?.context).toBe("window");
+    expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, legacyModules)?.context).toBe("session");
+    expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 }, legacyModules)?.context).toBe("session");
+    expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
   });
 
   it("does not pace Claude or Cursor 5-hour extras or extras on other providers", () => {
-    expect(resolveExtraWindowPace("claude", { windowMinutes: 300 })).toBeUndefined();
-    expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 })).toBeUndefined();
-    expect(resolveExtraWindowPace("factory", { windowMinutes: 10_080 })).toBeUndefined();
-    expect(resolveExtraWindowPace("zai", { windowMinutes: 43_200, resetDescription: "MCP" })).toBeUndefined();
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
+    expect(resolveExtraWindowPace("factory", { windowMinutes: 10_080 }, legacyModules)).toBeUndefined();
+    expect(
+      resolveExtraWindowPace("zai", { windowMinutes: 43_200, resetDescription: "MCP" }, legacyModules),
+    ).toBeUndefined();
   });
 
   it("weekly-paces Cursor 7-day extras", () => {
-    expect(resolveExtraWindowPace("cursor", { windowMinutes: 10_080 })?.context).toBe("window");
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
+  });
+
+  it("lets a module extraWindowPace replace the legacy id sets", () => {
+    const weeklyOnly = { claude: { metadata, extraWindowPace: "weekly-only" as const } };
+    const sessionOrWeekly = { fixture: { metadata, extraWindowPace: "session-or-weekly" as const } };
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 300 }, weeklyOnly)).toBeUndefined();
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, weeklyOnly)?.context).toBe("window");
+    expect(resolveExtraWindowPace("fixture", { windowMinutes: 300 }, sessionOrWeekly)?.context).toBe("session");
+    expect(resolveExtraWindowPace("fixture", { windowMinutes: 10_080 }, sessionOrWeekly)?.context).toBe("window");
+    expect(
+      resolveExtraWindowPace(
+        "claude",
+        { windowMinutes: 300 },
+        {
+          claude: { metadata, extraWindowPace: "session-or-weekly" },
+        },
+      )?.context,
+    ).toBe("session");
   });
 });
 
 describe("secondaryAllowsDefaultWindow", () => {
   it("is pinned to Codex only", () => {
-    const ids = Object.entries(PACE_CAPABILITIES)
-      .filter(([, capability]) => capability.secondaryAllowsDefaultWindow)
-      .map(([id]) => id);
+    const ids = [...new Set([...Object.keys(PACE_CAPABILITIES), ...Object.keys(PROVIDER_MODULES)])]
+      .filter((id) => getPaceCapability(id, PROVIDER_MODULES).secondaryAllowsDefaultWindow)
+      .sort();
     expect(ids).toEqual(["codex"]);
   });
 });
