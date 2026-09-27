@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES } from "./index";
-import {
-  assembleProviderCatalog,
-  assertDistinctProviderModules,
-  providerIdAliases,
-  providerModuleMetadata,
-  type ProviderModule,
-} from "./module";
-import type { ProviderCatalogEntry } from "./types";
+import { assembleProviderCatalog, providerIdAliases, providerModuleMetadata, type ProviderModule } from "./module";
 
 const sample = {
   metadata: {
@@ -21,11 +14,6 @@ const sample = {
 describe("provider modules", () => {
   it("keys module metadata by provider id", () => {
     expect(providerModuleMetadata({ sample })).toEqual({ sample: sample.metadata });
-  });
-
-  it("rejects a module id that is still in the legacy catalog", () => {
-    const legacy: Record<string, ProviderCatalogEntry> = { sample: sample.metadata };
-    expect(() => assertDistinctProviderModules(legacy, { sample })).toThrow(/duplicate legacy catalog ids: sample/);
   });
 
   it("keeps ZoomMate in a closed catalog id set", () => {

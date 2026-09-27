@@ -39,16 +39,6 @@ export type ProviderModule = {
 
 export type ProviderModuleMap = Readonly<Record<string, ProviderModule>>;
 
-export function assertDistinctProviderModules<Modules extends Record<keyof Modules, ProviderModule>>(
-  legacy: Readonly<Record<string, ProviderCatalogEntry>>,
-  modules: Modules,
-): void {
-  const duplicates = Object.keys(modules).filter((id) => Object.prototype.hasOwnProperty.call(legacy, id));
-  if (duplicates.length > 0) {
-    throw new Error(`Provider modules duplicate legacy catalog ids: ${duplicates.join(", ")}`);
-  }
-}
-
 export function providerModuleById(id: string, modules: ProviderModuleMap): ProviderModule | undefined {
   if (!Object.hasOwn(modules, id)) return undefined;
   return modules[id];

@@ -136,10 +136,6 @@ export function renderProviderIndex(ids) {
     "",
   ].join("\n");
 
-  if (unique.length === 0) {
-    return `${header}\n${modules}\n${catalog}`;
-  }
-
   return `${header}${imports}\n${modules}\n${catalog}`;
 }
 
