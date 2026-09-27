@@ -332,7 +332,6 @@ const CALENDAR_MONTH: PaceCapability = {
 
 export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
   alibaba: CALENDAR_MONTH,
-  alibabatokenplan: CALENDAR_MONTH,
   amp: {
     resetWindowPace: { type: "custom", id: "ampRenewsInDescription" },
     inferredMonthlyDuration: { type: "unsupported" },
@@ -354,7 +353,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     sessionPaceWindowRule: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
     secondaryAllowsDefaultWindow: true,
   },
-  commandcode: CALENDAR_MONTH,
   copilot: {
     resetWindowPace: { type: "resetDatePresent" },
     inferredMonthlyDuration: { type: "windowDurationMissing" },
@@ -365,7 +363,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     inferredMonthlyDuration: { type: "unsupported" },
     sessionPaceWindowRule: { type: "unsupported" },
   },
-  doubao: CALENDAR_MONTH,
   grok: {
     resetWindowPace: { type: "custom", id: "grokWeeklyCredits" },
     inferredMonthlyDuration: { type: "unsupported" },
@@ -377,7 +374,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     sessionPaceWindowRule: { type: "windowDuration", minutes: 300 },
     secondarySessionPace: true,
   },
-  mimo: CALENDAR_MONTH,
   notion: {
     ...CALENDAR_MONTH,
     sessionPaceWindowRule: { type: "custom", id: "notionRollingSession" },
@@ -391,7 +387,6 @@ export const PACE_CAPABILITIES: Record<string, PaceCapability> = {
     ...CALENDAR_MONTH,
     allowsEstimatedUsage: false,
   },
-  stepfun: CALENDAR_MONTH,
   zai: {
     resetWindowPace: { type: "custom", id: "zaiMonthlyMcp" },
     inferredMonthlyDuration: { type: "custom", id: "zaiMonthlyMcp" },
@@ -467,18 +462,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
 
     return undefined;
   },
-  doubao(slotTitle, options) {
-    const window = options.windows.Primary;
-    if (
-      slotTitle === "Primary" &&
-      window.windowMinutes === undefined &&
-      window.resetDescription?.toLowerCase().includes("request")
-    ) {
-      return "Requests";
-    }
-
-    return undefined;
-  },
   amp(slotTitle, options) {
     if (slotTitle === "Primary" && options.hasAgentDetailRow) {
       return "Agent usage";
@@ -501,46 +484,6 @@ export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {
   ollama(slotTitle, options) {
     if (slotTitle === "Primary" && options.windows.Primary.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
       return "Monthly";
-    }
-
-    return undefined;
-  },
-  alibabatokenplan(slotTitle, options) {
-    const windowMinutes = options.windows[slotTitle].windowMinutes;
-    if (slotTitle === "Primary" && windowMinutes === 5 * 60) {
-      return "5-hour";
-    }
-
-    if (slotTitle === "Secondary" && windowMinutes === 7 * 24 * 60) {
-      return "7-day";
-    }
-
-    return undefined;
-  },
-  sub2api(slotTitle, options) {
-    if (slotTitle === "Primary" && windowRenders(options.windows.Secondary)) {
-      return "Daily quota";
-    }
-
-    return undefined;
-  },
-  mistral(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windows.Primary.present) {
-      return "Included API";
-    }
-
-    return undefined;
-  },
-  qwencloud(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windows.Primary.windowMinutes === MONTHLY_WINDOW_SENTINEL_MINUTES) {
-      return "Monthly";
-    }
-
-    return undefined;
-  },
-  stepfun(slotTitle, options) {
-    if (slotTitle === "Primary" && options.windows.Primary.present && !options.windows.Secondary.present) {
-      return "Credit";
     }
 
     return undefined;
