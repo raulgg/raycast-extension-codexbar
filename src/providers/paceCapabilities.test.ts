@@ -79,7 +79,7 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 300, resetsAt: "2026-03-23T13:00:00Z" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       ),
     ).toBeUndefined();
   });
@@ -148,7 +148,7 @@ describe("resolveSlotPace", () => {
       "Tertiary",
       { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
       now,
-      legacyModules,
+      PROVIDER_MODULES,
     );
     expect(resolved?.context).toBe("window");
     expect(resolved?.windowMinutes).not.toBe(43_200);
@@ -162,14 +162,14 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 10_080, resetsAt: "2026-03-31T00:00:00Z" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       )?.windowMinutes,
     ).toBe(10_080);
   });
 
   it("paces a 31-day March window past the elapsed floor", () => {
     const reset = "2026-03-31T00:00:00Z";
-    const resolved = resolveSlotPace("copilot", "Primary", { resetsAt: reset }, now, legacyModules);
+    const resolved = resolveSlotPace("copilot", "Primary", { resetsAt: reset }, now, PROVIDER_MODULES);
     expect(resolved?.windowMinutes).toBe(31 * 24 * 60);
     expect(
       calculateUsagePacing(
@@ -198,7 +198,7 @@ describe("resolveExtraWindowPace", () => {
 
   it("does not pace Claude or Cursor 5-hour extras or extras on other providers", () => {
     expect(resolveExtraWindowPace("claude", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
-    expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 }, PROVIDER_MODULES)).toBeUndefined();
     expect(resolveExtraWindowPace("factory", { windowMinutes: 10_080 }, legacyModules)).toBeUndefined();
     expect(
       resolveExtraWindowPace("zai", { windowMinutes: 43_200, resetDescription: "MCP" }, legacyModules),
@@ -206,7 +206,7 @@ describe("resolveExtraWindowPace", () => {
   });
 
   it("weekly-paces Cursor 7-day extras", () => {
-    expect(resolveExtraWindowPace("cursor", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
+    expect(resolveExtraWindowPace("cursor", { windowMinutes: 10_080 }, PROVIDER_MODULES)?.context).toBe("window");
   });
 
   it("lets a module extraWindowPace replace the legacy id sets", () => {

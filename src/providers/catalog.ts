@@ -56,31 +56,6 @@ const LEGACY_PROVIDER_CATALOG = {
     subscriptionDashboardUrl: "https://claude.ai/settings/usage",
     statusPageUrl: "https://status.claude.com/",
   },
-  cursor: {
-    name: "Cursor",
-    iconSlug: "cursor",
-    iconFallback: "ArrowRightCircle",
-    brandColor: "#00BFA5",
-    usageSectionLabels: { primary: "Total", secondary: "Cursor", tertiary: "Third Party" },
-    dashboardUrl: "https://cursor.com/dashboard?tab=usage",
-    statusPageUrl: "https://status.cursor.com",
-  },
-  opencodego: {
-    name: "OpenCode Go",
-    iconSlug: "opencodego",
-    iconFallback: "Code",
-    brandColor: "#3B82F6",
-    usageSectionLabels: { primary: "5-hour", secondary: "Weekly", tertiary: "Monthly" },
-    dashboardUrl: "https://opencode.ai/auth",
-  },
-  alibaba: {
-    name: "Alibaba",
-    iconSlug: "alibaba",
-    brandColor: "#FF6A00",
-    usageSectionLabels: { primary: "5-hour", secondary: "Weekly", tertiary: "Monthly" },
-    dashboardUrl: "https://modelstudio.console.alibabacloud.com/ap-southeast-1/?tab=coding-plan#/efm/coding_plan",
-    statusPageUrl: "https://status.aliyun.com",
-  },
   factory: {
     name: "Droid",
     iconSlug: "factory",
@@ -96,15 +71,6 @@ const LEGACY_PROVIDER_CATALOG = {
     usageSectionLabels: { primary: "Gemini Models", secondary: "Claude and GPT" },
     statusPageUrl: "https://www.google.com/appsstatus/dashboard/products/npdyhgECDJ6tB66MxXyo/history",
   },
-  copilot: {
-    name: "Copilot",
-    iconSlug: "copilot",
-    iconFallback: "Person",
-    brandColor: "#A855F7",
-    usageSectionLabels: { primary: "Premium", secondary: "Chat" },
-    dashboardUrl: "https://github.com/settings/copilot",
-    statusPageUrl: "https://www.githubstatus.com/",
-  },
   zai: {
     name: "z.ai / GLM",
     iconSlug: "zai",
@@ -112,13 +78,6 @@ const LEGACY_PROVIDER_CATALOG = {
     brandColor: "#E85A6A",
     usageSectionLabels: { primary: "5-hour", secondary: "Weekly" },
     dashboardUrl: "https://z.ai/manage-apikey/coding-plan/personal/my-plan",
-  },
-  kimi: {
-    name: "Kimi Code",
-    iconSlug: "kimi",
-    brandColor: "#FE603C",
-    usageSectionLabels: { primary: "7-day usage", secondary: "5-hour usage" },
-    dashboardUrl: "https://www.kimi.com/code/console",
   },
   kilo: {
     name: "Kilo",
@@ -277,10 +236,7 @@ export const PROVIDER_CATALOG = assembleProviderCatalog(
 );
 
 export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  "alibaba-coding-plan": "alibaba",
-  bailian: "alibaba",
   "kilo-ai": "kilo",
-  "kimi-ai": "kimi",
   or: "openrouter",
   "z.ai": "zai",
   "notion-ai": "notion",
