@@ -1,5 +1,4 @@
 import { firstString, toRecord } from "./json";
-import { extractClaudePlanText } from "./providerRules/claude";
 import type { RawProviderPayload } from "./types";
 
 // Account identity shown in the detail header: the account email and the plan
@@ -36,19 +35,12 @@ export function extractAccountEmail(payload: RawProviderPayload): string | undef
   );
 }
 
-function extractRawPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
+function extractRawPlanText(payload: RawProviderPayload): string | undefined {
   const usage = toRecord(payload.usage);
   const usageIdentity = toRecord(usage?.identity);
   const identity = toRecord(payload.identity);
   const account = toRecord(payload.account);
   const dashboard = toRecord(payload.openaiDashboard);
-
-  if (providerId === "claude") {
-    const claudePlan = extractClaudePlanText(payload);
-    if (claudePlan) {
-      return claudePlan;
-    }
-  }
 
   return firstString(
     payload.loginMethod,
@@ -96,8 +88,8 @@ export function labelLowercaseSlug(raw: string): string {
   return raw;
 }
 
-export function formatPlanText(providerId: string, payload: RawProviderPayload): string | undefined {
-  const rawPlanText = extractRawPlanText(providerId, payload);
+export function formatPlanText(payload: RawProviderPayload): string | undefined {
+  const rawPlanText = extractRawPlanText(payload);
   if (!rawPlanText) {
     return undefined;
   }

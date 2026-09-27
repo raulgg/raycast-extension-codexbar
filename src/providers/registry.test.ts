@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { Color, Icon } from "@raycast/api";
 import { describe, expect, it } from "vitest";
@@ -8,7 +8,6 @@ import {
   getProviderMetadata,
   getProviderProgressPalette,
   getProviderUsageSectionDisplayTitle,
-  isClaudeSubscriptionLoginMethod,
   isKnownProviderId,
   PROVIDER_IDS,
   PROVIDER_SELECTOR_IDS,
@@ -305,14 +304,12 @@ describe("provider registry", () => {
   });
 
   it("has a local svg asset for every catalog iconSlug", () => {
-    const currentDir = path.join(process.cwd(), "src/providers");
-    const catalogSource = readFileSync(path.join(currentDir, "catalog.ts"), "utf8");
-    const providerIconSlugs = [...catalogSource.matchAll(/iconSlug: "([^"]+)"/g)].map((match) => match[1]);
+    const providerIconSlugs = Object.values(PROVIDER_CATALOG).map((entry) => entry.iconSlug);
 
     expect(providerIconSlugs.length).toBeGreaterThan(0);
 
     for (const slug of providerIconSlugs) {
-      expect(existsSync(path.join(currentDir, `../../assets/provider-icons/${slug}.svg`))).toBe(true);
+      expect(existsSync(path.join(process.cwd(), "assets/provider-icons", `${slug}.svg`))).toBe(true);
     }
   });
 
@@ -356,55 +353,46 @@ describe("provider registry", () => {
     expect(getProviderMetadata("cursor").subscriptionDashboardUrl).toBeUndefined();
   });
 
-  describe("isClaudeSubscriptionLoginMethod", () => {
-    it("treats Max, Pro, Team, and Ultra login methods as subscriptions", () => {
-      for (const plan of ["max", "pro", "team", "ultra"]) {
-        expect(isClaudeSubscriptionLoginMethod(plan)).toBe(true);
+  describe("resolveDashboardUrl", () => {
+    const subscription = "https://claude.ai/settings/usage";
+    const consoleUrl = "https://console.anthropic.com/settings/billing";
+
+    it("opens the Claude subscription page for Max, Pro, Team, and Ultra", () => {
+      for (const plan of [
+        "max",
+        "pro",
+        "team",
+        "ultra",
+        "Claude Max",
+        "CLAUDE PRO",
+        "Claude Team",
+        "claude ultra",
+        "ClaudeMax",
+        "claudepro",
+        "claudeTeam",
+        "ClaudeUltra",
+        "defaultclaudemax20x",
+        "max20x",
+        "Ultra",
+      ]) {
+        expect(resolveDashboardUrl("claude", plan)).toBe(subscription);
       }
     });
 
-    it("matches prettified branded login labels case-insensitively", () => {
-      expect(isClaudeSubscriptionLoginMethod("Claude Max")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("CLAUDE PRO")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("Claude Team")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("claude ultra")).toBe(true);
-    });
-
-    it("matches compact Claude subscription labels", () => {
-      expect(isClaudeSubscriptionLoginMethod("ClaudeMax")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("claudepro")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("claudeTeam")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("ClaudeUltra")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("defaultclaudemax20x")).toBe(true);
-      expect(isClaudeSubscriptionLoginMethod("max20x")).toBe(true);
-    });
-
-    it("does not treat Enterprise as a subscription", () => {
-      expect(isClaudeSubscriptionLoginMethod("enterprise")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("Claude Enterprise")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("ClaudeEnterprise")).toBe(false);
-    });
-
-    it("returns false for api-key, oauth, unrelated, and undefined login methods", () => {
-      expect(isClaudeSubscriptionLoginMethod("api-key")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("oauth")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("API Key")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("profile")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod("")).toBe(false);
-      expect(isClaudeSubscriptionLoginMethod(undefined)).toBe(false);
-    });
-  });
-
-  describe("resolveDashboardUrl", () => {
-    it("swaps Claude to the subscription dashboard for subscription login methods", () => {
-      expect(resolveDashboardUrl("claude", "Claude Max")).toBe("https://claude.ai/settings/usage");
-      expect(resolveDashboardUrl("claude", "pro")).toBe("https://claude.ai/settings/usage");
-    });
-
-    it("keeps Claude on the plain dashboard for non-subscription or missing plans", () => {
-      expect(resolveDashboardUrl("claude", "enterprise")).toBe("https://console.anthropic.com/settings/billing");
-      expect(resolveDashboardUrl("claude", "api-key")).toBe("https://console.anthropic.com/settings/billing");
-      expect(resolveDashboardUrl("claude", undefined)).toBe("https://console.anthropic.com/settings/billing");
+    it("opens the Claude console for Enterprise and everyone else", () => {
+      for (const plan of [
+        "enterprise",
+        "Claude Enterprise",
+        "ClaudeEnterprise",
+        "api-key",
+        "oauth",
+        "API Key",
+        "profile",
+        "",
+        undefined,
+      ]) {
+        expect(resolveDashboardUrl("claude", plan)).toBe(consoleUrl);
+      }
     });
 
     it("prefers the subscription dashboard for other dual-URL providers regardless of plan", () => {
@@ -437,12 +425,6 @@ describe("provider registry", () => {
       };
 
       expect(resolveDashboardUrl("fixture", "Pro", "Acme", { fixture })).toBe("https://fixture.example/Pro/Acme");
-    });
-
-    it("resolves Claude via alias ids as well", () => {
-      // resolveProviderId has no claude alias today, but the helper still keys off
-      // the canonical id so alias handling stays consistent with the rest of the registry.
-      expect(resolveDashboardUrl("claude", "Ultra")).toBe("https://claude.ai/settings/usage");
     });
   });
 

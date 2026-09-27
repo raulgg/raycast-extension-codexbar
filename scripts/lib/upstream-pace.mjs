@@ -291,6 +291,16 @@ const WINDOW_DURATION_AT_MOST_FINGERPRINT =
   /^window, _ in guard let minutes = window\.windowMinutes else \{ return false \} return minutes <= (\d+)$/;
 
 function resolvedCustomRule(providerId, field, fingerprint, expected) {
+  if (expected.matcher === "always") {
+    if (fingerprint !== "_, _ in true") {
+      throw new Error(
+        `${providerId}: CUSTOM_PACE_RULES ${field} is marked always, ` +
+          `but the fingerprint is not an always-true closure ("${fingerprint}").`,
+      );
+    }
+    return { type: "always" };
+  }
+
   if (expected.matcher === "windowDurationAtMost") {
     const match = WINDOW_DURATION_AT_MOST_FINGERPRINT.exec(fingerprint);
     if (!match) {

@@ -681,6 +681,28 @@ describe("provider normalization", () => {
     expect(detail.planText).toBe("Max");
     expect(detailSvg).toContain(">Max<");
     expect(detailSvg).not.toContain(">OAuth<");
+    expect(
+      normalizeProviderDetailPayload({ provider: "claude", loginMethod: "oauth", subscriptionType: "team" }, "claude")
+        .planText,
+    ).toBe("Team");
+    expect(
+      normalizeProviderDetailPayload({ provider: "claude", loginMethod: "oauth", rateLimitTier: "max_20x" }, "claude")
+        .planText,
+    ).toBe("Max 20x");
+    expect(normalizeProviderDetailPayload({ provider: "claude", loginMethod: "oauth" }, "claude").planText).toBe(
+      "OAuth",
+    );
+    expect(
+      normalizeProviderDetailPayload(
+        {
+          provider: "claude",
+          loginMethod: "oauth",
+          plan: "pro",
+          presentation: { schemaVersion: 1, meters: [] },
+        },
+        "claude",
+      ).planText,
+    ).toBe("Pro");
   });
 
   it("extracts provider-specific errors from CLI payload arrays", () => {

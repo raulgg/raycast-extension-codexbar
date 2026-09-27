@@ -38,9 +38,15 @@ describe("provider module pace and titles", () => {
   };
 
   it("uses the module pace row when the provider sets one", () => {
+    const unsupported = {
+      resetWindowPace: { type: "unsupported" },
+      inferredMonthlyDuration: { type: "unsupported" },
+      sessionPaceWindowRule: { type: "unsupported" },
+    };
     expect(getPaceCapability("fixture", { fixture })).toEqual(fixture.pace);
-    expect(getPaceCapability("claude", legacyModules)).toEqual(PACE_CAPABILITIES.claude);
-    expect(getPaceCapability("claude", { claude: { metadata: fixture.metadata } })).toEqual(PACE_CAPABILITIES.claude);
+    expect(getPaceCapability("claude", legacyModules)).toEqual(unsupported);
+    expect(getPaceCapability("claude", { claude: { metadata: fixture.metadata } })).toEqual(unsupported);
+    expect(getPaceCapability("claude", PROVIDER_MODULES).sessionPaceWindowRule).toEqual({ type: "always" });
     expect(
       resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now, {
         fixture,
@@ -235,11 +241,11 @@ describe("resolveExtraWindowPace", () => {
     expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, PROVIDER_MODULES)?.context).toBe("session");
     expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 }, PROVIDER_MODULES)?.context).toBe("session");
     expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 }, PROVIDER_MODULES)?.context).toBe("window");
-    expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, PROVIDER_MODULES)?.context).toBe("window");
   });
 
   it("does not pace Claude or Cursor 5-hour extras or extras on other providers", () => {
-    expect(resolveExtraWindowPace("claude", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
+    expect(resolveExtraWindowPace("claude", { windowMinutes: 300 }, PROVIDER_MODULES)).toBeUndefined();
     expect(resolveExtraWindowPace("cursor", { windowMinutes: 300 }, PROVIDER_MODULES)).toBeUndefined();
     expect(resolveExtraWindowPace("factory", { windowMinutes: 10_080 }, legacyModules)).toBeUndefined();
     expect(

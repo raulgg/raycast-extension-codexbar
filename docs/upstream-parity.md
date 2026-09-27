@@ -264,6 +264,8 @@ CLI `resolvedKind` lanes are parsed so an unknown field still throws, but they a
 inlined. An unknown custom, a changed body, or a new `pace:` on a previously-unsupported provider
 fails the check. Notion's rolling-session closure (`minutes <= 360`) and Ollama's five-hour
 closure (`minutes <= 300`) are not named ids: that fingerprint resolves to `windowDurationAtMost`.
+Claude's always-true session closure (`_, _ in true`) resolves to `{ type: "always" }`
+(`matcher: "always"`).
 Amp, Z.ai, and Grok closures resolve to the predicate on that module pace field
 (`matcher: "predicate"`, same id). The pace engine calls the function. A different body still fails.
 Presentation-only paths (`usesAbacusPace`, `usesSyntheticRollingRegen`), Codex
@@ -368,7 +370,8 @@ When the check fails:
 
 1. Read the descriptor `pace:` block. Parseable GUI fields (`windowDurationPresent`,
    `.calendarMonthResetWindow`, `.custom { }`, …) go in the table as data. A `.custom { }` needs a
-   named function plus a `CUSTOM_PACE_RULES` fingerprint of the Swift body. A closure that only
+   named function plus a `CUSTOM_PACE_RULES` fingerprint of the Swift body. An always-true
+   closure (`_, _ in true`) is `{ type: "always" }` with `matcher: "always"`. A closure that only
    accepts a present duration of at most N minutes can be `windowDurationAtMost` instead, with
    `matcher: "windowDurationAtMost"` on that fingerprint. A module predicate uses
    `matcher: "predicate"` and the same id; the module's `matches` function is what runs.

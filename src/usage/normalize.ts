@@ -513,7 +513,7 @@ function normalizePayload(
   const fetchedAt = new Date(now).toISOString();
   const accountEmail = extractAccountEmail(payload);
   const accountOrganization = extractAccountOrganization(payload);
-  const genericPlanText = formatPlanText(metadata.id, payload);
+  const genericPlanText = formatPlanText(payload);
   const presentation = buildPresentationMeterSections(metadata.id, payload, now, modules);
   const rawSections = presentation?.sections ?? [
     ...buildUsageSections(metadata.id, payload, now, modules),
