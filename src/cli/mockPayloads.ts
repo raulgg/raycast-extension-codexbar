@@ -19,7 +19,6 @@ const MOCK_SOURCES: Record<string, string> = {
   zai: "api",
   amp: "web",
   ollama: "web",
-  openrouter: "api",
   grok: "web",
   notion: "web",
 };
@@ -111,23 +110,6 @@ function buildClaudeProviderCost(now: Date): Record<string, unknown> {
     currencyCode: "USD",
     period: "monthly",
     resetsAt: offsetIso(now, 30 * DAY),
-    updatedAt: iso(now),
-  };
-}
-
-function buildOpenRouterUsage(now: Date): Record<string, unknown> {
-  return {
-    totalCredits: 50,
-    totalUsage: 24.5,
-    balance: 25.5,
-    usedPercent: 49,
-    keyDataFetched: true,
-    keyLimit: 100,
-    keyUsage: 47,
-    rateLimit: {
-      requests: 10,
-      interval: "10s",
-    },
     updatedAt: iso(now),
   };
 }
@@ -304,21 +286,6 @@ function buildOllama(now: Date): RawProviderPayload {
   });
 }
 
-function buildOpenRouter(now: Date): RawProviderPayload {
-  return buildPayload("openrouter", {
-    source: MOCK_SOURCES.openrouter,
-    version: null,
-    status: null,
-    usage: buildUsage(now, buildWindow(now, 47, null, null), null, null, {
-      openRouterUsage: buildOpenRouterUsage(now),
-      ...buildIdentity("openrouter", null, null, "Balance: $25.50"),
-    }),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function hashSeed(value: string): number {
   let hash = 0;
   for (const character of value) {
@@ -393,7 +360,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   zai: buildZai,
   amp: buildAmp,
   ollama: buildOllama,
-  openrouter: buildOpenRouter,
   grok: buildGrok,
   notion: buildNotion,
 };

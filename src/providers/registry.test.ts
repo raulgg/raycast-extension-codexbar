@@ -82,6 +82,7 @@ describe("provider registry", () => {
     expect(resolveProviderId("hermes")).toBe("nous");
     expect(resolveProviderId("r8")).toBe("replicate");
     expect(resolveProviderId("helm-code")).toBe("helmcode");
+    expect(resolveProviderId("or")).toBe("openrouter");
   });
 
   it("uses harvested upstream metadata for new providers", () => {

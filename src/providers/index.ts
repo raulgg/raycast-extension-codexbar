@@ -50,6 +50,7 @@ import nous from "./nous";
 import openai from "./openai";
 import opencode from "./opencode";
 import opencodego from "./opencodego";
+import openrouter from "./openrouter";
 import perplexity from "./perplexity";
 import pi from "./pi";
 import poe from "./poe";
@@ -126,6 +127,7 @@ export const PROVIDER_MODULES = {
   openai,
   opencode,
   opencodego,
+  openrouter,
   perplexity,
   pi,
   poe,
