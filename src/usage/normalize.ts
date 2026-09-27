@@ -172,6 +172,13 @@ function computeMeterPacing(
   return pacing ? { ...pacing, context: resolved.context } : undefined;
 }
 
+function meterResetFields(input: MeterInput): { resetsAt?: string; windowMinutes?: number } {
+  return {
+    ...(input.resetsAt ? { resetsAt: input.resetsAt } : {}),
+    ...(input.windowMinutes !== undefined ? { windowMinutes: input.windowMinutes } : {}),
+  };
+}
+
 function buildUsageMeter(
   slot: SlotTitle,
   displayTitle: string,
@@ -185,6 +192,7 @@ function buildUsageMeter(
     displayTitle,
     remainingPercent: clampPercent(input.remainingPercent),
     resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
+    ...meterResetFields(input),
     usagePacing: computeMeterPacing(slot, input, context),
     nextRegenPercent: input.nextRegenPercent,
     usageItemId,
@@ -202,6 +210,7 @@ function buildSupplementalMeter(
     title,
     remainingPercent: clampPercent(input.remainingPercent),
     resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
+    ...meterResetFields(input),
     usagePacing: computeMeterPacing("extra", input, context),
     nextRegenPercent: input.nextRegenPercent,
     ...(usageItemId ? { usageItemId } : {}),

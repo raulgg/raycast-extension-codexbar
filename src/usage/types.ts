@@ -71,7 +71,10 @@ export type ProviderUsageSection = {
   title: ProviderUsageSectionTitle;
   displayTitle: string;
   remainingPercent: number;
+  // resetsIn is the countdown the card shows. resetsAt and windowMinutes are the source window.
   resetsIn?: string;
+  resetsAt?: string;
+  windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
   nextRegenPercent?: number;
   includeInDetail?: boolean;
@@ -83,6 +86,8 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  resetsAt?: string;
+  windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
   nextRegenPercent?: number;
   usageItemId?: string;
