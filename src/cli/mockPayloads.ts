@@ -396,7 +396,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   openrouter: buildOpenRouter,
   grok: buildGrok,
   notion: buildNotion,
-  helmcode: buildGenericProvider("helmcode"),
 };
 
 const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);

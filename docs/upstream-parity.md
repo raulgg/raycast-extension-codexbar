@@ -112,7 +112,8 @@ id is also a key in the legacy object. `registry.ts` is the Raycast adapter over
 catalog URL stays `https://cloud.helmcode.com/dashboard`, which is what the descriptor metadata
 stores. The menu action uses `HelmcodeProviderDescriptor.dashboardURL(snapshot:)` and opens
 `https://cloud.nan.builders/dashboard` when `identity.accountOrganization` is `NaN Builders`.
-`resolveDashboardUrl` makes that switch from the payload organization.
+Helmcode's module `dashboardUrl` makes that switch from the payload organization.
+`resolveDashboardUrl` uses the returned link as-is, including when it is undefined.
 
 `npm run upstream:check` imports the catalog and diffs it against each upstream
 `…ProviderDescriptor.swift`. It exits non-zero on:

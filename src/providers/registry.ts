@@ -202,9 +202,6 @@ export function isClaudeSubscriptionLoginMethod(text: string | undefined): boole
   return plan === undefined ? false : CLAUDE_SUBSCRIPTION_PLANS.has(plan);
 }
 
-const NAN_BUILDERS_ORGANIZATION = "NaN Builders";
-const NAN_BUILDERS_DASHBOARD_URL = "https://cloud.nan.builders/dashboard";
-
 // Picks the "Open Usage Dashboard" target.
 export function resolveDashboardUrl(
   providerId: string,
@@ -224,11 +221,6 @@ export function resolveDashboardUrl(
     return isClaudeSubscriptionLoginMethod(planText)
       ? (metadata.subscriptionDashboardUrl ?? metadata.dashboardUrl)
       : metadata.dashboardUrl;
-  }
-  // HelmcodeProviderDescriptor.dashboardURL(snapshot:) switches host when the
-  // account organization is NaN Builders. The catalog URL stays the helmcode.com default.
-  if (canonicalId === "helmcode" && accountOrganization === NAN_BUILDERS_ORGANIZATION) {
-    return NAN_BUILDERS_DASHBOARD_URL;
   }
   // Other dual-URL providers have no plan detection, and the usage this extension meters
   // is their subscription usage — so the subscription dashboard is the better target when
