@@ -93,9 +93,8 @@ src/
     accessoryIcon.ts          Two-bar list accessory icon.
 
   providers/                  Upstream-synced provider knowledge. Script-guarded; see upstream-parity.md.
-    catalog.ts                Legacy provider metadata + aliases, merged with provider modules.
-                              Imported by upstream:check. Deleted once the last legacy entry moves.
-    index.ts                  Generated import list of provider directories.
+    index.ts                  Generated provider directory list, assembled catalog, and derived alias map.
+    types.ts                  Catalog entry, usage-section label, and icon-fallback types.
     zoommate/index.ts         ZoomMate's metadata and mock source. Later provider modules use this shape.
     registry.ts               Raycast adapter over the assembled catalog (icons, palettes, lookups).
     paceCapabilities.ts       GUI pace gating table + dynamic usage-bar title map. Imported by
@@ -213,14 +212,13 @@ Upstream ships often. A periodic sync pass:
    npm run upstream:check
    npm run upstream:sync-icons -- --check
    ```
-3. **Fix what they flag.** New provider → add a `PROVIDER_CATALOG` entry (name, brandColor,
+3. **Fix what they flag.** New provider → add `src/providers/<id>/index.ts` (name, brandColor,
    labels, URLs, iconSlug) transcribed from its `…ProviderDescriptor.swift`; **don't invent values**.
    The overview renders that Provider until the entry lands
    ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); this check still fails.
-   Plain providers, including ZoomMate, already live in `src/providers/<id>/index.ts`. Edit that
-   module instead of putting the id back in the legacy object, and keep `src/providers/index.ts`
-   equal to the directories.
-   New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`, or `aliases` on a provider module. Two
+   Put the id in `CATALOG_PROVIDER_ORDER` in `scripts/lib/provider-modules.mjs`, then keep
+   `src/providers/index.ts` equal to that renderer.
+   New alias → `aliases` on the provider module. Two
    modules cannot share an alias, and an alias cannot be a provider id. Field
    mismatch → update the catalog, or record an intentional `ALLOWED_DIVERGENCES` entry with a
    reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or the module's
@@ -231,7 +229,7 @@ Upstream ships often. A periodic sync pass:
    `session-or-weekly` or `weekly-only` replaces the extra-window id sets for that provider.
    Icons out of date → drop the
    `-- --check` and let the sync script write them. Removed provider → `npm run upstream:prune`
-   deletes the legacy catalog entry, a `src/providers/<id>/` directory, aliases, mocks, pace rows,
+   deletes the provider directory, aliases, mocks, pace rows,
    dynamic titles, provider rules, exclusive tests, and the SVG, then rewrites `src/providers/index.ts`.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit

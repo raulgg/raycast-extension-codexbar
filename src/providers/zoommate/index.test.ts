@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDER_CATALOG } from "../catalog";
+import { PROVIDER_CATALOG } from "../index";
 import zoommate from "./index";
 
 describe("ZoomMate provider module", () => {

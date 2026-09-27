@@ -12,7 +12,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
+import { PROVIDER_CATALOG } from "../src/providers/index.ts";
 import { keptIconSlugs, pruneProviderSources } from "./lib/prune-provider.mjs";
 import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./lib/upstream.mjs";
 import { parseDescriptorMetadata } from "./lib/upstream-metadata.mjs";

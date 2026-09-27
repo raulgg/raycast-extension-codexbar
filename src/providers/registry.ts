@@ -1,13 +1,7 @@
 import { Color, Icon, type Image } from "@raycast/api";
-import {
-  PROVIDER_CATALOG,
-  PROVIDER_ID_ALIASES,
-  type ProviderCatalogEntry,
-  type ProviderIconFallback,
-  type ProviderUsageSectionLabels,
-} from "./catalog";
-import { PROVIDER_MODULES } from "./index";
+import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES, PROVIDER_MODULES } from "./index";
 import type { ProviderModuleMap } from "./module";
+import type { ProviderCatalogEntry, ProviderIconFallback, ProviderUsageSectionLabels } from "./types";
 
 export type { ProviderUsageSectionLabels };
 

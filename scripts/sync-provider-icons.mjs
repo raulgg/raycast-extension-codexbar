@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { optimize } from "svgo";
-import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
+import { PROVIDER_CATALOG } from "../src/providers/index.ts";
 import { createUpstreamSource, isMainModule } from "./lib/upstream.mjs";
 
 const ASSETS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../assets/provider-icons");
@@ -130,7 +130,7 @@ async function main() {
   const slugs = collectIconSlugsFromCatalog(PROVIDER_CATALOG);
 
   if (slugs.length === 0) {
-    throw new Error("No iconSlug entries found in catalog.ts");
+    throw new Error("No iconSlug entries found in the provider catalog");
   }
 
   if (!(await fileExists(ASSETS_DIR))) {

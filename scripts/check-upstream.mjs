@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Checks catalog.ts, provider modules, and paceCapabilities.ts against the upstream
+// Checks the assembled provider catalog, provider modules, and paceCapabilities.ts against the upstream
 // CodexBar provider descriptors so the Raycast extension shows the same provider
 // names, usage-bar labels, dashboard and status URLs, brand colors, and pace gating
 // as the CodexBar GUI. A module pace, displayTitle, or extraWindowPace replaces that
@@ -21,8 +21,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
-import { PROVIDER_MODULES } from "../src/providers/index.ts";
+import { PROVIDER_CATALOG, PROVIDER_MODULES } from "../src/providers/index.ts";
 import {
   DYNAMIC_SLOT_TITLES,
   EXTRA_WINDOW_PACE_PROVIDER_IDS,

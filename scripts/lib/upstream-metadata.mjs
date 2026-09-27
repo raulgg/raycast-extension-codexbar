@@ -210,7 +210,9 @@ export function compareProviders(catalog, upstreamById, allowedDivergences = {})
   for (const [id, entry] of catalogEntries) {
     const upstream = upstreamById.get(id);
     if (!upstream) {
-      problems.push(`${id}: present in catalog.ts but has no upstream descriptor (renamed or removed upstream?)`);
+      problems.push(
+        `${id}: present in the provider catalog but has no upstream descriptor (renamed or removed upstream?)`,
+      );
       continue;
     }
 
@@ -236,7 +238,7 @@ export function compareProviders(catalog, upstreamById, allowedDivergences = {})
 
   for (const id of upstreamById.keys()) {
     if (!Object.hasOwn(catalog, id)) {
-      problems.push(`${id}: upstream provider missing from catalog.ts`);
+      problems.push(`${id}: upstream provider missing from the provider catalog`);
     }
   }
 

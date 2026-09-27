@@ -1,5 +1,5 @@
 import type { ProviderUsagePacingContext } from "../usage/types";
-import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES } from "./catalog";
+import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES } from "./index";
 import type { ProviderModuleMap } from "./module";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;

@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Color, Icon } from "@raycast/api";
 import { describe, expect, it } from "vitest";
-import { PROVIDER_CATALOG, type ProviderCatalogEntry } from "./catalog";
+import { PROVIDER_CATALOG } from "./index";
+import type { ProviderCatalogEntry } from "./types";
 import type { ProviderModule } from "./module";
 import {
   getProviderMetadata,
