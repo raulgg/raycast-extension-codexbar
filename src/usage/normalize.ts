@@ -20,7 +20,6 @@ import {
   buildCodexCodeReviewSection,
   buildCodexResetCreditSection,
 } from "./providerRules/codex";
-import { buildSupplementalMapperSections } from "./providerRules/openrouter";
 import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
@@ -526,7 +525,6 @@ function normalizePayload(
     ...buildUsageSections(metadata.id, payload, now, modules),
     ...buildExtraRateWindowSections(metadata.id, payload, now, modules),
     ...buildCodexCodeReviewSection(payload, now),
-    ...buildSupplementalMapperSections(payload, now),
     ...buildCodexResetCreditSection(metadata.id, payload, now),
   ];
   const builtSections = applyAntigravityDetailRules(metadata.id, payload, presentation !== undefined, rawSections);

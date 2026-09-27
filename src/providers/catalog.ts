@@ -95,15 +95,6 @@ const LEGACY_PROVIDER_CATALOG = {
     usageSectionLabels: { primary: "Session", secondary: "Weekly" },
     dashboardUrl: "https://ollama.com/settings",
   },
-  openrouter: {
-    name: "OpenRouter",
-    iconSlug: "openrouter",
-    iconFallback: "TwoPeople",
-    brandColor: "#6467F2",
-    usageSectionLabels: { primary: "Credits", secondary: "Usage" },
-    dashboardUrl: "https://openrouter.ai/activity",
-    statusPageUrl: "https://status.openrouter.ai",
-  },
   grok: {
     name: "Grok",
     iconSlug: "grok",
@@ -220,7 +211,6 @@ export const PROVIDER_CATALOG = assembleProviderCatalog(
 );
 
 export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  or: "openrouter",
   "z.ai": "zai",
   "notion-ai": "notion",
   notionai: "notion",

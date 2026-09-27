@@ -298,11 +298,11 @@ Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on 
 ## Surface 5. Supplemental usage shapes (hand-maintained)
 
 Beyond Primary/Secondary/Tertiary, upstream models a long list of provider-specific meters. We map a
-few, per a field-name to mapper table (`SUPPLEMENTAL_USAGE_MAPPERS` in `usage/providerRules/openrouter.ts`) plus special
-cases:
+few special cases:
 
 - **Mapped.** Codex's "Code review" allowance (`codeReviewRemainingPercent`), named extra rate
-  windows (`extraRateWindows`, e.g. "Codex Spark"), and OpenRouter key usage (`openRouterUsage`).
+  windows (`extraRateWindows`, e.g. "Codex Spark"), and OpenRouter key usage (`openRouterUsage`,
+  on the OpenRouter provider module).
   Antigravity extras whose ids start with `antigravity-quota-summary-` are what the detail card
   draws. Primary and Secondary are copies for the list adornment, the same rule as
   `antigravityMetrics` in `MenuCardView+ModelHelpers.swift`. Skip the slot-hiding rewrite when
