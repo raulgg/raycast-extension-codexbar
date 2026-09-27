@@ -49,6 +49,7 @@ import muse from "./muse";
 import neuralwatt from "./neuralwatt";
 import notion from "./notion";
 import nous from "./nous";
+import ollama from "./ollama";
 import openai from "./openai";
 import opencode from "./opencode";
 import opencodego from "./opencodego";
@@ -128,6 +129,7 @@ export const PROVIDER_MODULES = {
   neuralwatt,
   notion,
   nous,
+  ollama,
   openai,
   opencode,
   opencodego,

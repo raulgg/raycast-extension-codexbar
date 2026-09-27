@@ -80,14 +80,6 @@ const LEGACY_PROVIDER_CATALOG = {
     usageSectionLabels: { primary: "Amp Free", secondary: "Balance" },
     dashboardUrl: "https://ampcode.com/settings/usage",
   },
-  ollama: {
-    name: "Ollama",
-    iconSlug: "ollama",
-    iconFallback: "Box",
-    brandColor: "#888888",
-    usageSectionLabels: { primary: "Session", secondary: "Weekly" },
-    dashboardUrl: "https://ollama.com/settings",
-  },
   grok: {
     name: "Grok",
     iconSlug: "grok",

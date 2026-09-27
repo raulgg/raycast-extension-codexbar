@@ -286,8 +286,7 @@ function guiField(capability, field) {
 }
 
 // Present duration of at most N minutes. Missing windowMinutes does not match.
-// Ollama's `minutes <= 300` closure is the same shape but stays a named custom
-// unless its CUSTOM_PACE_RULES entry sets this matcher.
+// A CUSTOM_PACE_RULES entry with matcher "windowDurationAtMost" resolves this fingerprint.
 const WINDOW_DURATION_AT_MOST_FINGERPRINT =
   /^window, _ in guard let minutes = window\.windowMinutes else \{ return false \} return minutes <= (\d+)$/;
 

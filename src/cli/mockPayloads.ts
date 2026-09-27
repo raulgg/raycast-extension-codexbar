@@ -17,7 +17,6 @@ const MOCK_SOURCES: Record<string, string> = {
   factory: "web",
   zai: "api",
   amp: "web",
-  ollama: "web",
   grok: "web",
 };
 
@@ -246,24 +245,6 @@ function buildAmp(now: Date): RawProviderPayload {
   });
 }
 
-function buildOllama(now: Date): RawProviderPayload {
-  return buildPayload("ollama", {
-    source: MOCK_SOURCES.ollama,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 26, 90 * MINUTE, null),
-      buildWindow(now, 64, 7 * DAY, null),
-      null,
-      buildIdentity("ollama", "dev@example.com", null, "Pro"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function hashSeed(value: string): number {
   let hash = 0;
   for (const character of value) {
@@ -318,7 +299,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   factory: buildFactory,
   zai: buildZai,
   amp: buildAmp,
-  ollama: buildOllama,
   grok: buildGrok,
 };
 

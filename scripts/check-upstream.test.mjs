@@ -538,7 +538,7 @@ describe("comparePaceCapabilities", () => {
     ]);
   });
 
-  it("keeps Ollama's at-most closure as a named custom", () => {
+  it("maps Ollama's at-most-five-hours fingerprint onto windowDurationAtMost", () => {
     const parsed = parseDescriptorPace(
       descriptorFixture({
         pace: `ProviderPaceCapability(
@@ -549,26 +549,36 @@ describe("comparePaceCapabilities", () => {
       }),
       "Ollama.swift",
     );
-    const { problems } = comparePaceCapabilities(
-      new Map([
-        [
-          "ollama",
-          {
-            resetWindowPace: { type: "unsupported" },
-            inferredMonthlyDuration: { type: "unsupported" },
-            sessionPaceWindowRule: { type: "custom", id: "ollamaSessionAtMostFiveHours" },
-          },
-        ],
-      ]),
-      new Map([["ollama", { pace: parsed }]]),
-      {
-        "ollama.sessionPaceWindowRule": {
-          id: "ollamaSessionAtMostFiveHours",
-          fingerprint: parsed.sessionPaceWindowRule.fingerprint,
-        },
-      },
-    );
-    expect(problems).toEqual([]);
+    const fingerprint =
+      "window, _ in guard let minutes = window.windowMinutes else { return false } return minutes <= 300";
+    expect(parsed.sessionPaceWindowRule.fingerprint).toBe(fingerprint);
+    const rules = {
+      "ollama.sessionPaceWindowRule": { matcher: "windowDurationAtMost", fingerprint },
+    };
+    const upstream = new Map([["ollama", { pace: parsed }]]);
+    const ollamaPace = {
+      resetWindowPace: { type: "unsupported" },
+      inferredMonthlyDuration: { type: "unsupported" },
+      sessionPaceWindowRule: { type: "windowDurationAtMost", minutes: 300 },
+    };
+    expect(comparePaceCapabilities(new Map([["ollama", ollamaPace]]), upstream, rules).problems).toEqual([]);
+    expect(
+      comparePaceCapabilities(
+        new Map([
+          [
+            "ollama",
+            {
+              ...ollamaPace,
+              sessionPaceWindowRule: { type: "windowDurationAtMost", minutes: 360 },
+            },
+          ],
+        ]),
+        upstream,
+        rules,
+      ).problems,
+    ).toEqual([
+      'ollama: sessionPaceWindowRule {"type":"windowDurationAtMost","minutes":360} != upstream {"type":"windowDurationAtMost","minutes":300}',
+    ]);
   });
 
   it("prints the field that diverged", () => {

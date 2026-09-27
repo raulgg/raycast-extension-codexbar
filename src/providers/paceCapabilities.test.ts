@@ -107,8 +107,13 @@ describe("resolveSlotPace", () => {
 
   it("session-paces Ollama windows of at most 5 hours and monthly-paces the sentinel", () => {
     expect(
-      resolveSlotPace("ollama", "Primary", { windowMinutes: 90, resetsAt: "2026-03-23T13:00:00Z" }, now, legacyModules)
-        ?.context,
+      resolveSlotPace(
+        "ollama",
+        "Primary",
+        { windowMinutes: 90, resetsAt: "2026-03-23T13:00:00Z" },
+        now,
+        PROVIDER_MODULES,
+      )?.context,
     ).toBe("session");
     expect(
       resolveSlotPace(
@@ -116,7 +121,7 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       ),
     ).toBeUndefined();
     expect(
@@ -125,7 +130,7 @@ describe("resolveSlotPace", () => {
         "Primary",
         { windowMinutes: 43_200, resetsAt: "2026-04-22T10:30:00Z" },
         now,
-        legacyModules,
+        PROVIDER_MODULES,
       )?.windowMinutes,
     ).toBe(inferredMonthlyWindowMinutes("2026-04-22T10:30:00Z"));
   });
