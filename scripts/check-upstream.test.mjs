@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDER_CATALOG } from "../src/providers/catalog.ts";
-import { PROVIDER_MODULES } from "../src/providers/index.ts";
+import { PROVIDER_CATALOG, PROVIDER_MODULES } from "../src/providers/index.ts";
 import { checkUpstream, DEFAULT_POLICY } from "./check-upstream.mjs";
 import {
   compareProviders,
@@ -273,7 +272,7 @@ describe("compareProviders", () => {
     expect(problems).toContainEqual(
       expect.stringContaining('codex: usageSectionLabels.primary "Session" != upstream "5-hour"'),
     );
-    expect(problems).toContainEqual(expect.stringContaining("mistral: present in catalog.ts"));
+    expect(problems).toContainEqual(expect.stringContaining("mistral: present in the provider catalog"));
     expect(problems).toContainEqual(expect.stringContaining("extra: upstream provider missing"));
     expect(problems).toHaveLength(3);
   });

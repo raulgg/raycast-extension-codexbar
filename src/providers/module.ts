@@ -1,6 +1,5 @@
-import type { ProviderCatalogEntry } from "./catalog";
-import { PROVIDER_MODULES } from "./index";
 import type { DynamicTitleFn, ExtraWindowPace, PaceCapability } from "./paceCapabilities";
+import type { ProviderCatalogEntry } from "./types";
 import type { ProviderSection, RawProviderPayload } from "../usage/types";
 
 export type ProviderMock = {
@@ -40,29 +39,15 @@ export type ProviderModule = {
 
 export type ProviderModuleMap = Readonly<Record<string, ProviderModule>>;
 
-export function assertDistinctProviderModules<Modules extends Record<keyof Modules, ProviderModule>>(
-  legacy: Readonly<Record<string, ProviderCatalogEntry>>,
-  modules: Modules,
-): void {
-  const duplicates = Object.keys(modules).filter((id) => Object.prototype.hasOwnProperty.call(legacy, id));
-  if (duplicates.length > 0) {
-    throw new Error(`Provider modules duplicate legacy catalog ids: ${duplicates.join(", ")}`);
-  }
-}
-
-export function providerModuleById(id: string): ProviderModule | undefined {
-  if (!Object.hasOwn(PROVIDER_MODULES, id)) return undefined;
-  return PROVIDER_MODULES[id as keyof typeof PROVIDER_MODULES];
+export function providerModuleById(id: string, modules: ProviderModuleMap): ProviderModule | undefined {
+  if (!Object.hasOwn(modules, id)) return undefined;
+  return modules[id];
 }
 
 export function assembleProviderCatalog<
   Order extends readonly string[],
   Modules extends Record<keyof Modules, ProviderModule>,
->(
-  order: Order,
-  legacy: Readonly<Record<string, ProviderCatalogEntry>>,
-  modules: Modules,
-): { [Id in Order[number]]: ProviderCatalogEntry } {
+>(order: Order, modules: Modules): { [Id in Order[number]]: ProviderCatalogEntry } {
   const seen = new Set<string>();
   const catalog = {} as { [Id in Order[number]]: ProviderCatalogEntry };
   for (const id of order) {
@@ -70,17 +55,10 @@ export function assembleProviderCatalog<
       throw new Error(`Duplicate catalog order id: ${id}`);
     }
     seen.add(id);
-    const moduleMetadata = Object.hasOwn(modules, id) ? modules[id as keyof Modules].metadata : undefined;
-    const metadata = moduleMetadata ?? legacy[id];
-    if (!metadata) {
-      throw new Error(`Missing catalog entry for ${id}`);
+    if (!Object.hasOwn(modules, id)) {
+      throw new Error(`Missing provider module for ${id}`);
     }
-    catalog[id as Order[number]] = metadata;
-  }
-  for (const id of Object.keys(legacy)) {
-    if (!seen.has(id)) {
-      throw new Error(`Legacy catalog id missing from order: ${id}`);
-    }
+    catalog[id as Order[number]] = modules[id as keyof Modules].metadata;
   }
   for (const id of Object.keys(modules)) {
     if (!seen.has(id)) {
@@ -88,6 +66,23 @@ export function assembleProviderCatalog<
     }
   }
   return catalog;
+}
+
+export function providerIdAliases(modules: ProviderModuleMap): Record<string, string> {
+  const aliases: Record<string, string> = {};
+  for (const [id, providerModule] of Object.entries(modules)) {
+    for (const alias of providerModule.aliases ?? []) {
+      if (Object.hasOwn(modules, alias)) {
+        throw new Error(`Alias "${alias}" is a provider id`);
+      }
+      const existing = aliases[alias];
+      if (existing !== undefined) {
+        throw new Error(`Alias "${alias}" is shared by ${existing} and ${id}`);
+      }
+      aliases[alias] = id;
+    }
+  }
+  return aliases;
 }
 
 export function providerModuleMetadata<Modules extends Record<keyof Modules, ProviderModule>>(

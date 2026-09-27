@@ -1,4 +1,5 @@
 import { environment } from "@raycast/api";
+import { PROVIDER_MODULES } from "../providers/index";
 import { providerModuleById } from "../providers/module";
 import { getProviderMetadata, PROVIDER_IDS } from "../providers/registry";
 import type { AvailableProvider, ConfiguredProvider, RawProviderPayload } from "../usage/types";
@@ -51,7 +52,9 @@ function buildGenericProvider(providerId: string, windowCount: 1 | 2 = 2, source
 
 const MOCK_BUILDERS: Record<string, MockBuilder> = {};
 
-const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);
+const missingMockProviderIds = PROVIDER_IDS.filter(
+  (id) => !MOCK_BUILDERS[id] && !providerModuleById(id, PROVIDER_MODULES)?.mock,
+);
 if (missingMockProviderIds.length > 0) {
   throw new Error(`Missing mock provider builders: ${missingMockProviderIds.join(", ")}`);
 }
@@ -74,7 +77,7 @@ export function getMockAvailableProviders(): AvailableProvider[] {
 }
 
 export function getMockProviderPayload(providerId: string, now: Date = new Date()): RawProviderPayload {
-  const mock = providerModuleById(providerId)?.mock;
+  const mock = providerModuleById(providerId, PROVIDER_MODULES)?.mock;
   if (mock?.build) {
     return mock.build(now);
   }

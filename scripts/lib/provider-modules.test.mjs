@@ -23,8 +23,25 @@ describe("provider module index", () => {
 
   it("renders an empty module list", () => {
     expect(renderProviderIndex([])).toBe(
-      `import type { ProviderModule } from "./module";\n\nexport const PROVIDER_MODULES = {} satisfies Record<string, ProviderModule>;\n`,
+      [
+        'import { assembleProviderCatalog, providerIdAliases, type ProviderModule } from "./module";',
+        "",
+        "export const PROVIDER_MODULES = {} satisfies Record<string, ProviderModule>;",
+        "",
+        "const CATALOG_PROVIDER_ORDER = [] as const;",
+        "",
+        "export const PROVIDER_CATALOG = assembleProviderCatalog(CATALOG_PROVIDER_ORDER, PROVIDER_MODULES);",
+        "",
+        "export const PROVIDER_ID_ALIASES = providerIdAliases(PROVIDER_MODULES);",
+        "",
+      ].join("\n"),
     );
+  });
+
+  it("keeps catalog order ahead of alphabetical module order", () => {
+    const source = renderProviderIndex(["zoommate", "codex"]);
+    expect(source.indexOf('"codex"')).toBeGreaterThan(-1);
+    expect(source.indexOf('"codex"')).toBeLessThan(source.indexOf('"zoommate"'));
   });
 
   it("rejects a directory name that cannot be a binding", () => {

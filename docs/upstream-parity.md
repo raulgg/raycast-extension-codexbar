@@ -61,7 +61,7 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 
 | # | What | Where it lives here | How drift is caught | Upstream source |
 | - | --- | --- | --- | --- |
-| 1 | Provider metadata (names, labels, dashboard/status URLs, brand colors) | `catalog.ts` `PROVIDER_CATALOG` | `npm run upstream:check` | `Sources/CodexBarCore/Providers/**/…ProviderDescriptor.swift` |
+| 1 | Provider metadata (names, labels, dashboard/status URLs, brand colors) | `src/providers/index.ts` `PROVIDER_CATALOG` | `npm run upstream:check` | `Sources/CodexBarCore/Providers/**/…ProviderDescriptor.swift` |
 | 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES`, or a module `displayTitle` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
 | 4 | Pacing, gating | `paceCapabilities.ts`, or a module `pace` / `extraWindowPace` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
@@ -69,7 +69,7 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
-| | Provider id aliases | `catalog.ts` `PROVIDER_ID_ALIASES` | ❌ hand-maintained | `ProviderCLIConfig` (`cliName` plus aliases) |
+| | Provider id aliases | module `aliases`, derived `PROVIDER_ID_ALIASES` | `npm run upstream:check` (collisions only) | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. Quota bars and usage meters use
 `brandColor` in both appearances (`buildProgressPalette`). A Provider config `accentColor`
@@ -101,13 +101,13 @@ window matches on the next fetch.
 
 ## Surface 1. Provider metadata (`upstream:check`)
 
-`catalog.ts` `PROVIDER_CATALOG` holds one entry per provider id: `name`, `brandColor`,
+`PROVIDER_CATALOG` in `src/providers/index.ts` holds one entry per provider id: `name`, `brandColor`,
 `usageSectionLabels` (Primary/Secondary/Tertiary display titles, see CONTEXT.md "Display title"),
 `dashboardUrl`, `subscriptionDashboardUrl`, `statusPageUrl`, `iconSlug`, and optional `iconFallback`.
-Plain providers, including ZoomMate, keep that metadata on `src/providers/<id>/index.ts`. `src/providers/index.ts`
-lists those directories, and the assembled catalog is the legacy object plus each module's
-metadata. `upstream:check` fails when the index does not match the directories, or when a module
-id is also a key in the legacy object. `registry.ts` is the Raycast adapter over that catalog
+Each provider keeps that metadata on `src/providers/<id>/index.ts`. `src/providers/index.ts`
+lists those directories. The assembled catalog is built from `CATALOG_PROVIDER_ORDER` and the modules.
+Every id comes from a module. A missing module throws. `upstream:check` fails when the index does not
+match the directories. `registry.ts` is the Raycast adapter over that catalog
 (icons, palettes, lookups). Helmcode's
 catalog URL stays `https://cloud.helmcode.com/dashboard`, which is what the descriptor metadata
 stores. The menu action uses `HelmcodeProviderDescriptor.dashboardURL(snapshot:)` and opens
@@ -349,13 +349,13 @@ property against real temp dirs, but only Swift says whether the algorithm itsel
 ## Provider id aliases (hand-maintained)
 
 The CLI accepts alternate spellings for a provider id (its `cliName` plus upstream aliases from
-`ProviderCLIConfig`, e.g. `alibaba-coding-plan` → `alibaba`, `groqcloud` → `groq`). `PROVIDER_ID_ALIASES`
-in `catalog.ts` resolves each to the canonical id, the upstream enum case name, which is what
+`ProviderCLIConfig`, e.g. `alibaba-coding-plan` → `alibaba`, `groqcloud` → `groq`). Each provider
+module lists its `aliases`. `PROVIDER_ID_ALIASES` in `src/providers/index.ts` is derived from those
+lists and resolves each spelling to the canonical id, the upstream enum case name, which is what
 `config.json` and the payloads use. A config listing either spelling renders one row. When
-upstream adds an alias, add it here, or a user's config that uses the new spelling falls through to
-the title-cased fallback row. Provider modules may carry `aliases` too. `upstream:check` fails if
-two modules share one, or if an alias equals any legacy or module provider id. That check does not
-compare the spellings to upstream.
+upstream adds an alias, add it on the module, or a user's config that uses the new spelling falls
+through to the title-cased fallback row. `upstream:check` fails if two modules share one, or if an
+alias equals any provider id. That check does not compare the spellings to upstream.
 
 ---
 
