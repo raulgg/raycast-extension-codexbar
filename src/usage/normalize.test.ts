@@ -695,6 +695,67 @@ describe("provider normalization", () => {
     expect(message).toBe("No available fetch strategy for alibaba.");
   });
 
+  it("keeps resetsAt and windowMinutes from the source window", () => {
+    const now = Date.parse("2026-03-23T10:30:00Z");
+    const resetsAt = "2026-03-23T12:00:00Z";
+    const windowMinutes = 300;
+
+    const raw = normalizeProviderDetailPayload(
+      { provider: "claude", usage: { primary: { usedPercent: 20, windowMinutes, resetsAt } } },
+      "claude",
+      now,
+    );
+    expect(raw.sections[0]).toMatchObject({
+      kind: "usage",
+      resetsIn: "1h 30m",
+      resetsAt,
+      windowMinutes,
+    });
+
+    const presentation = normalizeProviderDetailPayload(
+      {
+        provider: "claude",
+        presentation: {
+          schemaVersion: 1,
+          meters: [{ kind: "primary", label: "Session", usedPercent: 20, windowMinutes, resetsAt }],
+        },
+      },
+      "claude",
+      now,
+    );
+    expect(presentation.sections[0]).toMatchObject({
+      kind: "usage",
+      resetsIn: "1h 30m",
+      resetsAt,
+      windowMinutes,
+    });
+
+    const extra = normalizeProviderDetailPayload(
+      {
+        provider: "claude",
+        usage: {
+          extraRateWindows: [{ id: "spark", title: "Spark", window: { usedPercent: 20, windowMinutes, resetsAt } }],
+        },
+      },
+      "claude",
+      now,
+    );
+    expect(extra.sections[0]).toMatchObject({
+      kind: "supplementalUsage",
+      resetsIn: "1h 30m",
+      resetsAt,
+      windowMinutes,
+    });
+
+    const bare = normalizeProviderDetailPayload(
+      { provider: "claude", usage: { primary: { usedPercent: 20 } } },
+      "claude",
+      now,
+    );
+    expect(bare.sections[0]).not.toHaveProperty("resetsAt");
+    expect(bare.sections[0]).not.toHaveProperty("windowMinutes");
+  });
+
   it("renders named extra rate windows after the slot sections", () => {
     const detail = normalizeProviderDetailPayload(
       {
