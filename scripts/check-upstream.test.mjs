@@ -493,6 +493,84 @@ describe("comparePaceCapabilities", () => {
     expect(problems).toEqual([]);
   });
 
+  it("maps Notion's rolling-session fingerprint onto windowDurationAtMost", () => {
+    const source = descriptorFixture({
+      id: "notion",
+      extra: "public static let rollingWindowMaxMinutes = 6 * 60",
+      pace: `ProviderPaceCapability(
+                resetWindowPace: .windowDuration(minutes: 43200),
+                inferredMonthlyDuration: .windowDuration(minutes: 43200),
+                sessionPaceWindowRule: .custom { window, _ in
+                    guard let minutes = window.windowMinutes else { return false }
+                    return minutes <= Self.rollingWindowMaxMinutes
+                })`,
+    });
+    const parsed = parseDescriptorPace(source, "Notion.swift");
+    const fingerprint =
+      "window, _ in guard let minutes = window.windowMinutes else { return false } return minutes <= 360";
+    expect(parsed.sessionPaceWindowRule.fingerprint).toBe(fingerprint);
+    const rules = {
+      "notion.sessionPaceWindowRule": { matcher: "windowDurationAtMost", fingerprint },
+    };
+    const upstream = new Map([["notion", { pace: parsed }]]);
+    const notionPace = {
+      resetWindowPace: { type: "windowDuration", minutes: 43_200 },
+      inferredMonthlyDuration: { type: "windowDuration", minutes: 43_200 },
+      sessionPaceWindowRule: { type: "windowDurationAtMost", minutes: 360 },
+    };
+    expect(comparePaceCapabilities(new Map([["notion", notionPace]]), upstream, rules).problems).toEqual([]);
+    expect(
+      comparePaceCapabilities(
+        new Map([
+          [
+            "notion",
+            {
+              ...notionPace,
+              sessionPaceWindowRule: { type: "windowDurationAtMost", minutes: 300 },
+            },
+          ],
+        ]),
+        upstream,
+        rules,
+      ).problems,
+    ).toEqual([
+      'notion: sessionPaceWindowRule {"type":"windowDurationAtMost","minutes":300} != upstream {"type":"windowDurationAtMost","minutes":360}',
+    ]);
+  });
+
+  it("keeps Ollama's at-most closure as a named custom", () => {
+    const parsed = parseDescriptorPace(
+      descriptorFixture({
+        pace: `ProviderPaceCapability(
+                sessionPaceWindowRule: .custom { window, _ in
+                    guard let minutes = window.windowMinutes else { return false }
+                    return minutes <= 300
+                })`,
+      }),
+      "Ollama.swift",
+    );
+    const { problems } = comparePaceCapabilities(
+      new Map([
+        [
+          "ollama",
+          {
+            resetWindowPace: { type: "unsupported" },
+            inferredMonthlyDuration: { type: "unsupported" },
+            sessionPaceWindowRule: { type: "custom", id: "ollamaSessionAtMostFiveHours" },
+          },
+        ],
+      ]),
+      new Map([["ollama", { pace: parsed }]]),
+      {
+        "ollama.sessionPaceWindowRule": {
+          id: "ollamaSessionAtMostFiveHours",
+          fingerprint: parsed.sessionPaceWindowRule.fingerprint,
+        },
+      },
+    );
+    expect(problems).toEqual([]);
+  });
+
   it("prints the field that diverged", () => {
     const grok = parseDescriptorPace(
       descriptorFixture({

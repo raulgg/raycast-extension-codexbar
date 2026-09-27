@@ -83,6 +83,8 @@ describe("provider registry", () => {
     expect(resolveProviderId("r8")).toBe("replicate");
     expect(resolveProviderId("helm-code")).toBe("helmcode");
     expect(resolveProviderId("or")).toBe("openrouter");
+    expect(resolveProviderId("notion-ai")).toBe("notion");
+    expect(resolveProviderId("notionai")).toBe("notion");
   });
 
   it("uses harvested upstream metadata for new providers", () => {

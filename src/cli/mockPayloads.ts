@@ -19,7 +19,6 @@ const MOCK_SOURCES: Record<string, string> = {
   amp: "web",
   ollama: "web",
   grok: "web",
-  notion: "web",
 };
 
 const MOCK_VERSIONS: Record<string, string | null> = {
@@ -274,24 +273,6 @@ function hashSeed(value: string): number {
   return Math.abs(hash);
 }
 
-function buildNotion(now: Date): RawProviderPayload {
-  return buildPayload("notion", {
-    source: MOCK_SOURCES.notion,
-    version: null,
-    status: null,
-    usage: buildUsage(
-      now,
-      buildWindow(now, 38, 3 * HOUR, null, undefined, 360),
-      buildWindow(now, 71, 20 * DAY, null, undefined, 43_200),
-      null,
-      buildIdentity("notion", "dev@example.com", null, "Plus"),
-    ),
-    credits: null,
-    antigravityPlanInfo: null,
-    openaiDashboard: null,
-  });
-}
-
 function buildGrok(now: Date): RawProviderPayload {
   return buildPayload("grok", {
     source: MOCK_SOURCES.grok,
@@ -339,7 +320,6 @@ const MOCK_BUILDERS: Record<string, MockBuilder> = {
   amp: buildAmp,
   ollama: buildOllama,
   grok: buildGrok,
-  notion: buildNotion,
 };
 
 const missingMockProviderIds = PROVIDER_IDS.filter((id) => !MOCK_BUILDERS[id] && !providerModuleById(id)?.mock);
