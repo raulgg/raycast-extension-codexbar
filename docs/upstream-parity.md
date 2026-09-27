@@ -104,7 +104,7 @@ window matches on the next fetch.
 `catalog.ts` `PROVIDER_CATALOG` holds one entry per provider id: `name`, `brandColor`,
 `usageSectionLabels` (Primary/Secondary/Tertiary display titles, see CONTEXT.md "Display title"),
 `dashboardUrl`, `subscriptionDashboardUrl`, `statusPageUrl`, `iconSlug`, and optional `iconFallback`.
-ZoomMate's entry is the metadata on `src/providers/zoommate/index.ts`. `src/providers/index.ts`
+Plain providers, including ZoomMate, keep that metadata on `src/providers/<id>/index.ts`. `src/providers/index.ts`
 lists those directories, and the assembled catalog is the legacy object plus each module's
 metadata. `upstream:check` fails when the index does not match the directories, or when a module
 id is also a key in the legacy object. `registry.ts` is the Raycast adapter over that catalog

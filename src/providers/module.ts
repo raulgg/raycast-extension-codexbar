@@ -53,6 +53,41 @@ export function providerModuleById(id: string): ProviderModule | undefined {
   return PROVIDER_MODULES[id as keyof typeof PROVIDER_MODULES];
 }
 
+export function assembleProviderCatalog<
+  Order extends readonly string[],
+  Modules extends Record<keyof Modules, ProviderModule>,
+>(
+  order: Order,
+  legacy: Readonly<Record<string, ProviderCatalogEntry>>,
+  modules: Modules,
+): { [Id in Order[number]]: ProviderCatalogEntry } {
+  const seen = new Set<string>();
+  const catalog = {} as { [Id in Order[number]]: ProviderCatalogEntry };
+  for (const id of order) {
+    if (seen.has(id)) {
+      throw new Error(`Duplicate catalog order id: ${id}`);
+    }
+    seen.add(id);
+    const moduleMetadata = Object.hasOwn(modules, id) ? modules[id as keyof Modules].metadata : undefined;
+    const metadata = moduleMetadata ?? legacy[id];
+    if (!metadata) {
+      throw new Error(`Missing catalog entry for ${id}`);
+    }
+    catalog[id as Order[number]] = metadata;
+  }
+  for (const id of Object.keys(legacy)) {
+    if (!seen.has(id)) {
+      throw new Error(`Legacy catalog id missing from order: ${id}`);
+    }
+  }
+  for (const id of Object.keys(modules)) {
+    if (!seen.has(id)) {
+      throw new Error(`Provider module id missing from order: ${id}`);
+    }
+  }
+  return catalog;
+}
+
 export function providerModuleMetadata<Modules extends Record<keyof Modules, ProviderModule>>(
   modules: Modules,
 ): { [Id in keyof Modules]: ProviderCatalogEntry } {

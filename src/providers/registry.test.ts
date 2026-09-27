@@ -18,6 +18,7 @@ import {
 
 describe("provider registry", () => {
   it("covers the documented provider IDs without including selector aliases", () => {
+    expect(PROVIDER_IDS.slice(0, 5)).toEqual(["codex", "claude", "clinepass", "cursor", "opencode"]);
     expect(PROVIDER_IDS).toContain("codex");
     expect(PROVIDER_IDS).toContain("claude");
     expect(PROVIDER_IDS).toContain("opencodego");
