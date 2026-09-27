@@ -217,8 +217,9 @@ Upstream ships often. A periodic sync pass:
    labels, URLs, iconSlug) transcribed from its `…ProviderDescriptor.swift`; **don't invent values**.
    The overview renders that Provider until the entry lands
    ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); this check still fails.
-   ZoomMate already lives in `src/providers/zoommate/index.ts`; edit that module instead of putting
-   it back in the legacy object, and keep `src/providers/index.ts` equal to the directories.
+   Plain providers, including ZoomMate, already live in `src/providers/<id>/index.ts`. Edit that
+   module instead of putting the id back in the legacy object, and keep `src/providers/index.ts`
+   equal to the directories.
    New alias → `PROVIDER_ID_ALIASES` in `catalog.ts`, or `aliases` on a provider module. Field
    mismatch → update the catalog, or record an intentional `ALLOWED_DIVERGENCES` entry with a
    reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or mark it unportable.

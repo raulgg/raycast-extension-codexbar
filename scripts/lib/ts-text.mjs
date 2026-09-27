@@ -257,9 +257,9 @@ export function findAssignedObject(source, name) {
   if (equals === -1) {
     throw new Error(`No assignment for ${name}.`);
   }
-  const brace = source.indexOf("{", equals);
-  if (brace === -1) {
-    throw new Error(`No object literal for ${name}.`);
+  const brace = skipTrivia(source, equals + 1);
+  if (source[brace] !== "{") {
+    return undefined;
   }
   return { start: brace, end: scanBalanced(source, brace, "{", "}") };
 }

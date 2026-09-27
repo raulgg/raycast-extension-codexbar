@@ -1,7 +1,7 @@
 import type { ProviderUsagePacingContext } from "../usage/types";
+import { PROVIDER_CATALOG, PROVIDER_ID_ALIASES } from "./catalog";
 import { PROVIDER_MODULES } from "./index";
 import type { ProviderModuleMap } from "./module";
-import { isKnownProviderId } from "./registry";
 
 export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
@@ -210,6 +210,16 @@ export function getPaceCapability(providerId: string, modules: ProviderModuleMap
   return modules[providerId]?.pace ?? PACE_CAPABILITIES[providerId] ?? UNSUPPORTED;
 }
 
+function isKnownProviderId(providerId: string, modules: ProviderModuleMap): boolean {
+  for (const [id, providerModule] of Object.entries(modules)) {
+    if (id === providerId || providerModule.aliases?.includes(providerId)) {
+      return Object.hasOwn(PROVIDER_CATALOG, id);
+    }
+  }
+  const canonical = PROVIDER_ID_ALIASES[providerId] ?? providerId;
+  return Object.hasOwn(PROVIDER_CATALOG, canonical);
+}
+
 export function resolveSlotPace(
   providerId: string,
   slot: SlotTitle,
@@ -217,7 +227,7 @@ export function resolveSlotPace(
   now: number,
   modules: ProviderModuleMap = PROVIDER_MODULES,
 ): ResolvedSlotPace | undefined {
-  if (!isKnownProviderId(providerId) && modules[providerId] === undefined) {
+  if (modules[providerId] === undefined && !isKnownProviderId(providerId, modules)) {
     return undefined;
   }
 
