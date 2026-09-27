@@ -14,11 +14,6 @@ import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
 import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
 import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
-import {
-  applyCodexWeeklySessionCap,
-  buildCodexCodeReviewSection,
-  buildCodexResetCreditSection,
-} from "./providerRules/codex";
 import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
@@ -235,7 +230,6 @@ function buildUsageSections(
 ): ProviderSection[] {
   const usage = toRecord(payload.usage);
   const sections: ProviderSection[] = [];
-  const resetsAtByTitle: Partial<Record<"Primary" | "Secondary", string | undefined>> = {};
   const slotFallbacks = [
     {
       title: "Primary" as const,
@@ -277,9 +271,6 @@ function buildUsageSections(
     }
 
     const resolvedResetsAt = toNonBlankString(record.resetsAt) ?? slot.resetTimestamp;
-    if (slot.title === "Primary" || slot.title === "Secondary") {
-      resetsAtByTitle[slot.title] = resolvedResetsAt;
-    }
     const windowMinutes = toFiniteNumber(record.windowMinutes);
     const resetDescription = toTrimmedString(record.resetDescription);
     const displayTitle =
@@ -306,14 +297,9 @@ function buildUsageSections(
           nextRegenPercent: toFiniteNumber(record.nextRegenPercent),
         },
         context,
-        usageItemIdForSlot(providerId, slot.title, windowMinutes),
+        usageItemIdForSlot(slot.title),
       ),
     );
-  }
-
-  // Raw path only (presentation meters never call this). Codex weekly-empty caps session.
-  if (providerId === "codex") {
-    return applyCodexWeeklySessionCap(sections, resetsAtByTitle, now);
   }
 
   return sections;
@@ -532,8 +518,6 @@ function normalizePayload(
   const rawSections = presentation?.sections ?? [
     ...buildUsageSections(metadata.id, payload, now, modules),
     ...buildExtraRateWindowSections(metadata.id, payload, now, modules),
-    ...buildCodexCodeReviewSection(payload, now),
-    ...buildCodexResetCreditSection(metadata.id, payload, now),
   ];
   const interpreted = modules[metadata.id]?.interpret?.({
     payload,

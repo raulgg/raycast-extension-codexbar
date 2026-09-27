@@ -87,7 +87,7 @@ time. The provider-detail cache still stores every section.
 | Stored id | What it hides here |
 | --- | --- |
 | `metric:primary` / `metric:secondary` / `metric:tertiary` | That slot. |
-| `metric:monthly` | Codex's 30-day lane (`CodexConsumerProjection.classifyRateWindow`). 300 minutes is `metric:primary`, 10080 is `metric:secondary`. Any other duration stays on its slot. |
+| `metric:monthly` | Codex's 30-day lane (`CodexConsumerProjection.classifyRateWindow`, stamped by the Codex module). 300 minutes is `metric:primary`, 10080 is `metric:secondary`. Any other duration stays on its slot. |
 | `metric:<extraRateWindow id>` | That named extra rate window (`cursor-grok-bot`, `codex-spark`, …). |
 | `metric:code-review` | Codex code review. |
 | `section:codex-reset-credits` | Limit Reset Credits. |
@@ -167,8 +167,8 @@ Static labels live in `usageSectionLabels`. On top of them, upstream's renderers
 from payload contents. We port these into `DYNAMIC_SLOT_TITLES` (`paceCapabilities.ts`).
 `normalize.ts` applies that map, then falls back to the catalog's static label:
 
-- **codex.** Titles follow window length (`CodexConsumerProjection.rateTitle`). 5-hour becomes
-  Session, 7-day becomes Weekly, 30-day becomes Monthly.
+- **codex.** Titles follow window length (`CodexConsumerProjection.rateTitle`, on the Codex
+  module). 5-hour becomes Session, 7-day becomes Weekly, 30-day becomes Monthly.
 - **factory.** Switches to 5-hour / Weekly / Monthly whenever a tertiary window is present.
 - **grok.** Relabels its primary bar by billing-window length (`windowMinutes`, else the distance to
   `resetsAt`). Untyped windows with only `resetsAt` fall back to "Weekly" (`displayLabel`, #2929).
@@ -294,8 +294,9 @@ implemented.
 ## Codex-only raw projection. Weekly caps session
 
 On the raw usage path (no `presentation.schemaVersion === 1` meters), Codex applies the app's
-`CodexConsumerProjection.weeklyCapsSession` rule in `usage/providerRules/codex.ts`. When weekly remaining is 0 and
-still binding, Primary is forced to 0% remaining and its reset is retargeted via `bindingReset`.
+`CodexConsumerProjection.weeklyCapsSession` rule in `src/providers/codex/usageCard.ts`. When weekly
+remaining is 0 and still binding, Primary is forced to 0% remaining and its reset is retargeted via
+`bindingReset`. The reset it reads is the section's `resetsAt`.
 Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on that path.
 
 ## Surface 5. Supplemental usage shapes (hand-maintained)
@@ -303,9 +304,9 @@ Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on 
 Beyond Primary/Secondary/Tertiary, upstream models a long list of provider-specific meters. We map a
 few special cases:
 
-- **Mapped.** Codex's "Code review" allowance (`codeReviewRemainingPercent`), named extra rate
-  windows (`extraRateWindows`, e.g. "Codex Spark"), and OpenRouter key usage (`openRouterUsage`,
-  on the OpenRouter provider module).
+- **Mapped.** Codex's "Code review" allowance (`codeReviewRemainingPercent`, on the Codex
+  provider module), named extra rate windows (`extraRateWindows`, e.g. "Codex Spark"), and
+  OpenRouter key usage (`openRouterUsage`, on the OpenRouter provider module).
   Antigravity extras whose ids start with `antigravity-quota-summary-` are what the detail card
   draws (on the Antigravity provider module). Primary and Secondary are copies for the list
   adornment, the same rule as `antigravityMetrics` in `MenuCardView+ModelHelpers.swift`. Skip

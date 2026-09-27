@@ -39,8 +39,8 @@ describe("provider module pace and titles", () => {
 
   it("uses the module pace row when the provider sets one", () => {
     expect(getPaceCapability("fixture", { fixture })).toEqual(fixture.pace);
-    expect(getPaceCapability("codex", legacyModules)).toEqual(PACE_CAPABILITIES.codex);
-    expect(getPaceCapability("codex", { codex: { metadata: fixture.metadata } })).toEqual(PACE_CAPABILITIES.codex);
+    expect(getPaceCapability("claude", legacyModules)).toEqual(PACE_CAPABILITIES.claude);
+    expect(getPaceCapability("claude", { claude: { metadata: fixture.metadata } })).toEqual(PACE_CAPABILITIES.claude);
     expect(
       resolveSlotPace("fixture", "Primary", { windowMinutes: 300, resetsAt: "2026-03-23T12:00:00Z" }, now, {
         fixture,
@@ -231,9 +231,10 @@ describe("resolveExtraWindowPace", () => {
   };
 
   it("session-paces Codex and Antigravity 5-hour extras, weekly-paces 7-day extras", () => {
-    expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, legacyModules)?.context).toBe("session");
+    expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, legacyModules)).toBeUndefined();
+    expect(resolveExtraWindowPace("codex", { windowMinutes: 300 }, PROVIDER_MODULES)?.context).toBe("session");
     expect(resolveExtraWindowPace("antigravity", { windowMinutes: 300 }, PROVIDER_MODULES)?.context).toBe("session");
-    expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
+    expect(resolveExtraWindowPace("codex", { windowMinutes: 10_080 }, PROVIDER_MODULES)?.context).toBe("window");
     expect(resolveExtraWindowPace("claude", { windowMinutes: 10_080 }, legacyModules)?.context).toBe("window");
   });
 

@@ -15,6 +15,7 @@ import clawrouter from "./clawrouter";
 import clinepass from "./clinepass";
 import codebuff from "./codebuff";
 import coderabbit from "./coderabbit";
+import codex from "./codex";
 import commandcode from "./commandcode";
 import copilot from "./copilot";
 import cursor from "./cursor";
@@ -99,6 +100,7 @@ export const PROVIDER_MODULES = {
   clinepass,
   codebuff,
   coderabbit,
+  codex,
   commandcode,
   copilot,
   cursor,
