@@ -27,6 +27,7 @@ import fireworks from "./fireworks";
 import gemini from "./gemini";
 import gitkraken from "./gitkraken";
 import groq from "./groq";
+import helmcode from "./helmcode";
 import huggingface from "./huggingface";
 import hyper from "./hyper";
 import ibmbob from "./ibmbob";
@@ -102,6 +103,7 @@ export const PROVIDER_MODULES = {
   gemini,
   gitkraken,
   groq,
+  helmcode,
   huggingface,
   hyper,
   ibmbob,

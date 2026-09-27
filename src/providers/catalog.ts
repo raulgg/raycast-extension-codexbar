@@ -122,14 +122,6 @@ const LEGACY_PROVIDER_CATALOG = {
     dashboardUrl: "https://app.notion.com/",
     statusPageUrl: "https://status.notion.so/",
   },
-  helmcode: {
-    name: "Helmcode",
-    iconSlug: "helmcode",
-    iconFallback: "Terminal",
-    brandColor: "#4934E1",
-    usageSectionLabels: { primary: "Model quota", secondary: "Model quota" },
-    dashboardUrl: "https://cloud.helmcode.com/dashboard",
-  },
 } satisfies Record<string, ProviderCatalogEntry>;
 
 const CATALOG_PROVIDER_ORDER = [
@@ -232,5 +224,4 @@ export const PROVIDER_ID_ALIASES: Record<string, string> = {
   "z.ai": "zai",
   "notion-ai": "notion",
   notionai: "notion",
-  "helm-code": "helmcode",
 };
