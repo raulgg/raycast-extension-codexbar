@@ -1,27 +1,88 @@
 #!/usr/bin/env node
 
-// Deletes providers that the pinned CodexBar revision no longer ships.
-// Catalog entries, aliases, mocks, pace rows, dynamic titles, allowlists, provider
-// rules, exclusive tests, and icons are removed together. Shared tests that use the
-// id as one sample among several are listed and left in place.
+// Deletes Providers that the pinned CodexBar revision no longer ships.
+// The edit is the Provider directory, the generated module index, the catalog
+// order, the upstream allowlists, and an icon no remaining Provider uses.
+// A production reference that would survive that edit blocks the write.
 //
 //   npm run upstream:prune
 //   npm run upstream:prune -- --check
+//   npm run upstream:prune -- --plan
 
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { PROVIDER_CATALOG } from "../src/providers/index.ts";
-import { keptIconSlugs, pruneProviderSources } from "./lib/prune-provider.mjs";
+import { planPrune } from "./lib/prune-provider.mjs";
 import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./lib/upstream.mjs";
 import { parseDescriptorMetadata } from "./lib/upstream-metadata.mjs";
 import { assertSafeIconSlug } from "./sync-provider-icons.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CHECK_ONLY = process.argv.includes("--check");
 const DESCRIPTOR_DIR = "Sources/CodexBarCore/Providers";
 const SOURCE_ROOTS = ["src", "scripts"];
+
+export function pruneMode(argv) {
+  if (argv.includes("--plan")) return "plan";
+  if (argv.includes("--check")) return "check";
+  return "apply";
+}
+
+export function planSummary(plan) {
+  return {
+    ok: plan.ok,
+    updates: plan.updates,
+    deleted: plan.deleted,
+    blockers: plan.blockers,
+    testMentions: plan.testMentions,
+  };
+}
+
+export async function executePrune({ mode, files, removed, writeFile: write, remove }) {
+  const plan = planPrune(files, removed);
+  if (mode === "plan") {
+    return { plan, wrote: false, stdout: `${JSON.stringify(planSummary(plan))}\n`, stderr: humanReport(removed, plan) };
+  }
+  if (mode !== "apply" || !plan.ok) {
+    return { plan, wrote: false, stdout: humanReport(removed, plan), stderr: "" };
+  }
+
+  for (const relative of plan.updates) {
+    await write(relative, plan.files[relative]);
+  }
+  for (const relative of plan.deleted) {
+    await remove(relative);
+  }
+  for (const directory of providerDirectories(plan.deleted)) {
+    await remove(directory, { recursive: true });
+  }
+  return { plan, wrote: true, stdout: humanReport(removed, plan), stderr: "" };
+}
+
+function humanReport(removed, plan) {
+  const lines = [`Upstream no longer ships: ${removed.map((provider) => provider.id).join(", ")}`];
+  for (const relative of [...plan.updates, ...plan.deleted]) lines.push(relative);
+  if (plan.testMentions.length > 0) {
+    lines.push("Tests still mention a removed Provider:");
+    for (const mention of plan.testMentions) lines.push(`  ${mention}`);
+  }
+  if (plan.blockers.length > 0) {
+    lines.push("Removed Providers are still referenced from production code:");
+    for (const mention of plan.blockers) lines.push(`  ${mention}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function providerDirectories(deleted) {
+  return [
+    ...new Set(
+      deleted
+        .map((relative) => relative.match(/^(src\/providers\/[^/]+)\//)?.[1])
+        .filter((directory) => directory !== undefined),
+    ),
+  ];
+}
 
 async function listSourceFiles(directory) {
   const entries = await readdir(path.join(ROOT, directory), { withFileTypes: true });
@@ -33,9 +94,7 @@ async function listSourceFiles(directory) {
       files.push(...(await listSourceFiles(entryPath)));
       continue;
     }
-    if (/\.(tsx?|mjs)$/.test(entry.name)) {
-      files.push(entryPath);
-    }
+    if (/\.(tsx?|mjs)$/.test(entry.name)) files.push(entryPath);
   }
   return files;
 }
@@ -70,77 +129,38 @@ async function prune() {
   const upstreamIds = await upstreamProviderIds(source);
   const removed = Object.keys(PROVIDER_CATALOG)
     .filter((id) => !upstreamIds.has(id))
-    .sort();
+    .sort()
+    .map((id) => ({ id, iconSlug: assertSafeIconSlug(PROVIDER_CATALOG[id].iconSlug) }));
 
   if (removed.length === 0) {
+    const mode = pruneMode(process.argv);
+    if (mode === "plan") {
+      process.stdout.write(`${JSON.stringify(planSummary({ ok: true, updates: [], deleted: [], blockers: [], testMentions: [] }))}\n`);
+      return;
+    }
     console.log(`No removed providers in ${source.label}.`);
     return;
   }
 
-  console.log(`Upstream no longer ships: ${removed.join(", ")}`);
-  if (CHECK_ONLY) {
-    process.exitCode = 1;
+  const files = await readProjectSources();
+  const mode = pruneMode(process.argv);
+  const result = await executePrune({
+    mode,
+    files,
+    removed,
+    writeFile: (relative, contents) => writeFile(path.join(ROOT, relative), contents),
+    remove: (relative, options) => rm(path.join(ROOT, relative), { force: true, ...options }),
+  });
+
+  if (mode === "plan") {
+    process.stderr.write(result.stderr);
+    process.stdout.write(result.stdout);
+    if (!result.plan.ok) process.exitCode = 1;
     return;
   }
 
-  const original = await readProjectSources();
-  const keptSlugs = keptIconSlugs(PROVIDER_CATALOG, removed);
-  let current = original;
-  const deleted = new Set();
-  const leftovers = [];
-  const testMentions = [];
-
-  for (const id of removed) {
-    const iconSlug = assertSafeIconSlug(PROVIDER_CATALOG[id].iconSlug);
-    const result = pruneProviderSources(current, {
-      id,
-      iconSlug,
-      knownIds: Object.keys(PROVIDER_CATALOG),
-      removedIds: removed,
-      deleteIcon: !keptSlugs.has(iconSlug),
-    });
-    current = result.files;
-    for (const filePath of result.deleted) deleted.add(filePath);
-    leftovers.push(...result.leftovers);
-    testMentions.push(...result.testMentions);
-  }
-
-  for (const [relative, contents] of Object.entries(current)) {
-    if (original[relative] !== contents) {
-      await writeFile(path.join(ROOT, relative), contents);
-      console.log(`Updated ${relative}`);
-    }
-  }
-  for (const relative of Object.keys(original)) {
-    if (!(relative in current)) {
-      await rm(path.join(ROOT, relative));
-      console.log(`Deleted ${relative}`);
-    }
-  }
-  for (const relative of deleted) {
-    if (!relative.endsWith(".svg")) continue;
-    await rm(path.join(ROOT, relative), { force: true });
-    console.log(`Deleted ${relative}`);
-  }
-  const removedModuleDirs = new Set(
-    [...deleted]
-      .map((relative) => relative.match(/^(src\/providers\/[^/]+)\/index\.ts$/)?.[1])
-      .filter((directory) => directory !== undefined),
-  );
-  for (const directory of removedModuleDirs) {
-    await rm(path.join(ROOT, directory), { recursive: true, force: true });
-    console.log(`Deleted ${directory}`);
-  }
-
-  if (testMentions.length > 0) {
-    console.log("Tests still mention a removed provider as one sample among several:");
-    for (const mention of testMentions) console.log(`  ${mention}`);
-  }
-  if (leftovers.length > 0) {
-    console.error("Removed providers are still referenced from production code:");
-    for (const mention of leftovers) console.error(`  ${mention}`);
-    process.exitCode = 1;
-  }
+  process.stdout.write(result.stdout);
+  if (!result.plan.ok || mode === "check") process.exitCode = 1;
 }
 
 if (isMainModule(import.meta.url)) {

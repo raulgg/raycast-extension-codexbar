@@ -1,324 +1,200 @@
-import { describe, expect, it } from "vitest";
-import { renderProviderIndex } from "./lib/provider-modules.mjs";
-import { pruneProviderSources } from "./lib/prune-provider.mjs";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import { executePrune, planSummary, pruneMode } from "./prune-removed-providers.mjs";
+import { planPrune, removeObjectProperties } from "./lib/prune-provider.mjs";
 
-const knownIds = ["codex", "claude", "kilo", "zoommate", "helmcode"];
-
-function prune(files, id, iconSlug = id) {
-  return pruneProviderSources(files, { id, iconSlug, knownIds, deleteIcon: true });
+function moduleSource(id, iconSlug = id) {
+  return `const ${id} = { metadata: { iconSlug: "${iconSlug}" } };\nexport default ${id};\n`;
 }
 
-describe("pruneProviderSources", () => {
-  it("removes a generic provider from the catalog, aliases, and mocks", () => {
-    const result = prune({
-      "src/providers/catalog.ts": `export const PROVIDER_CATALOG = {
-  codex: {
-    name: "Codex",
-    iconSlug: "codex",
-  },
-  zoommate: {
-    name: "ZoomMate",
-    iconSlug: "zoommate",
-    dashboardUrl: "https://zoommate.example",
-  },
-  claude: {
-    name: "Claude",
-    iconSlug: "claude",
-  },
-} satisfies Record<string, ProviderCatalogEntry>;
-
-export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  "z.ai": "zai",
-  zm: "zoommate",
-  hf: "huggingface",
-};
-`,
-      "src/cli/mockPayloads.ts": `const MOCK_SOURCES: Record<string, string> = {
-  codex: "codex-cli",
-  zoommate: "web",
-  claude: "web",
-};
-
-const MOCK_BUILDERS: Record<string, MockBuilder> = {
-  codex: buildCodex,
-  zoommate: buildZoom,
-  claude: buildGenericProvider("claude"),
-};
-
-function buildZoom(now: Date): MockBuilder {
-  return () => ({ provider: "zoommate", now });
+function orderSource(ids) {
+  return `export const CATALOG_PROVIDER_ORDER = [\n${ids.map((id) => `  "${id}",`).join("\n")}\n];\n`;
 }
 
-function buildGenericProvider(providerId: string): MockBuilder {
-  return () => ({ provider: providerId });
-}
-`,
-    }, "zoommate");
-
-    expect(result.files["src/providers/catalog.ts"]).toBe(`export const PROVIDER_CATALOG = {
-  codex: {
-    name: "Codex",
-    iconSlug: "codex",
-  },
-  claude: {
-    name: "Claude",
-    iconSlug: "claude",
-  },
-} satisfies Record<string, ProviderCatalogEntry>;
-
-export const PROVIDER_ID_ALIASES: Record<string, string> = {
-  "z.ai": "zai",
-  hf: "huggingface",
-};
-`);
-    expect(result.files["src/cli/mockPayloads.ts"]).toContain('codex: "codex-cli"');
-    expect(result.files["src/cli/mockPayloads.ts"]).toContain('buildGenericProvider("claude")');
-    expect(result.files["src/cli/mockPayloads.ts"]).not.toContain("zoommate");
-    expect(result.files["src/cli/mockPayloads.ts"]).toContain("function buildGenericProvider");
-    expect(result.files["src/cli/mockPayloads.ts"]).not.toContain("function buildZoom");
-    expect(result.deleted).toEqual(["assets/provider-icons/zoommate.svg"]);
-    expect(result.leftovers).toEqual([]);
-  });
-
-  it("removes an exclusive test and leaves a shared sample in place", () => {
-    const result = prune({
-      "src/providers/registry.test.ts": `describe("provider registry", () => {
-  it("resolves the zoommate alias", () => {
-    expect(resolveProviderId("zm")).toBe("zoommate");
-  });
-
-  it("resolves several aliases", () => {
-    expect(resolveProviderId("zm")).toBe("zoommate");
-    expect(resolveProviderId("codex")).toBe("codex");
-  });
-});
-`,
-    }, "zoommate");
-
-    const test = result.files["src/providers/registry.test.ts"];
-    expect(test).not.toContain('toBe("zoommate")');
-    expect(test).toContain('toBe("codex")');
-    expect(test).not.toContain("resolves the zoommate alias");
-    expect(result.leftovers).toEqual([]);
-    expect(result.testMentions).toEqual([]);
-  });
-
-  it("removes provider rules, the guard that calls them, and helpers only that guard used", () => {
-    const result = prune(
-      {
-        "src/usage/providerRules/codex.ts": `export function applyCodexWeeklySessionCap(sections: unknown[]) {
-  return sections;
-}
-`,
-        "src/usage/normalize.ts": `import { applyCodexWeeklySessionCap } from "./providerRules/codex";
-import { buildUsageSections } from "./sections";
-
-function capSessions(providerId: string, sections: unknown[]) {
-  // Codex weekly-empty caps session.
-  if (providerId === "codex") {
-    return applyCodexWeeklySessionCap(sections);
+function tree(ids, extra = {}) {
+  const files = {
+    "src/providers/index.ts": "export {}\n",
+    "scripts/lib/provider-modules.mjs": orderSource(ids),
+    ...extra,
+  };
+  for (const id of ids) {
+    const [providerId, iconSlug] = Array.isArray(id) ? id : [id, id];
+    files[`src/providers/${providerId}/index.ts`] = moduleSource(providerId, iconSlug);
   }
-
-  return sections;
+  return files;
 }
 
-const rawSections = [
-  ...buildUsageSections(),
-  ...applyCodexWeeklySessionCap([]),
-];
-`,
-        "src/providers/paceCapabilities.ts": `export type PaceCustomId =
-  | "codexSessionRejectsWeeklyMonthly"
-  | "claudeSessionAlways";
+describe("planPrune", () => {
+  it("removes a plain Provider directory, the index import, and the order entry", () => {
+    const files = tree(["codex", "zoommate"], {
+      "src/usage/normalize.ts": "export const untouched = true;\n",
+    });
+    const result = planPrune(files, [{ id: "zoommate", iconSlug: "zoommate" }]);
 
-function codexSessionRejectsWeeklyMonthly(window: unknown): boolean {
-  return true;
-}
-
-export const CUSTOM_WINDOW_RULES = {
-  codexSessionRejectsWeeklyMonthly,
-  claudeSessionAlways: () => true,
-};
-
-export const PACE_CAPABILITIES = {
-  codex: {
-    resetWindowPace: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
-  },
-  claude: {
-    resetWindowPace: { type: "unsupported" },
-  },
-};
-
-export const EXTRA_WINDOW_PACE_PROVIDER_IDS = new Set(["codex", "claude"]);
-`,
-        "src/providers/registry.ts": `const HOST_ONLY = "only-codex";
-
-export function resolveDashboardUrl(providerId: string) {
-  if (providerId === "codex") {
-    return HOST_ONLY;
-  }
-  return "https://example.com";
-}
-`,
-        "scripts/check-upstream.mjs": `const CUSTOM_PACE_RULES = {
-  "codex.sessionPaceWindowRule": { id: "codexSessionRejectsWeeklyMonthly" },
-  "claude.sessionPaceWindowRule": { id: "claudeSessionAlways" },
-};
-
-const ALLOWED_DIVERGENCES = {
-  codex: { dashboardUrl: { ours: "https://codex.example", upstream: "expr:Codex", reason: "region" } },
-  claude: { dashboardUrl: { ours: "https://claude.example", upstream: "expr:Claude", reason: "region" } },
-};
-`,
-      },
-      "codex",
-    );
-
-    expect(result.files["src/usage/providerRules/codex.ts"]).toBeUndefined();
-    expect(result.deleted).toContain("src/usage/providerRules/codex.ts");
-    expect(result.files["src/usage/normalize.ts"]).not.toContain("codex");
-    expect(result.files["src/usage/normalize.ts"]).not.toContain("Codex weekly-empty");
-    expect(result.files["src/usage/normalize.ts"]).not.toContain("applyCodexWeeklySessionCap");
-    expect(result.files["src/usage/normalize.ts"]).toContain("return sections;");
-    expect(result.files["src/providers/paceCapabilities.ts"]).not.toContain("codexSessionRejectsWeeklyMonthly");
-    expect(result.files["src/providers/paceCapabilities.ts"]).toContain("claudeSessionAlways");
-    expect(result.files["src/providers/paceCapabilities.ts"]).toContain('new Set(["claude"])');
-    expect(result.files["src/providers/registry.ts"]).not.toContain("HOST_ONLY");
-    expect(result.files["src/providers/registry.ts"]).toContain("https://example.com");
-    expect(result.files["scripts/check-upstream.mjs"]).not.toContain("codex.sessionPaceWindowRule");
-    expect(result.files["scripts/check-upstream.mjs"]).toContain("claude.sessionPaceWindowRule");
-    expect(result.leftovers).toEqual([]);
-  });
-
-  it("rewrites a provider-id ternary to the other branch", () => {
-    const result = prune({
-      "src/usage/identity.ts": `import { extractKiloPass } from "./providerRules/kilo";
-
-export function formatPlanText(providerId: string, rawPlanText: string) {
-  const providerScopedPlanText = providerId === "kilo" ? (extractKiloPass(rawPlanText) ?? rawPlanText) : rawPlanText;
-  return providerScopedPlanText;
-}
-`,
-      "src/usage/providerRules/kilo.ts": `export function extractKiloPass(rawPlanText: string) {
-  return rawPlanText;
-}
-`,
-    }, "kilo");
-
-    expect(result.files["src/usage/identity.ts"]).toContain(
-      "const providerScopedPlanText = rawPlanText;",
-    );
-    expect(result.files["src/usage/identity.ts"]).not.toContain("extractKiloPass");
-    expect(result.files["src/usage/providerRules/kilo.ts"]).toBeUndefined();
-    expect(result.leftovers).toEqual([]);
-  });
-
-  it("removes a legacy key when provider modules are spread into the catalog", () => {
-    const source = `const LEGACY_PROVIDER_CATALOG = {
-  codex: { name: "Codex", iconSlug: "codex" },
-  claude: { name: "Claude", iconSlug: "claude" },
-};
-
-export const PROVIDER_CATALOG = {
-  ...LEGACY_PROVIDER_CATALOG,
-  ...providerModuleMetadata(PROVIDER_MODULES),
-};
-`;
-    const result = prune({ "src/providers/catalog.ts": source }, "codex", "codex");
-    const catalog = result.files["src/providers/catalog.ts"];
-    expect(catalog).toContain("claude:");
-    expect(catalog).not.toContain("codex:");
-    expect(catalog).toContain("...LEGACY_PROVIDER_CATALOG");
-    expect(catalog).toContain("...providerModuleMetadata(PROVIDER_MODULES)");
-    expect(result.deleted).toEqual(["assets/provider-icons/codex.svg"]);
-  });
-
-  it("deletes a provider directory and rewrites the module index", () => {
-    const result = prune(
-      {
-        "src/providers/index.ts": renderProviderIndex(["codex", "zoommate"]),
-        "src/providers/codex/index.ts": "export default { metadata: { name: \"Codex\" } };\n",
-        "src/providers/zoommate/index.ts": `const zoommate = {
-  metadata: { name: "ZoomMate", iconSlug: "zoommate" },
-};
-export default zoommate;
-`,
-      },
-      "zoommate",
-    );
-
+    expect(result.ok).toBe(true);
+    expect(result.files["src/usage/normalize.ts"]).toBe(files["src/usage/normalize.ts"]);
+    expect(result.files["src/providers/codex/index.ts"]).toBe(files["src/providers/codex/index.ts"]);
     expect(result.files["src/providers/zoommate/index.ts"]).toBeUndefined();
-    expect(result.files["src/providers/codex/index.ts"]).toContain("Codex");
-    expect(result.files["src/providers/index.ts"]).toBe(renderProviderIndex(["codex"]));
-    expect(result.deleted).toEqual(["src/providers/zoommate/index.ts", "assets/provider-icons/zoommate.svg"]);
-    expect(result.leftovers).toEqual([]);
+    expect(result.files["scripts/lib/provider-modules.mjs"]).not.toContain('"zoommate"');
+    expect(result.files["src/providers/index.ts"]).toContain('import codex from "./codex"');
+    expect(result.files["src/providers/index.ts"]).not.toContain("zoommate");
+    expect(result.deleted).toEqual([
+      "assets/provider-icons/zoommate.svg",
+      "src/providers/zoommate/index.ts",
+    ]);
+    expect(result.updates.sort()).toEqual([
+      "scripts/lib/provider-modules.mjs",
+      "src/providers/index.ts",
+    ]);
   });
 
-  it("deletes a test file that only imported the removed provider", () => {
-    const result = prune(
-      {
-        "src/providers/module.test.ts": `import { describe, expect, it } from "vitest";
-import zoommate from "./zoommate";
+  it("keeps a shared icon and does not treat the surviving iconSlug as a blocker", () => {
+    const files = tree([
+      ["codex", "codex"],
+      ["openai", "codex"],
+    ]);
+    const result = planPrune(files, [{ id: "codex", iconSlug: "codex" }]);
 
-describe("provider modules", () => {
-  it("reads the module", () => {
-    expect(zoommate.metadata.name).toBe("ZoomMate");
-  });
-});
-`,
-        "src/cli/mockPayloads.test.ts": `import { describe, expect, it } from "vitest";
-import { getMockProviderPayload } from "./mockPayloads";
-
-describe("getMockProviderPayload", () => {
-  it("reads the mock", () => {
-    expect(getMockProviderPayload("zoommate").source).toBe("web");
-  });
-});
-`,
-      },
-      "zoommate",
-    );
-
-    expect(result.files["src/providers/module.test.ts"]).toBeUndefined();
-    expect(result.files["src/cli/mockPayloads.test.ts"]).toBeUndefined();
-    expect(result.deleted).toEqual(["src/providers/module.test.ts", "src/cli/mockPayloads.test.ts"]);
-    expect(result.leftovers).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.blockers).toEqual([]);
+    expect(result.deleted).not.toContain("assets/provider-icons/codex.svg");
+    expect(result.files["src/providers/openai/index.ts"]).toContain('iconSlug: "codex"');
   });
 
-  it("removes a provider module import and keeps the other tests", () => {
-    const result = prune(
-      {
-        "src/providers/registry.test.ts": `import zoommate from "./zoommate";
-import { resolveProviderId } from "./registry";
-
-describe("provider registry", () => {
-  it("reads the module", () => {
-    expect(zoommate.metadata.name).toBe("ZoomMate");
+  it("deletes an icon no remaining Provider uses", () => {
+    const files = tree(["zoommate"]);
+    const result = planPrune(files, [{ id: "zoommate", iconSlug: "zoommate" }]);
+    expect(result.deleted).toContain("assets/provider-icons/zoommate.svg");
   });
 
-  it("resolves codex", () => {
-    expect(resolveProviderId("codex")).toBe("codex");
-  });
-});
-`,
-      },
-      "zoommate",
-    );
+  it("writes nothing when production code still quotes the id", () => {
+    const files = tree(["codex", "zoommate"], {
+      "src/usage/normalize.ts": 'export const sample = "zoommate";\n',
+      "src/usage/load.ts": 'import zoommate from "../providers/zoommate";\n',
+      "src/usage/link.ts": 'const url = "https://example.com/zoommate/settings";\n',
+    });
+    const removed = [{ id: "zoommate", iconSlug: "zoommate" }];
+    const result = planPrune(files, removed);
 
-    const test = result.files["src/providers/registry.test.ts"];
-    expect(test).not.toContain("zoommate");
-    expect(test).toContain('from "./registry"');
-    expect(test).toContain('toBe("codex")');
-    expect(result.leftovers).toEqual([]);
-  });
-
-  it("leaves unrelated source unchanged", () => {
-    const source = `export const PROVIDER_CATALOG = {
-  codex: { name: "Codex", iconSlug: "codex" },
-} satisfies Record<string, unknown>;
-`;
-    const result = prune({ "src/providers/catalog.ts": source }, "zoommate");
-    expect(result.files["src/providers/catalog.ts"]).toBe(source);
+    expect(result.ok).toBe(false);
+    expect(result.files).toBe(files);
+    expect(result.updates).toEqual([]);
     expect(result.deleted).toEqual([]);
+    expect(result.blockers).toEqual([
+      "src/usage/link.ts:1: zoommate",
+      "src/usage/load.ts:1: zoommate",
+      "src/usage/normalize.ts:1: zoommate",
+    ]);
+    expect(planPrune(files, removed).blockers).toEqual(result.blockers);
+  });
+
+  it("writes nothing when an allowlist object cannot be parsed", () => {
+    const files = tree(["codex", "zoommate"], {
+      "scripts/check-upstream.mjs": "const ALLOWED_DIVERGENCES = { zoommate: {\n",
+    });
+    const result = planPrune(files, [{ id: "zoommate", iconSlug: "zoommate" }]);
+    expect(result.ok).toBe(false);
+    expect(result.files).toBe(files);
+    expect(result.updates).toEqual([]);
+    expect(result.deleted).toEqual([]);
+    expect(result.blockers[0]).toMatch(/Unterminated/);
+  });
+
+  it("scans leftovers after every Provider in the batch is removed", () => {
+    const files = tree(["codex", "claude", "zoommate"], {
+      "src/keep.ts": 'export const ids = ["zoommate", "claude"];\n',
+    });
+    files["src/providers/claude/index.ts"] = `${moduleSource("claude")}export const other = "zoommate";\n`;
+    const result = planPrune(files, [
+      { id: "zoommate", iconSlug: "zoommate" },
+      { id: "claude", iconSlug: "claude" },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.blockers).toEqual(["src/keep.ts:1: claude", "src/keep.ts:1: zoommate"]);
+    expect(result.blockers.join("\n")).not.toContain("src/providers/claude");
+  });
+
+  it("reports a test mention and leaves the test file in place", () => {
+    const files = tree(["codex", "zoommate"], {
+      "src/providers/registry.test.ts": 'expect("zoommate").toBe("zoommate");\n',
+    });
+    const result = planPrune(files, [{ id: "zoommate", iconSlug: "zoommate" }]);
+    expect(result.ok).toBe(true);
+    expect(result.testMentions).toEqual(["src/providers/registry.test.ts:1: zoommate"]);
+    expect(result.files["src/providers/registry.test.ts"]).toBe(files["src/providers/registry.test.ts"]);
+  });
+
+  it("ignores version text, HTML escapes, identifiers, and alias keys", () => {
+    const files = tree(["codex", "amp", "cursor", "alibaba", "v0"], {
+      "src/usage/lookalikes.ts": [
+        'const version = "v0.55.1";',
+        'const html = "&amp;";',
+        "const cursor = 1;",
+        'const alias = "alibaba-token-plan";',
+        "",
+      ].join("\n"),
+    });
+    delete files["src/providers/index.ts"];
+    const result = planPrune(files, [
+      { id: "v0", iconSlug: "v0" },
+      { id: "amp", iconSlug: "amp" },
+      { id: "cursor", iconSlug: "cursor" },
+      { id: "alibaba", iconSlug: "alibaba" },
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.blockers).toEqual([]);
+  });
+
+  it("drops a pace allowlist key whose fingerprint contains braces", () => {
+    const source = readFileSync(new URL("./check-upstream.mjs", import.meta.url), "utf8");
+    const next = removeObjectProperties(
+      source,
+      "CUSTOM_PACE_RULES",
+      (key) => key === "codex.sessionPaceWindowRule",
+    );
+    expect(next).not.toContain('"codex.sessionPaceWindowRule"');
+    expect(next).toContain('"claude.sessionPaceWindowRule"');
+    expect(next).toContain("window.windowMinutes");
+  });
+});
+
+describe("upstream:prune modes", () => {
+  it("parses check and plan flags", () => {
+    expect(pruneMode(["--check"])).toBe("check");
+    expect(pruneMode(["--plan"])).toBe("plan");
+    expect(pruneMode([])).toBe("apply");
+  });
+
+  it("--check writes nothing", async () => {
+    const files = tree(["codex", "zoommate"]);
+    const writeFile = vi.fn();
+    const remove = vi.fn();
+    const result = await executePrune({
+      mode: "check",
+      files,
+      removed: [{ id: "zoommate", iconSlug: "zoommate" }],
+      writeFile,
+      remove,
+    });
+    expect(result.wrote).toBe(false);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+    expect(result.plan.ok).toBe(true);
+  });
+
+  it("--plan prints JSON and writes nothing", async () => {
+    const files = tree(["codex", "zoommate"]);
+    const writeFile = vi.fn();
+    const result = await executePrune({
+      mode: "plan",
+      files,
+      removed: [{ id: "zoommate", iconSlug: "zoommate" }],
+      writeFile,
+      remove: vi.fn(),
+    });
+    expect(result.wrote).toBe(false);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(JSON.parse(result.stdout)).toEqual(planSummary(result.plan));
   });
 });

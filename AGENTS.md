@@ -17,8 +17,10 @@ invention.
 2. **Provider metadata and icons are script-synced.** Never hand-edit provider entries in
    `src/providers/registry.ts` or redraw files in `assets/provider-icons/`. Run
    `npm run upstream:check` to detect drift and `npm run upstream:sync-icons` to refresh icons.
-   When upstream removes a provider, `npm run upstream:prune` deletes it: the catalog entry,
-   aliases, mocks, pace rows, dynamic titles, provider-rules module, exclusive tests, and the SVG.
+   When upstream removes a Provider, `npm run upstream:prune` deletes `src/providers/<id>/`,
+   regenerates the module index, and drops that id from the catalog order and the upstream
+   allowlists. An icon is deleted only when no remaining Provider uses it. A production reference
+   that would survive the edit blocks the write ([ADR-0011](docs/adr/0011-fail-closed-provider-prune.md)).
    See [docs/upstream-parity.md](docs/upstream-parity.md) and the sync chore in
    [docs/maintaining.md](docs/maintaining.md).
 3. **Vocabulary is fixed.** [CONTEXT.md](CONTEXT.md) defines the domain language (Provider, reset
