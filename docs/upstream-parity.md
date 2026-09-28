@@ -39,7 +39,8 @@ Upstream is the public repo `steipete/CodexBar`. It changes fast. A new provider
 
 The sync scripts default to the pinned commit in [`codexbar-upstream.lock`](../codexbar-upstream.lock)
 (tag plus SHA of a shipped GitHub release). They do not float on `releases/latest`. Run
-`npm run upstream:bump` to check the current latest release and, if both guards pass, move the pin.
+`npm run upstream:bump` to check the current latest release and move the pin after a clean prune,
+`npm run typecheck`, `npm test`, and both guards.
 Override when you need to:
 
 | Env var | Effect |

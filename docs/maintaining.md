@@ -203,8 +203,10 @@ newly pace-eligible, fix its mock too. See the pacing worked example in
 Upstream ships often. A periodic sync pass:
 
 1. **Point at the ref you want.** Default is the SHA in `codexbar-upstream.lock`. To take a new
-   upstream release, `npm run upstream:bump`. That writes the lock only after `upstream:check` and
-   `upstream:sync-icons -- --check` pass against that SHA. For iterating, clone upstream once and
+   upstream release, `npm run upstream:bump`. That writes the lock only after a clean prune,
+   `npm run typecheck`, `npm test`, and both `upstream:check` and
+   `upstream:sync-icons -- --check` pass against that SHA. A failed typecheck or test restores the
+   prune. For iterating, clone upstream once and
    export `CODEXBAR_DIR=~/code/CodexBar` (no network, no rate limit). To preview an unreleased
    change without moving the pin, `CODEXBAR_REF=main`. Set `GITHUB_TOKEN` if you hit a `403`.
 2. **Run the guards.**
