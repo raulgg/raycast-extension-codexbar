@@ -2,6 +2,18 @@ import type { ProviderModule } from "../module";
 import { build } from "./mock";
 import { displayTitle, interpret } from "./usageCard";
 
+function codexSessionRejectsWeeklyMonthly(window: {
+  windowMinutes?: number;
+  resetsAt?: string;
+  resetDescription?: string;
+}): boolean {
+  if (window.windowMinutes === undefined) {
+    return true;
+  }
+
+  return window.windowMinutes !== 7 * 24 * 60 && window.windowMinutes !== 30 * 24 * 60;
+}
+
 const codex: ProviderModule = {
   metadata: {
     name: "Codex",
@@ -15,7 +27,11 @@ const codex: ProviderModule = {
   pace: {
     resetWindowPace: { type: "unsupported" },
     inferredMonthlyDuration: { type: "unsupported" },
-    sessionPaceWindowRule: { type: "custom", id: "codexSessionRejectsWeeklyMonthly" },
+    sessionPaceWindowRule: {
+      type: "predicate",
+      id: "codexSessionRejectsWeeklyMonthly",
+      matches: codexSessionRejectsWeeklyMonthly,
+    },
     secondaryAllowsDefaultWindow: true,
   },
   extraWindowPace: "session-or-weekly",

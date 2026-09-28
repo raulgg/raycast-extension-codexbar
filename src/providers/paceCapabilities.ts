@@ -6,9 +6,8 @@ export const SESSION_PACE_DEFAULT_WINDOW_MINUTES = 300;
 export const WEEKLY_PACE_DEFAULT_WINDOW_MINUTES = 10_080;
 export const MONTHLY_WINDOW_SENTINEL_MINUTES = 30 * 24 * 60;
 
-export type PaceCustomId = "codexSessionRejectsWeeklyMonthly";
-
-export type PacePredicateId = "ampRenewsInDescription" | "grokWeeklyCredits" | "zaiMonthlyMcp";
+export type PacePredicateId =
+  "ampRenewsInDescription" | "codexSessionRejectsWeeklyMonthly" | "grokWeeklyCredits" | "zaiMonthlyMcp";
 
 export type PaceWindow = {
   windowMinutes?: number;
@@ -31,15 +30,13 @@ export type PaceWindowRule =
   | { type: "windowDurationPresent" }
   | { type: "windowDuration"; minutes: number }
   | { type: "windowDurationAtMost"; minutes: number }
-  | PacePredicateRule
-  | { type: "custom"; id: PaceCustomId };
+  | PacePredicateRule;
 
 export type PaceDurationRule =
   | { type: "unsupported" }
   | { type: "windowDurationMissing" }
   | { type: "windowDuration"; minutes: number }
-  | PacePredicateRule
-  | { type: "custom"; id: PaceCustomId };
+  | PacePredicateRule;
 
 export type PaceCapability = {
   resetWindowPace: PaceWindowRule;
@@ -65,16 +62,6 @@ const UNSUPPORTED: PaceCapability = {
   sessionPaceWindowRule: { type: "unsupported" },
 };
 
-export const CUSTOM_WINDOW_RULES: Record<PaceCustomId, (window: PaceWindow, now: number) => boolean> = {
-  codexSessionRejectsWeeklyMonthly: (window) => {
-    if (window.windowMinutes === undefined) {
-      return true;
-    }
-
-    return window.windowMinutes !== 7 * 24 * 60 && window.windowMinutes !== 30 * 24 * 60;
-  },
-};
-
 function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number): boolean {
   switch (rule.type) {
     case "unsupported":
@@ -91,8 +78,6 @@ function matchWindowRule(rule: PaceWindowRule, window: PaceWindow, now: number):
       return window.windowMinutes !== undefined && window.windowMinutes <= rule.minutes;
     case "predicate":
       return rule.matches(window, now);
-    case "custom":
-      return CUSTOM_WINDOW_RULES[rule.id](window, now);
   }
 }
 
@@ -106,8 +91,6 @@ function matchDurationRule(rule: PaceDurationRule, window: PaceWindow, now: numb
       return window.windowMinutes === rule.minutes;
     case "predicate":
       return rule.matches(window, now);
-    case "custom":
-      return CUSTOM_WINDOW_RULES[rule.id](window, now);
   }
 }
 
