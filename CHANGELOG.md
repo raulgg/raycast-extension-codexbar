@@ -11,11 +11,11 @@
 - Refresh Usage Cache runs every 10 minutes and requests a live serve copy (`refresh=true`)
 - Usage Overview does not start serve or enable the background command. If serve is down it uses a one-shot CLI fetch
 - CodexBar serve daemons started by background refresh use a 10-minute response cache TTL
-- Usage overview for every provider the CodexBar CLI supports (87 provider ids matching CodexBar v0.69.0, with alias resolution and shared `~/.codexbar/config.json` ordering)
+- Usage overview for every provider the CodexBar CLI supports (87 provider ids, with alias resolution and shared `~/.codexbar/config.json` ordering)
 - Aixy, Raycast, and xKiro
 - Codex usage dashboard opens the analytics page
-- OpenRouter dashboard opens Activity; Amp, Ollama, OpenCode Go, and Cursor extra-window pacing match CodexBar v0.69.0
-- Antigravity session pacing follows a 300-minute window, matching CodexBar v0.69.0
+- OpenRouter dashboard opens Activity; Amp, Ollama, OpenCode Go, and Cursor extra-window pacing match the CodexBar app
+- Antigravity session pacing follows a 300-minute window, matching the CodexBar app
 - Mistral, Qwen Cloud, and StepFun usage-bar titles follow the CodexBar app's rate-window labelers
 - Helmcode accounts in the NaN Builders organization open `https://cloud.nan.builders/dashboard`
 - Grok weekly credits window shows the same pace marker as the CodexBar app
