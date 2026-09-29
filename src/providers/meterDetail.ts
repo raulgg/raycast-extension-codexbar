@@ -3,35 +3,82 @@
 // upstream:check rejects a hand edit. upstream:prune overwrites this file.
 // ************************************************************************
 
+export type PrimaryDescriptionPlacement = "standard" | "reset" | "detail" | "detailLeft";
+
+export type PrimaryDetailKind = "poeBalance" | "kiroCredits";
+
 export type MeterDetail = {
-  primary?: true | "kiroCredits" | "poeBalance";
-  secondary?: true;
-  primaryReset?: true;
+  primaryDescriptionPlacement?: Exclude<PrimaryDescriptionPlacement, "standard">;
+  showsPrimaryBalanceDescription?: true;
+  showsSecondaryBalanceDescription?: true;
+  hidesPrimaryResetWithoutDate?: true;
+  clearsPrimaryReset?: true;
+  primaryDetailKind?: PrimaryDetailKind;
+  secondaryDetailText?: true;
+  secondaryReplacesPace?: "resetDescription" | "kiroBonusCredits";
+  secondaryHidesResetWithoutDate?: true;
+  tertiaryDetailText?: true;
+  extraResetDescriptionAsDetail?: true | string;
+  extraDetailLeft?: "kiroOverage";
 };
 
 export const METER_DETAIL: Record<string, MeterDetail> = {
-  alibaba: { primary: true, secondary: true },
-  copilot: { primary: true },
-  kilo: { primary: true, secondary: true },
-  kiro: { primary: "kiroCredits" },
-  warp: { primary: true, secondary: true },
-  openrouter: { primaryReset: true },
-  alibabatokenplan: { primary: true, secondary: true },
-  manus: { primary: true, secondary: true },
-  mimo: { primary: true },
-  mistral: { primary: true },
-  deepseek: { primary: true },
-  deepinfra: { primary: true },
-  qoder: { primary: true },
-  litellm: { primary: true, secondary: true },
-  poe: { primary: "poeBalance" },
-  chutes: { primary: true, secondary: true },
-  neuralwatt: { primary: true },
-  longcat: { primary: true, secondary: true },
-  zenmux: { primary: true },
-  aixy: { primary: true, secondary: true },
-  bifrost: { primary: true, secondary: true },
-  helmcode: { primary: true },
-  llmman: { primary: true },
-  raycast: { primary: true },
+  alibaba: { showsPrimaryBalanceDescription: true, secondaryDetailText: true, tertiaryDetailText: true },
+  copilot: { primaryDescriptionPlacement: "detailLeft", secondaryReplacesPace: "resetDescription" },
+  kilo: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  kiro: { primaryDetailKind: "kiroCredits", secondaryReplacesPace: "kiroBonusCredits", extraDetailLeft: "kiroOverage" },
+  warp: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true, secondaryDetailText: true },
+  openrouter: { primaryDescriptionPlacement: "reset" },
+  alibabatokenplan: { showsPrimaryBalanceDescription: true, secondaryDetailText: true, tertiaryDetailText: true },
+  manus: { showsPrimaryBalanceDescription: true, showsSecondaryBalanceDescription: true, clearsPrimaryReset: true },
+  mimo: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  mistral: {
+    showsPrimaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+    extraResetDescriptionAsDetail: "mistral-monthly-plan",
+  },
+  deepseek: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  deepinfra: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  qoder: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  litellm: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  poe: { primaryDetailKind: "poeBalance" },
+  chutes: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  neuralwatt: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  longcat: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  sub2api: { extraResetDescriptionAsDetail: true },
+  zenmux: {
+    primaryDescriptionPlacement: "detailLeft",
+    hidesPrimaryResetWithoutDate: true,
+    secondaryReplacesPace: "resetDescription",
+    secondaryHidesResetWithoutDate: true,
+  },
+  aixy: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  bifrost: {
+    showsPrimaryBalanceDescription: true,
+    showsSecondaryBalanceDescription: true,
+    hidesPrimaryResetWithoutDate: true,
+  },
+  helmcode: { showsPrimaryBalanceDescription: true },
+  llmman: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+  raycast: { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
 };

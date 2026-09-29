@@ -15,10 +15,13 @@ import {
 const EMPTY = {
   showsPrimaryBalanceDescription: false,
   showsSecondaryBalanceDescription: false,
+  hidesPrimaryResetWithoutDate: false,
+  clearsPrimaryReset: false,
   primaryDescriptionPlacement: "standard",
   primaryDetailKind: "none",
   usageNotesResolver: null,
   extraRateWindowUsesResetDescriptionAsDetail: null,
+  extraResetDescriptionAsDetail: null,
   primaryDescriptionIsDetail: null,
 };
 
@@ -62,38 +65,108 @@ describe("meter detail generation", () => {
     expect(doubled.error).toMatch(/2 ProviderMenuCardPresentation calls/);
   });
 
-  it("maps balance flags, placements, and the forced secondary rows", () => {
+  it("maps placements, balance flags, detail kinds, and the forced menu-card rows", () => {
     expect(meterEntryFromPresentation("devin", EMPTY)).toBeUndefined();
-    expect(meterEntryFromPresentation("warp", EMPTY)).toEqual({ secondary: true });
-    expect(meterEntryFromPresentation("alibaba", EMPTY)).toEqual({ secondary: true });
-    expect(meterEntryFromPresentation("alibabatokenplan", EMPTY)).toEqual({ secondary: true });
-    expect(
-      meterEntryFromPresentation("copilot", { ...EMPTY, primaryDescriptionPlacement: "detailLeft" }),
-    ).toEqual({ primary: true });
+    expect(meterEntryFromPresentation("warp", EMPTY)).toEqual({ secondaryDetailText: true });
+    expect(meterEntryFromPresentation("alibaba", EMPTY)).toEqual({
+      secondaryDetailText: true,
+      tertiaryDetailText: true,
+    });
+    expect(meterEntryFromPresentation("alibabatokenplan", EMPTY)).toEqual({
+      secondaryDetailText: true,
+      tertiaryDetailText: true,
+    });
+    expect(meterEntryFromPresentation("plain", { ...EMPTY, primaryDescriptionPlacement: "standard" })).toBeUndefined();
+    expect(meterEntryFromPresentation("copilot", { ...EMPTY, primaryDescriptionPlacement: "detailLeft" })).toEqual({
+      primaryDescriptionPlacement: "detailLeft",
+      secondaryReplacesPace: "resetDescription",
+    });
     expect(meterEntryFromPresentation("zenmux", { ...EMPTY, primaryDescriptionPlacement: "detail" })).toEqual({
-      primary: true,
+      primaryDescriptionPlacement: "detail",
+      secondaryReplacesPace: "resetDescription",
+      secondaryHidesResetWithoutDate: true,
     });
     expect(meterEntryFromPresentation("openrouter", { ...EMPTY, primaryDescriptionPlacement: "reset" })).toEqual({
-      primaryReset: true,
+      primaryDescriptionPlacement: "reset",
     });
     expect(meterEntryFromPresentation("kiro", { ...EMPTY, primaryDetailKind: "kiroCredits" })).toEqual({
-      primary: "kiroCredits",
+      primaryDetailKind: "kiroCredits",
+      secondaryReplacesPace: "kiroBonusCredits",
+      extraDetailLeft: "kiroOverage",
     });
     expect(meterEntryFromPresentation("poe", { ...EMPTY, primaryDetailKind: "poeBalance" })).toEqual({
-      primary: "poeBalance",
+      primaryDetailKind: "poeBalance",
     });
     expect(meterEntryFromPresentation("cursor", { ...EMPTY, primaryDetailKind: "requestQuota" })).toBeUndefined();
-    expect(meterEntryFromPresentation("raycast", { ...EMPTY, showsPrimaryBalanceDescription: true })).toEqual({
-      primary: true,
+    expect(
+      meterEntryFromPresentation("raycast", {
+        ...EMPTY,
+        showsPrimaryBalanceDescription: true,
+        hidesPrimaryResetWithoutDate: true,
+      }),
+    ).toEqual({
+      showsPrimaryBalanceDescription: true,
+      hidesPrimaryResetWithoutDate: true,
     });
+    expect(
+      meterEntryFromPresentation("manus", {
+        ...EMPTY,
+        showsSecondaryBalanceDescription: true,
+        clearsPrimaryReset: true,
+      }),
+    ).toEqual({
+      showsSecondaryBalanceDescription: true,
+      clearsPrimaryReset: true,
+    });
+    expect(meterEntryFromPresentation("sub2api", { ...EMPTY, extraResetDescriptionAsDetail: true })).toEqual({
+      extraResetDescriptionAsDetail: true,
+    });
+    expect(
+      meterEntryFromPresentation("mistral", { ...EMPTY, extraResetDescriptionAsDetail: "mistral-monthly-plan" }),
+    ).toEqual({ extraResetDescriptionAsDetail: "mistral-monthly-plan" });
+  });
+
+  it("ports a true extra-window closure and an id check, and leaves any other body unportable", () => {
+    const all = parseMenuCardPresentation(
+      "ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { _ in true })",
+      "Sub2API.swift",
+    );
+    expect(all.ok).toBe(true);
+    if (!all.ok) return;
+    expect(all.presentation.extraResetDescriptionAsDetail).toBe(true);
+    expect(all.presentation.extraRateWindowUsesResetDescriptionAsDetail).toBeNull();
+
+    const id = parseMenuCardPresentation(
+      'ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { $0.id == "mistral-monthly-plan" })',
+      "Mistral.swift",
+    );
+    expect(id.ok).toBe(true);
+    if (!id.ok) return;
+    expect(id.presentation.extraResetDescriptionAsDetail).toBe("mistral-monthly-plan");
+    expect(id.presentation.extraRateWindowUsesResetDescriptionAsDetail).toBeNull();
+
+    const other = parseMenuCardPresentation(
+      'ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { name in name.id.hasPrefix("x") })',
+      "Other.swift",
+    );
+    expect(other.ok).toBe(true);
+    if (!other.ok) return;
+    expect(other.presentation.extraResetDescriptionAsDetail).toBeNull();
+    expect(other.presentation.extraRateWindowUsesResetDescriptionAsDetail).toContain("hasPrefix");
   });
 
   it("rejects a hand edit and accepts the regenerated file", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "meter-detail-"));
-    const entries = { raycast: { primary: true } };
+    const entries = { raycast: { showsPrimaryBalanceDescription: true } };
     const file = path.join(root, "src/providers/meterDetail.ts");
     await mkdir(path.dirname(file), { recursive: true });
-    await writeFile(file, renderMeterDetail(entries).replace("primary: true", "primary: true /* edited */"));
+    await writeFile(
+      file,
+      renderMeterDetail(entries).replace(
+        "showsPrimaryBalanceDescription: true",
+        "showsPrimaryBalanceDescription: true /* edited */",
+      ),
+    );
     await expect(checkMeterDetailFile(root, entries)).resolves.toEqual([
       "src/providers/meterDetail.ts does not match the menu card descriptors. Regenerate it.",
     ]);

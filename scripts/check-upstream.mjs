@@ -15,7 +15,7 @@
 //   CODEXBAR_DIR=~/code/CodexBar npm run ...    # compare against a local checkout
 //
 // Exits 1 on any undocumented divergence, missing provider, stale allowlist entry,
-// unported dynamic override, pace-capability mismatch, menu-card balance drift,
+// unported dynamic override, pace-capability mismatch, menu-card detail drift,
 // or provider-module index that does not match the directories under src/providers.
 
 import { readFileSync } from "node:fs";
@@ -147,7 +147,7 @@ const UNPORTABLE_HEADROOM_HINT = {
 };
 
 // Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
-// Balance flags have no entry here: regenerate src/providers/meterDetail.ts instead.
+// Regenerate src/providers/meterDetail.ts for placement, balance flags, detail kind, and menu-card lines.
 const UNPORTABLE_MENU_CARD = {
   abacus: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
@@ -172,7 +172,7 @@ const UNPORTABLE_MENU_CARD = {
   },
   deepseek: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
-    usageNotesResolver: "usage notes resolver, not the balance line",
+    usageNotesResolver: "usage notes resolver, not detailText",
   },
   helmcode: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
@@ -196,17 +196,16 @@ const UNPORTABLE_MENU_CARD = {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
   },
   mistral: {
-    extraRateWindowUsesResetDescriptionAsDetail: "extra rate window, not the primary or secondary balance line",
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
   },
   neuralwatt: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
   },
   ollama: {
-    usageNotesResolver: "usage notes resolver, not the balance line",
+    usageNotesResolver: "usage notes resolver, not detailText",
   },
   openai: {
-    usageNotesResolver: "usage notes resolver, not the balance line",
+    usageNotesResolver: "usage notes resolver, not detailText",
   },
   qoder: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
@@ -215,7 +214,6 @@ const UNPORTABLE_MENU_CARD = {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
   },
   sub2api: {
-    extraRateWindowUsesResetDescriptionAsDetail: "extra rate window, not the primary or secondary balance line",
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
   },
   warp: {

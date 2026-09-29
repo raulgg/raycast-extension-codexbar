@@ -335,7 +335,7 @@ describe("provider markdown", () => {
     expect(markerFills(darkParsed)).toEqual(["#30D158"]);
   });
 
-  it("renders the balance line under the bar and keeps the countdown on the title row", () => {
+  it("renders detailText under the pace line and keeps the countdown on the title row", () => {
     const detail = {
       id: "raycast",
       name: "Raycast",
@@ -373,6 +373,60 @@ describe("provider markdown", () => {
     expect(paceY).toBeGreaterThan(titleY);
     expect(detailY).toBeGreaterThan(paceY);
     expect(regenY).toBeGreaterThan(detailY);
+  });
+
+  it("draws detailLeftText when the meter has no pacing", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "kiro",
+        name: "Kiro",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Credits",
+            remainingPercent: 76,
+            detailLeftText: "120 of 500 credits left",
+          },
+        ],
+      },
+      "light",
+    );
+    const [svg] = extractSvgMarkup(markdown);
+    const parsed = parseSvg(svg);
+
+    expect(textY(parsed, "120 of 500 credits left")).toBeGreaterThan(textY(parsed, "Credits 76% left"));
+  });
+
+  it("lets pacing replace detailLeftText", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "copilot",
+        name: "Copilot",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Premium",
+            remainingPercent: 67,
+            detailLeftText: "Included",
+            usagePacing: {
+              stage: "farUnder",
+              usedVsIdealDeltaPercent: -39.98,
+              idealUsedPercentByNow: 92.98,
+              actualUsedPercent: 33,
+              lastsUntilReset: true,
+              computedAt: "2026-04-16T12:30:00.000Z",
+            },
+          },
+        ],
+      },
+      "light",
+    );
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(svg).toContain(">40% in reserve · Lasts until reset<");
+    expect(svg).not.toContain("Included");
   });
 
   it("draws reset text in place of the countdown", () => {

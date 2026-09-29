@@ -975,13 +975,13 @@ describe("checkUpstream", () => {
     expect(result.problems.some((problem) => problem.includes("2 ProviderMenuCardPresentation calls"))).toBe(true);
   });
 
-  it("fails when a balance flag is missing from meterDetail.ts", async () => {
+  it("fails when showsPrimaryBalanceDescription is missing from meterDetail.ts", async () => {
     const result = await checkUpstream(
       toyTree({ extra: "let card = ProviderMenuCardPresentation(showsPrimaryBalanceDescription: true)" }),
       TOY_POLICY,
     );
     expect(result.problems.some((problem) => problem.includes("Regenerate src/providers/meterDetail.ts"))).toBe(true);
-    expect(result.meterEntries).toEqual({ toy: { primary: true } });
+    expect(result.meterEntries).toEqual({ toy: { showsPrimaryBalanceDescription: true } });
   });
 
   it("requires an unportable entry for request quota and rejects a stale one", async () => {
@@ -1000,6 +1000,38 @@ describe("checkUpstream", () => {
       unportableMenuCard: { toy: { requestQuota: "stale" } },
     });
     expect(stale.problems).toEqual(["toy: stale UNPORTABLE_MENU_CARD entry for requestQuota. Delete it."]);
+  });
+
+  it("ports a true extra-window closure and an id check without an unportable entry", async () => {
+    const all = await checkUpstream(
+      toyTree({
+        extra: "let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { _ in true })",
+      }),
+      TOY_POLICY,
+    );
+    expect(all.meterEntries).toEqual({ toy: { extraResetDescriptionAsDetail: true } });
+    expect(all.problems.some((problem) => problem.includes("extraRateWindow"))).toBe(false);
+
+    const id = await checkUpstream(
+      toyTree({
+        extra:
+          'let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { $0.id == "mistral-monthly-plan" })',
+      }),
+      TOY_POLICY,
+    );
+    expect(id.meterEntries).toEqual({ toy: { extraResetDescriptionAsDetail: "mistral-monthly-plan" } });
+    expect(id.problems.some((problem) => problem.includes("extraRateWindow"))).toBe(false);
+
+    const other = await checkUpstream(
+      toyTree({
+        extra:
+          'let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { name in name.id.hasPrefix("x") })',
+      }),
+      TOY_POLICY,
+    );
+    expect(other.problems.some((problem) => problem.includes("extraRateWindowUsesResetDescriptionAsDetail"))).toBe(
+      true,
+    );
   });
 
   it("fails on a non-default menu card closure until it is named", async () => {

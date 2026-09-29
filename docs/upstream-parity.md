@@ -65,9 +65,8 @@ Script-guarded rows fail `npm run upstream:check` or the icon check. The rest ar
 | 1 | Provider metadata (names, labels, dashboard/status URLs, brand colors) | `src/providers/index.ts` `PROVIDER_CATALOG` | `npm run upstream:check` | `Sources/CodexBarCore/Providers/**/…ProviderDescriptor.swift` |
 | 2 | Dynamic usage-bar label overrides | `paceCapabilities.ts` `DYNAMIC_SLOT_TITLES`, or a module `displayTitle` | `npm run upstream:check` (id lists only, see Surface 2) | renderer files (see below) plus descriptor `primaryLabel` |
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
-| 4 | Pacing, gating | `paceCapabilities.ts`, or a module `pace` / `extraWindowPace` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
+| 4 | Usage meter: pacing eligibility and the lines under the bar | `paceCapabilities.ts`, `src/providers/meterDetail.ts` | `npm run upstream:check` | descriptor `pace:` and `ProviderMenuCardPresentation`, plus the watched menu-card files |
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
-| 4c | Menu-card balance line | `src/providers/meterDetail.ts` `detailText` | `npm run upstream:check` | `ProviderMenuCardPresentation` and the watched menu-card files |
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
@@ -237,10 +236,13 @@ Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that
 contain `..`, a leading `/`, or a path separator fail the script.
 
-## Surface 4. Pacing (`upstream:check`)
+## Surface 4. Usage meter (`upstream:check`)
+
+A usage meter is Primary, Secondary, Tertiary, or an extra rate window. Pacing eligibility and the
+lines under the bar both live here. The shared pace formula and its wording stay on Surface 4b.
 
 Eligibility lives in [`paceCapabilities.ts`](../src/providers/paceCapabilities.ts), a table that
-mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsagePacing` in
+mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeMeterPacing` in
 `normalize.ts` evaluates that table the way the app menu card does, not the CLI's `resolvedKind`.
 Those two disagree for some providers. The GUI wins.
 
@@ -295,33 +297,60 @@ Abacus billing-cycle copy and Synthetic rolling-regen detail are listed in
 `UNPORTABLE_HEADROOM_HINT`. Workday-aware pacing and historical run-out probability are not
 implemented.
 
-## Codex-only raw projection. Weekly caps session
+### Lines under the bar
 
-On the raw usage path (no `presentation.schemaVersion === 1` meters), Codex applies the app's
-`CodexConsumerProjection.weeklyCapsSession` rule in `src/providers/codex/usageCard.ts`. When weekly
-remaining is 0 and still binding, Primary is forced to 0% remaining and its reset is retargeted via
-`bindingReset`. The reset it reads is the section's `resetsAt`.
-Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on that path.
+`meterLines` in [`usage/normalize.ts`](../src/usage/normalize.ts) fills every usage meter from
+[`meterDetail.ts`](../src/providers/meterDetail.ts). Schema 1 meters use that same function. A
+supplemental meter that is not an extra rate window gets neither line. The list adornment ignores
+both strings. Pacing is applied when the card draws the meter: it replaces `detailLeftText` and
+keeps `detailText` on the next line. Regen stays under those.
 
-## Surface 4c. Menu-card balance line (`upstream:check`)
+Primary, in the app's order:
 
-`src/providers/meterDetail.ts` says which Providers copy a balance line under the usage meter.
-`npm run upstream:check` parses one `ProviderMenuCardPresentation` per descriptor and fails when
-that file drifts. Regenerate it from the descriptors. `upstream:prune` rewrites it when a Provider
-is removed.
+1. `.reset` copies that window's `resetDescription` to the title row when the window has no countdown.
+2. `.detail` copies it to `detailText`. `.detailLeft` copies it to `detailLeftText`.
+3. `showsPrimaryBalanceDescription` copies it to `detailText`.
+4. `.poeBalance` writes `detailText` from the text after `Balance:` on `loginMethod`. `.kiroCredits`
+   writes `detailLeftText` as `X of Y credits left` and skips a zero total.
+5. `clearsPrimaryReset` or `hidesPrimaryResetWithoutDate` drops `resetText` when the window has no countdown.
 
-A primary or secondary slot copies that window's `resetDescription` into `detailText`. The CLI
-string is the copy. `.detail` and `.detailLeft` use that same under-bar line. `.reset` (OpenRouter)
-stores `primaryReset`: the title row shows `resetDescription` when the window has no countdown.
-`.kiroCredits` builds `X of Y credits left` from the Credits left and Credits total rows, and skips
-a zero total. `.poeBalance` reads the text after `Balance:` on `loginMethod`. `.requestQuota` stays
-in `UNPORTABLE_MENU_CARD` because the CLI JSON does not expose that row. A non-default
-`usageNotesResolver`, `extraRateWindowUsesResetDescriptionAsDetail`, or `primaryDescriptionIsDetail`
-closure is unportable until an entry names it. `primaryDescriptionIsDetail` is the menu descriptor,
-including Raycast's `{ _ in true }`.
+Secondary: weekly pacing is computed first. Kimi's secondary stays on the session rule in
+`paceCapabilities.ts`. `secondaryDetailText` or `showsSecondaryBalanceDescription` then sets
+`detailText`. `showsSecondaryBalanceDescription` clears the countdown when the window has no date.
+`secondaryReplacesPace` sets `detailLeftText` and `replacesPace`, the local mark for upstream setting
+`pacePercent` to nil. At render, a reset-window forecast still wins when the section is secondary,
+`replacesPace` is set, and `usagePacing` is present for a window `resetWindowPace` matches. An
+ordinary weekly forecast does not. That is `secondaryMetric` applying `resetWindowPaceDetail` after
+the Copilot and Zenmux branch. `usagePacing.context` is `window` for both, so the card reads
+`paceCapabilities.ts` instead of the pacing object.
 
-Warp, Alibaba, and Alibaba Token Plan have secondary rows even when the descriptor flag is false.
-`MenuCardView.secondaryMetric` draws that line for those three Providers.
+Tertiary: `tertiaryDetailText` sets `detailText`. The shared line is the reset-window pace forecast
+when the pace table has one.
+
+Extra rate window: `extraResetDescriptionAsDetail` copies `resetDescription` to `detailText` and
+drops the countdown when the window has no date. `true` is every extra window (Sub2API's
+`{ _ in true }`). A string is that window id (`mistral-monthly-plan`). Any other closure stays in
+`UNPORTABLE_MENU_CARD`. The `kiro-overage` window sets `detailLeftText` to `X of Y credits left`
+from Overage credits left and the `of …` prefix on Overage usage, and that text replaces the pace
+line. Skip when a piece is missing. Other extras keep the pace line they already have.
+
+These ids are not on the descriptor. They are `MenuCardView` branches, kept as named sets in
+`scripts/lib/meter-detail.mjs`, so a drift in the Swift list still requires the `menuCardReviewed` pin:
+
+- `secondaryDetailText`: Warp, Alibaba, Alibaba Token Plan. Warp also clears the secondary countdown
+  when the window has no supplied reset text. The CLI JSON does not carry `suppliedResetText`, so
+  Warp's secondary countdown is cleared whenever that detail line is present.
+- `secondaryReplacesPace: "resetDescription"`: Copilot, Zenmux. Zenmux also sets
+  `secondaryHidesResetWithoutDate`.
+- `secondaryReplacesPace: "kiroBonusCredits"`: Kiro. The total is the text before `·` on Bonus
+  credits left, with a leading `of ` removed. Skip when either piece is missing.
+- `tertiaryDetailText`: Alibaba, Alibaba Token Plan, from that window's `resetDescription`.
+- `extraDetailLeft: "kiroOverage"`: the `kiro-overage` extra window.
+
+`.standard` and `.none` are omitted from the table. `.requestQuota` stays in `UNPORTABLE_MENU_CARD`
+because the CLI JSON does not expose that row. A non-default `usageNotesResolver` or
+`primaryDescriptionIsDetail` closure stays there until an entry names it. `primaryDescriptionIsDetail`
+is the menu descriptor, not the card, including Raycast's `{ _ in true }`.
 
 `codexbar-upstream.lock` keeps the review pin on `menuCardReviewed`. The watched paths are:
 
@@ -335,9 +364,17 @@ Warp, Alibaba, and Alibaba Token Plan have secondary rows even when the descript
 the check until `menuCardReviewed.sha` is the candidate and the path is listed. A plugin change
 names the file, such as `raycast.js`.
 
-DeepSeek localizes this line in the app. The extension shows the CLI's English text. Providers
+DeepSeek localizes `detailText` in the app. The extension shows the CLI's English text. Providers
 absent from the table keep `resetDescription` as a pace hint (Devin "Daily", Z.ai "MCP", Amp
 "renews in …").
+
+## Codex-only raw projection. Weekly caps session
+
+On the raw usage path (no `presentation.schemaVersion === 1` meters), Codex applies the app's
+`CodexConsumerProjection.weeklyCapsSession` rule in `src/providers/codex/usageCard.ts`. When weekly
+remaining is 0 and still binding, Primary is forced to 0% remaining and its reset is retargeted via
+`bindingReset`. The reset it reads is the section's `resetsAt`.
+Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on that path.
 
 ## Surface 5. Supplemental usage shapes (hand-maintained)
 
@@ -353,7 +390,7 @@ few special cases:
   the slot-hiding rewrite when presentation meters are already present.
 - **Recorded, not rendered.** A Raycast card with a zero total has no meter. The bundled plugin
   sends Left and Total rows and a `Renews:` note (`Sources/CodexBarCore/Resources/Plugins/raycast.js`).
-  Those rows stay off the card. The balance line is the CLI `resetDescription`. `upstream:check`
+  Those rows stay off the card. Raycast's `detailText` is the CLI `resetDescription`. `upstream:check`
   names `raycast.js` when that plugin changes.
 - **Deferred / unmapped.** `cursorRequests`, `zaiUsage`, `minimaxUsage`, `kiroUsage`, `mistralUsage`,
   `deepseekUsage`, `deepgramUsage`, `openAIAPIUsage`, `claudeAdminAPIUsage`, `antigravityPlanInfo`.
@@ -420,7 +457,7 @@ When the check fails:
    `matcher: "windowDurationAtMost"` on that fingerprint. A module predicate uses
    `matcher: "predicate"` and the same id; the module's `matches` function is what runs.
    CLI `resolvedKind` lanes stay out of the table.
-2. `computeSlotUsagePacing` already evaluates the table. Add a gating test in
+2. `computeMeterPacing` already evaluates the table. Add a gating test in
    [`normalize.test.ts`](../src/usage/normalize.test.ts) for the new rule.
 3. Give the mock a window that actually satisfies it (reset inside the duration, enough elapsed
    for `idealUsedPercentByNow ≥ 3%`). See [`cli/mockPayloads.ts`](../src/cli/mockPayloads.ts).

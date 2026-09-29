@@ -415,11 +415,12 @@ describe("ProviderListItem", () => {
     ).toBeUndefined();
   });
 
-  it("keeps the balance line off the list adornment", () => {
+  it("keeps detailText and detailLeftText off the list adornment", () => {
     const detail = makeDetail(67);
     const primary = detail.sections[0];
     if (primary?.kind === "usage") {
       primary.detailText = "336.73 / 500 credits left";
+      primary.detailLeftText = "Included";
     }
 
     const accessories = buildProviderListItemAccessories("codex", detail, undefined, false);
@@ -431,6 +432,7 @@ describe("ProviderListItem", () => {
       secondaryMissing: true,
     });
     expect(JSON.stringify(accessories)).not.toContain("336.73 / 500 credits left");
+    expect(JSON.stringify(accessories)).not.toContain("Included");
   });
 
   it("shows only primary text and tooltip while keeping an empty lower track when secondary is missing", () => {

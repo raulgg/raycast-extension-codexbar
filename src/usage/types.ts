@@ -75,8 +75,12 @@ export type ProviderUsageSection = {
   resetsIn?: string;
   // Title-row text when the card has no countdown. The CLI string, with no "Resets in" prefix.
   resetText?: string;
-  // Balance line under the bar. The CLI string, not a recomputed total.
+  // Second line under the bar. Pacing does not replace it.
   detailText?: string;
+  // Shared line under the bar when this meter does not draw a pace line.
+  detailLeftText?: string;
+  // Provider text owns the shared line. Render still draws a reset-window forecast on Secondary.
+  replacesPace?: true;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
@@ -90,8 +94,12 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
-  // Balance line under the bar. The CLI string, not a recomputed total.
+  // Second line under the bar. Pacing does not replace it.
   detailText?: string;
+  // Shared line under the bar when this meter does not draw a pace line.
+  detailLeftText?: string;
+  // Provider text owns the shared line, so the pace line and marker stay off.
+  replacesPace?: true;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;

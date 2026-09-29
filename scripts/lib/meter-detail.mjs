@@ -7,8 +7,13 @@ import { CATALOG_PROVIDER_ORDER } from "./provider-modules.mjs";
 
 export const METER_DETAIL_PATH = "src/providers/meterDetail.ts";
 
-// secondaryMetric copies resetDescription for these ids without the descriptor flag.
-export const FORCED_SECONDARY_BALANCE = new Set(["alibaba", "alibabatokenplan", "warp"]);
+// MenuCardView if-provider lists, not descriptor fields. A drift there still has to move menuCardReviewed.
+export const SECONDARY_DETAIL_TEXT = new Set(["alibaba", "alibabatokenplan", "warp"]);
+export const SECONDARY_RESET_DESCRIPTION_PACE = new Set(["copilot", "zenmux"]);
+export const SECONDARY_HIDES_RESET_WITHOUT_DATE = new Set(["zenmux"]);
+export const SECONDARY_KIRO_BONUS_PACE = new Set(["kiro"]);
+export const TERTIARY_DETAIL_TEXT = new Set(["alibaba", "alibabatokenplan"]);
+export const EXTRA_KIRO_OVERAGE = new Set(["kiro"]);
 
 export const MENU_CARD_WATCH_PATHS = [
   "Sources/CodexBar/MenuCardView.swift",
@@ -29,7 +34,22 @@ export const METER_DETAIL_BANNER = `${[METER_DETAIL_RULE, ...METER_DETAIL_DO_NOT
 const PLACEMENTS = new Set(["standard", "reset", "detail", "detailLeft"]);
 const DETAIL_KINDS = new Set(["none", "poeBalance", "kiroCredits", "requestQuota"]);
 const TRIVIAL_FALSE = "{_infalse}";
+const TRIVIAL_TRUE = "{_intrue}";
 const TRIVIAL_UNHANDLED = "{_in.unhandled}";
+const ENTRY_FIELDS = [
+  "primaryDescriptionPlacement",
+  "showsPrimaryBalanceDescription",
+  "showsSecondaryBalanceDescription",
+  "hidesPrimaryResetWithoutDate",
+  "clearsPrimaryReset",
+  "primaryDetailKind",
+  "secondaryDetailText",
+  "secondaryReplacesPace",
+  "secondaryHidesResetWithoutDate",
+  "tertiaryDetailText",
+  "extraResetDescriptionAsDetail",
+  "extraDetailLeft",
+];
 
 const CLOSURE_FIELDS = [
   "usageNotesResolver",
@@ -49,19 +69,19 @@ export function parseMenuCardPresentation(source, filePath = "descriptor") {
     }
     const card = cardCalls.length === 0 ? new Map() : parseArgs(cardCalls[0]);
     const menu = menuCalls.length === 0 ? new Map() : parseArgs(menuCalls[0]);
+    const extraReset = classifyExtraResetDetail(card.get("extraRateWindowUsesResetDescriptionAsDetail"));
     return {
       ok: true,
       presentation: {
         showsPrimaryBalanceDescription: boolArg(card, "showsPrimaryBalanceDescription", false),
         showsSecondaryBalanceDescription: boolArg(card, "showsSecondaryBalanceDescription", false),
+        hidesPrimaryResetWithoutDate: boolArg(card, "hidesPrimaryResetWithoutDate", false),
+        clearsPrimaryReset: boolArg(card, "clearsPrimaryReset", false),
         primaryDescriptionPlacement: enumArg(card, "primaryDescriptionPlacement", "standard", PLACEMENTS),
         primaryDetailKind: enumArg(card, "primaryDetailKind", "none", DETAIL_KINDS),
         usageNotesResolver: closureArg(card, "usageNotesResolver", TRIVIAL_UNHANDLED),
-        extraRateWindowUsesResetDescriptionAsDetail: closureArg(
-          card,
-          "extraRateWindowUsesResetDescriptionAsDetail",
-          TRIVIAL_FALSE,
-        ),
+        extraRateWindowUsesResetDescriptionAsDetail: extraReset.unportable,
+        extraResetDescriptionAsDetail: extraReset.ported,
         primaryDescriptionIsDetail: closureArg(menu, "primaryDescriptionIsDetail", TRIVIAL_FALSE),
       },
     };
@@ -74,20 +94,44 @@ export function meterEntryFromPresentation(id, presentation) {
   const entry = {};
   const placement = presentation.primaryDescriptionPlacement;
   const kind = presentation.primaryDetailKind;
+  if (placement && placement !== "standard") {
+    entry.primaryDescriptionPlacement = placement;
+  }
+  if (presentation.showsPrimaryBalanceDescription) {
+    entry.showsPrimaryBalanceDescription = true;
+  }
+  if (presentation.showsSecondaryBalanceDescription) {
+    entry.showsSecondaryBalanceDescription = true;
+  }
+  if (presentation.hidesPrimaryResetWithoutDate) {
+    entry.hidesPrimaryResetWithoutDate = true;
+  }
+  if (presentation.clearsPrimaryReset) {
+    entry.clearsPrimaryReset = true;
+  }
   if (kind === "kiroCredits" || kind === "poeBalance") {
-    entry.primary = kind;
-  } else if (
-    presentation.showsPrimaryBalanceDescription ||
-    placement === "detail" ||
-    placement === "detailLeft"
-  ) {
-    entry.primary = true;
+    entry.primaryDetailKind = kind;
   }
-  if (placement === "reset") {
-    entry.primaryReset = true;
+  if (SECONDARY_DETAIL_TEXT.has(id)) {
+    entry.secondaryDetailText = true;
   }
-  if (presentation.showsSecondaryBalanceDescription || FORCED_SECONDARY_BALANCE.has(id)) {
-    entry.secondary = true;
+  if (SECONDARY_RESET_DESCRIPTION_PACE.has(id)) {
+    entry.secondaryReplacesPace = "resetDescription";
+  }
+  if (SECONDARY_KIRO_BONUS_PACE.has(id)) {
+    entry.secondaryReplacesPace = "kiroBonusCredits";
+  }
+  if (SECONDARY_HIDES_RESET_WITHOUT_DATE.has(id)) {
+    entry.secondaryHidesResetWithoutDate = true;
+  }
+  if (TERTIARY_DETAIL_TEXT.has(id)) {
+    entry.tertiaryDetailText = true;
+  }
+  if (presentation.extraResetDescriptionAsDetail) {
+    entry.extraResetDescriptionAsDetail = presentation.extraResetDescriptionAsDetail;
+  }
+  if (EXTRA_KIRO_OVERAGE.has(id)) {
+    entry.extraDetailLeft = "kiroOverage";
   }
   return Object.keys(entry).length === 0 ? undefined : entry;
 }
@@ -188,16 +232,29 @@ export function menuCardReviewProblems(reviewed, candidateSha, changedPaths) {
 
 export function renderMeterDetail(entries) {
   const ids = Object.keys(entries).sort(compareCatalogId);
-  const lines = ids.map((id) => `  ${id}: ${renderEntry(entries[id])},`);
+  const lines = ids.map((id) => renderProperty(id, entries[id]));
   const body =
     lines.length === 0
       ? "export const METER_DETAIL: Record<string, MeterDetail> = {};\n"
       : `export const METER_DETAIL: Record<string, MeterDetail> = {\n${lines.join("\n")}\n};\n`;
   const type = [
+    'export type PrimaryDescriptionPlacement = "standard" | "reset" | "detail" | "detailLeft";',
+    "",
+    'export type PrimaryDetailKind = "poeBalance" | "kiroCredits";',
+    "",
     "export type MeterDetail = {",
-    '  primary?: true | "kiroCredits" | "poeBalance";',
-    "  secondary?: true;",
-    "  primaryReset?: true;",
+    '  primaryDescriptionPlacement?: Exclude<PrimaryDescriptionPlacement, "standard">;',
+    "  showsPrimaryBalanceDescription?: true;",
+    "  showsSecondaryBalanceDescription?: true;",
+    "  hidesPrimaryResetWithoutDate?: true;",
+    "  clearsPrimaryReset?: true;",
+    "  primaryDetailKind?: PrimaryDetailKind;",
+    "  secondaryDetailText?: true;",
+    '  secondaryReplacesPace?: "resetDescription" | "kiroBonusCredits";',
+    "  secondaryHidesResetWithoutDate?: true;",
+    "  tertiaryDetailText?: true;",
+    "  extraResetDescriptionAsDetail?: true | string;",
+    '  extraDetailLeft?: "kiroOverage";',
     "};",
     "",
   ].join("\n");
@@ -211,13 +268,23 @@ export async function checkMeterDetailFile(root, entries) {
   return [`${METER_DETAIL_PATH} does not match the menu card descriptors. Regenerate it.`];
 }
 
-function renderEntry(entry) {
+// Keep properties inside Prettier's printWidth so a generated table lints unchanged.
+function renderProperty(id, entry) {
   const fields = [];
-  if (entry.primary === true) fields.push("primary: true");
-  else if (entry.primary) fields.push(`primary: "${entry.primary}"`);
-  if (entry.secondary) fields.push("secondary: true");
-  if (entry.primaryReset) fields.push("primaryReset: true");
-  return `{ ${fields.join(", ")} }`;
+  for (const key of ENTRY_FIELDS) {
+    const rendered = renderField(key, entry[key]);
+    if (rendered) fields.push(rendered);
+  }
+  const single = `  ${id}: { ${fields.join(", ")} },`;
+  if (single.length <= 120) return single;
+  return `  ${id}: {\n${fields.map((field) => `    ${field},`).join("\n")}\n  },`;
+}
+
+function renderField(key, value) {
+  if (value === undefined || value === false || value === "standard" || value === "none") return undefined;
+  if (value === true) return `${key}: true`;
+  if (typeof value === "string") return `${key}: ${JSON.stringify(value)}`;
+  return undefined;
 }
 
 function compareCatalogId(left, right) {
@@ -239,20 +306,48 @@ function sameEntry(expected, actual) {
 function normalizeEntry(entry) {
   if (!entry) return {};
   const normalized = {};
-  if (entry.primary !== undefined) normalized.primary = entry.primary;
-  if (entry.secondary) normalized.secondary = true;
-  if (entry.primaryReset) normalized.primaryReset = true;
+  for (const key of ENTRY_FIELDS) {
+    const rendered = renderField(key, entry[key]);
+    if (!rendered) continue;
+    normalized[key] = entry[key] === true ? true : entry[key];
+  }
+  for (const key of Object.keys(entry)) {
+    if (!ENTRY_FIELDS.includes(key) && entry[key] !== undefined) {
+      normalized[key] = entry[key];
+    }
+  }
   return normalized;
 }
 
 function describeEntry(entry) {
   const normalized = normalizeEntry(entry);
   const parts = [];
-  if (normalized.primary === true) parts.push("primary");
-  else if (normalized.primary) parts.push(`primary ${normalized.primary}`);
-  if (normalized.secondary) parts.push("secondary");
-  if (normalized.primaryReset) parts.push("primaryReset");
-  return parts.length === 0 ? "no balance line" : parts.join(", ");
+  for (const key of Object.keys(normalized)) {
+    const value = normalized[key];
+    parts.push(value === true ? key : `${key} ${value}`);
+  }
+  return parts.length === 0 ? "no menu-card detail" : parts.join(", ");
+}
+
+function classifyExtraResetDetail(raw) {
+  if (raw === undefined) return { ported: null, unportable: null };
+  const trimmed = stripLeadingTrivia(raw);
+  if (!trimmed.startsWith("{")) {
+    throw new Error("extraRateWindowUsesResetDescriptionAsDetail is not a closure");
+  }
+  const normalized = normalizeClosure(trimmed);
+  if (normalized === TRIVIAL_FALSE) return { ported: null, unportable: null };
+  if (normalized === TRIVIAL_TRUE) return { ported: true, unportable: null };
+  const idMatch = /^\{\$0\.id=="([^"]+)"\}$/.exec(normalized);
+  if (idMatch) return { ported: idMatch[1], unportable: null };
+  return { ported: null, unportable: trimmed };
+}
+
+function normalizeClosure(raw) {
+  return raw
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\s+/g, "");
 }
 
 function parseArgs(argSource) {

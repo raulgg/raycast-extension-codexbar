@@ -1,6 +1,8 @@
 import { formatPercentRemaining } from "./format";
 import { buildSvgProgressBar, buildSvgRect } from "./svg";
 import { formatUsagePacingLine, paceMarkerKind } from "../usage/pacing";
+import { PROVIDER_MODULES } from "../providers/index";
+import { matchesResetWindowPace } from "../providers/paceCapabilities";
 import { getProviderProgressPalette } from "../providers/registry";
 import {
   buildText,
@@ -14,7 +16,7 @@ import {
   getTextBottomY,
   type DetailAppearance,
 } from "./layout";
-import type { ProviderSection } from "../usage/types";
+import type { ProviderSection, ProviderSupplementalUsageSection, ProviderUsageSection } from "../usage/types";
 
 const PROGRESS_BAR = {
   height: 8,
@@ -126,6 +128,7 @@ function renderUsageMeter({
   resetsIn,
   resetText,
   pacingLine,
+  detailLeftLine,
   detailLine,
   regenLine,
   providerId,
@@ -139,6 +142,7 @@ function renderUsageMeter({
   resetsIn?: string;
   resetText?: string;
   pacingLine?: string;
+  detailLeftLine?: string;
   detailLine?: string;
   regenLine?: string;
   providerId: string;
@@ -150,7 +154,9 @@ function renderUsageMeter({
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
-  const footerLines = [pacingLine, detailLine, regenLine].filter((line): line is string => line !== undefined);
+  const footerLines = [pacingLine ?? detailLeftLine, detailLine, regenLine].filter(
+    (line): line is string => line !== undefined,
+  );
   const markup = [
     buildText(
       titleText,
@@ -224,7 +230,8 @@ export function renderMetricSection(
   }
 
   const title = section.kind === "usage" ? section.displayTitle : section.title;
-  const usagePacing = section.usagePacing;
+  const showPace = drawPaceLine(section, providerId);
+  const usagePacing = showPace ? section.usagePacing : undefined;
   const markerKind = usagePacing ? paceMarkerKind(usagePacing) : undefined;
   const marker =
     usagePacing && markerKind
@@ -240,6 +247,7 @@ export function renderMetricSection(
     resetsIn: section.resetsIn,
     resetText: "resetText" in section ? section.resetText : undefined,
     pacingLine: usagePacing ? formatUsagePacingLine(usagePacing) : undefined,
+    detailLeftLine: showPace ? undefined : section.detailLeftText,
     detailLine: section.detailText,
     regenLine:
       section.nextRegenPercent !== undefined
@@ -251,6 +259,20 @@ export function renderMetricSection(
     marker,
     accentColor,
   });
+}
+
+function drawPaceLine(section: ProviderUsageSection | ProviderSupplementalUsageSection, providerId: string): boolean {
+  if (!section.usagePacing) return false;
+  if (!section.replacesPace) return true;
+  // usagePacing.context is "window" for both a reset-window forecast and ordinary weekly pace.
+  if (section.kind !== "usage" || section.title !== "Secondary") return false;
+  const computedAt = Date.parse(section.usagePacing.computedAt);
+  return matchesResetWindowPace(
+    providerId,
+    { windowMinutes: section.windowMinutes, resetsAt: section.resetsAt },
+    Number.isNaN(computedAt) ? Date.now() : computedAt,
+    PROVIDER_MODULES,
+  );
 }
 
 function renderLoadingSkeletonSection(
