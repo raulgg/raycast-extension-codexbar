@@ -6,7 +6,9 @@
 // as the CodexBar GUI. A module pace, displayTitle, or extraWindowPace replaces that
 // id in the legacy tables. Every dynamic label override in the upstream renderers is
 // either ported or documented as unportable. The check also fails when two modules
-// share an alias, or an alias is any provider id.
+// share an alias, an alias is any provider id, or module aliases differ from the
+// descriptor cliName and `aliases: ["…"]` string array. A non-literal alias array
+// fails with the filename.
 //
 // Usage:
 //   npm run upstream:check                      # compare against codexbar-upstream.lock
@@ -46,7 +48,13 @@ import {
   readUpstreamLock,
   upstreamLockPath,
 } from "./lib/upstream.mjs";
-import { compareProviders, parseDescriptorMetadata, parseDynamicOverrideProviders } from "./lib/upstream-metadata.mjs";
+import {
+  compareProviders,
+  descriptorAliasProblems,
+  parseDescriptorCliAliases,
+  parseDescriptorMetadata,
+  parseDynamicOverrideProviders,
+} from "./lib/upstream-metadata.mjs";
 import {
   comparePaceCapabilities,
   dynamicTitleIdsForCheck,
@@ -348,10 +356,12 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   const presentationFlagsById = new Map();
   const menuCards = new Map();
   const menuCardProblems = [];
+  const aliasDescriptors = [];
   for (const { path: filePath, content } of descriptorFiles) {
     const metadata = parseDescriptorMetadata(content, filePath);
     metadata.pace = parseDescriptorPace(content, filePath);
     upstreamById.set(metadata.id, metadata);
+    aliasDescriptors.push(parseDescriptorCliAliases(content, metadata.id, filePath));
     presentationFlagsById.set(metadata.id, parsePresentationPaceFlags(content));
     const menuCard = parseMenuCardPresentation(content, filePath);
     if (!menuCard.ok) {
@@ -366,6 +376,7 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   const paceComparison = comparePaceCapabilities(paceEntries, upstreamById, customPaceRules);
   problems.push(...paceComparison.problems);
   problems.push(...moduleAliasProblems(modules, Object.keys(catalog)));
+  problems.push(...descriptorAliasProblems(aliasDescriptors, modules));
 
   const dynamicOverrides = parseDynamicOverrideProviders(rendererFiles);
   for (const metadata of upstreamById.values()) {

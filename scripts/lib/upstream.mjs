@@ -123,9 +123,41 @@ export function isMainModule(moduleUrl, argv1 = process.argv[1]) {
   return Boolean(argv1 && pathToFileURL(path.resolve(argv1)).href === moduleUrl);
 }
 
+function readGhAuthToken() {
+  try {
+    return execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch {
+    return "";
+  }
+}
+
+// Latest-release lookup still hits the GitHub API. A missing GITHUB_TOKEN uses `gh auth token`.
+export function githubTokenFromEnv(env = process.env, readToken = readGhAuthToken) {
+  const configured = env.GITHUB_TOKEN;
+  if (typeof configured === "string" && configured.trim() !== "") {
+    return configured.trim();
+  }
+  const token = readToken();
+  return typeof token === "string" ? token.trim() : "";
+}
+
+export function githubRateLimitHint(status, url) {
+  if (status === 403 && String(url).startsWith("https://api.github.com/")) {
+    return " (likely the unauthenticated rate limit; set GITHUB_TOKEN=$(gh auth token), or CODEXBAR_DIR for a local checkout)";
+  }
+  return "";
+}
+
+let resolvedGithubToken;
+
 function githubHeaders() {
-  const token = process.env.GITHUB_TOKEN;
-  return token ? { authorization: `Bearer ${token}` } : {};
+  if (resolvedGithubToken === undefined) {
+    resolvedGithubToken = githubTokenFromEnv() || "";
+  }
+  return resolvedGithubToken ? { authorization: `Bearer ${resolvedGithubToken}` } : {};
 }
 
 async function resolveCommitSha(ref) {
@@ -157,11 +189,7 @@ async function listGithubChangedPaths(from, to) {
 async function fetchText(url, headers = {}) {
   const response = await fetch(url, { headers });
   if (!response.ok) {
-    const rateLimitHint =
-      response.status === 403 && url.startsWith("https://api.github.com/")
-        ? " (likely the unauthenticated rate limit; set GITHUB_TOKEN, or CODEXBAR_DIR for a local checkout)"
-        : "";
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}${rateLimitHint}`);
+    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}${githubRateLimitHint(response.status, url)}`);
   }
   return response.text();
 }
