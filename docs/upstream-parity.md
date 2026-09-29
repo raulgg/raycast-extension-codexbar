@@ -238,8 +238,6 @@ contain `..`, a leading `/`, or a path separator fail the script.
 
 ## Surface 4. Pacing (`upstream:check`)
 
-*Formula unchanged since `v0.60.4` (`937b2081`).*
-
 Eligibility lives in [`paceCapabilities.ts`](../src/providers/paceCapabilities.ts), a table that
 mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsagePacing` in
 `normalize.ts` evaluates that table the way the app menu card does, not the CLI's `resolvedKind`.
@@ -286,9 +284,8 @@ the GUI even though the CLI `resolvedKind` lane would allow it. Antigravity sess
 
 **Tick geometry.** Upstream's pace tip is a Canvas three-stripe punch (`UsageProgressBar.swift`).
 We keep a simple 3×12 rounded rect. We punch a transparent gutter through the bar around that tick
-so the color stays readable on similar brand fills. Color and hide-when-on-pace match the app
-(`UsageProgressBar.swift` unchanged since `v0.60.4`). Deficit is SwiftUI
-`Color.red`, reserve is `Color.green`.
+so the color stays readable on similar brand fills. Color and hide-when-on-pace match the app.
+Deficit is SwiftUI `Color.red`, reserve is `Color.green`.
 
 ### Out of scope. Not the plain pace marker
 
@@ -328,8 +325,6 @@ few special cases:
   and Muse's estimated-quota note for a selected dev.meta.ai team.
 
 ## Surface 6. CLI install routine (hand-maintained)
-
-*Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
 
 When the CodexBar CLI is missing but the CodexBar app is installed, the extension can set up the
 app's bundled CLI itself (ADR-0008). `installCodexBarCli` in
