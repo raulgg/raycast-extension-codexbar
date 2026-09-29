@@ -8,12 +8,21 @@ import {
 } from "../providers/paceCapabilities";
 import { PROVIDER_MODULES } from "../providers/index";
 import type { ProviderModuleMap } from "../providers/module";
+import { METER_DETAIL } from "../providers/meterDetail";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
 import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
 import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
-import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
+import {
+  clampPercent,
+  firstString,
+  isRecord,
+  toFiniteNumber,
+  toNonBlankString,
+  toRecord,
+  toTrimmedString,
+} from "./json";
 import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
@@ -114,6 +123,7 @@ type MeterInput = {
   windowMinutes?: number;
   resetDescription?: string;
   nextRegenPercent?: number;
+  windowId?: string;
 };
 
 type MeterContext = {
@@ -121,6 +131,7 @@ type MeterContext = {
   pacingAllowed: boolean;
   now: number;
   modules: ProviderModuleMap;
+  payload: RawProviderPayload;
 };
 
 function meterContext(
@@ -129,7 +140,7 @@ function meterContext(
   now: number,
   modules: ProviderModuleMap = PROVIDER_MODULES,
 ): MeterContext {
-  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules };
+  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules, payload };
 }
 
 function computeMeterPacing(
@@ -174,6 +185,214 @@ function meterResetFields(input: MeterInput): { resetsAt?: string; windowMinutes
   };
 }
 
+type MeterRole = "primary" | "secondary" | "tertiary" | "extra" | "supplemental";
+
+type MeterLines = {
+  detailText?: string;
+  detailLeftText?: string;
+  resetText?: string;
+  replacesPace?: true;
+  clearCountdown?: true;
+};
+
+function meterRole(slot: SlotTitle): MeterRole {
+  if (slot === "Primary") return "primary";
+  if (slot === "Secondary") return "secondary";
+  return "tertiary";
+}
+
+function detailRow(
+  payload: RawProviderPayload,
+  label: string,
+): { value?: string; secondaryValue?: string } | undefined {
+  const usage = toRecord(payload.usage);
+  if (!usage || !Array.isArray(usage.details)) {
+    return undefined;
+  }
+
+  for (const section of usage.details) {
+    const rows = toRecord(section)?.rows;
+    if (!Array.isArray(rows)) {
+      continue;
+    }
+
+    for (const row of rows) {
+      const record = toRecord(row);
+      if (toTrimmedString(record?.label) !== label) {
+        continue;
+      }
+      return { value: scalarString(record?.value), secondaryValue: scalarString(record?.secondaryValue) };
+    }
+  }
+
+  return undefined;
+}
+
+function scalarString(value: unknown): string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return toTrimmedString(value);
+}
+
+function kiroCreditsDetail(payload: RawProviderPayload): string | undefined {
+  const remaining = detailRow(payload, "Credits left")?.value;
+  const total = detailRow(payload, "Credits total")?.value;
+  if (!remaining || !total || total === "0") {
+    return undefined;
+  }
+  return `${remaining} of ${total} credits left`;
+}
+
+function kiroBonusDetail(payload: RawProviderPayload): string | undefined {
+  const row = detailRow(payload, "Bonus credits left");
+  const remaining = row?.value;
+  const head = row?.secondaryValue?.split("·", 2)[0]?.trim();
+  if (!remaining || !head) {
+    return undefined;
+  }
+  const total = head.startsWith("of ") ? head.slice(3).trim() : head;
+  if (!total) {
+    return undefined;
+  }
+  return `${remaining} of ${total} bonus credits left`;
+}
+
+function kiroOverageDetail(payload: RawProviderPayload): string | undefined {
+  const remaining = detailRow(payload, "Overage credits left")?.value;
+  const capPhrase = detailRow(payload, "Overage usage")?.secondaryValue;
+  if (!remaining || !capPhrase?.startsWith("of ")) {
+    return undefined;
+  }
+  const total = capPhrase.slice(3);
+  if (!total) {
+    return undefined;
+  }
+  return `${remaining} of ${total} credits left`;
+}
+
+function poeBalanceDetail(payload: RawProviderPayload): string | undefined {
+  const usage = toRecord(payload.usage);
+  const identity = toRecord(payload.identity);
+  const usageIdentity = toRecord(usage?.identity);
+  const loginMethod = firstString(
+    payload.loginMethod,
+    identity?.loginMethod,
+    usage?.loginMethod,
+    usageIdentity?.loginMethod,
+  );
+  const prefix = "Balance:";
+  if (!loginMethod?.startsWith(prefix)) {
+    return undefined;
+  }
+  const balance = loginMethod.slice(prefix.length).trim();
+  return balance || undefined;
+}
+
+function meterLines(
+  role: MeterRole,
+  input: MeterInput,
+  context: MeterContext,
+  resetsIn: string | undefined,
+): MeterLines {
+  if (role === "supplemental") {
+    return {};
+  }
+  const entry = METER_DETAIL[context.providerId];
+  if (!entry) {
+    return {};
+  }
+
+  const description = input.resetDescription?.trim() || undefined;
+  const lines: MeterLines = {};
+  if (role === "primary") {
+    if (entry.primaryDescriptionPlacement === "reset" && !resetsIn && description) {
+      lines.resetText = description;
+    }
+    if (entry.primaryDescriptionPlacement === "detail" && description) {
+      lines.detailText = description;
+    }
+    if (entry.primaryDescriptionPlacement === "detailLeft" && description) {
+      lines.detailLeftText = description;
+    }
+    if (entry.showsPrimaryBalanceDescription && description) {
+      lines.detailText = description;
+    }
+    if (entry.primaryDetailKind === "poeBalance") {
+      const detailText = poeBalanceDetail(context.payload);
+      if (detailText) lines.detailText = detailText;
+    }
+    if (entry.primaryDetailKind === "kiroCredits") {
+      const detailLeftText = kiroCreditsDetail(context.payload);
+      if (detailLeftText) lines.detailLeftText = detailLeftText;
+    }
+    if ((entry.clearsPrimaryReset || entry.hidesPrimaryResetWithoutDate) && !resetsIn) {
+      delete lines.resetText;
+    }
+    return lines;
+  }
+
+  if (role === "secondary") {
+    if ((entry.secondaryDetailText || entry.showsSecondaryBalanceDescription) && description) {
+      lines.detailText = description;
+    }
+    // CLI JSON has no suppliedResetText, so Warp clears this countdown whenever the detail line is present.
+    if (context.providerId === "warp" && lines.detailText) {
+      lines.clearCountdown = true;
+    }
+    if (entry.showsSecondaryBalanceDescription && description && !resetsIn) {
+      lines.clearCountdown = true;
+    }
+    if (entry.secondaryReplacesPace === "resetDescription" && description) {
+      lines.detailLeftText = description;
+      lines.replacesPace = true;
+    }
+    if (entry.secondaryReplacesPace === "kiroBonusCredits") {
+      const detailLeftText = kiroBonusDetail(context.payload);
+      if (detailLeftText) {
+        lines.detailLeftText = detailLeftText;
+        lines.replacesPace = true;
+      }
+    }
+    if (entry.secondaryHidesResetWithoutDate && !resetsIn) {
+      delete lines.resetText;
+      lines.clearCountdown = true;
+    }
+    return lines;
+  }
+
+  if (role === "tertiary") {
+    if (entry.tertiaryDetailText && description) {
+      lines.detailText = description;
+    }
+    return lines;
+  }
+
+  const rule = entry.extraResetDescriptionAsDetail;
+  if ((rule === true || (typeof rule === "string" && input.windowId === rule)) && description) {
+    lines.detailText = description;
+    if (!resetsIn) lines.clearCountdown = true;
+  }
+  if (entry.extraDetailLeft === "kiroOverage" && input.windowId === "kiro-overage") {
+    const detailLeftText = kiroOverageDetail(context.payload);
+    if (detailLeftText) {
+      lines.detailLeftText = detailLeftText;
+      lines.replacesPace = true;
+    }
+  }
+  return lines;
+}
+
+function presentedLines(lines: MeterLines, resetsIn: string | undefined) {
+  return {
+    ...(resetsIn && !lines.clearCountdown ? { resetsIn } : {}),
+    ...(lines.resetText ? { resetText: lines.resetText } : {}),
+    ...(lines.detailText ? { detailText: lines.detailText } : {}),
+    ...(lines.detailLeftText ? { detailLeftText: lines.detailLeftText } : {}),
+    ...(lines.replacesPace ? { replacesPace: true as const } : {}),
+  };
+}
+
 function buildUsageMeter(
   slot: SlotTitle,
   displayTitle: string,
@@ -181,13 +400,14 @@ function buildUsageMeter(
   context: MeterContext,
   usageItemId: string,
 ): ProviderUsageSection {
+  const resetsIn = input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined;
   return {
     kind: "usage",
     title: slot,
     displayTitle,
     remainingPercent: clampPercent(input.remainingPercent),
-    resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
     ...meterResetFields(input),
+    ...presentedLines(meterLines(meterRole(slot), input, context, resetsIn), resetsIn),
     usagePacing: computeMeterPacing(slot, input, context),
     nextRegenPercent: input.nextRegenPercent,
     usageItemId,
@@ -198,14 +418,16 @@ function buildSupplementalMeter(
   title: string,
   input: MeterInput,
   context: MeterContext,
-  usageItemId?: string,
+  usageItemId: string | undefined,
+  role: "extra" | "supplemental",
 ): ProviderSupplementalUsageSection {
+  const resetsIn = input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined;
   return {
     kind: "supplementalUsage",
     title,
     remainingPercent: clampPercent(input.remainingPercent),
-    resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
     ...meterResetFields(input),
+    ...presentedLines(meterLines(role, input, context, resetsIn), resetsIn),
     usagePacing: computeMeterPacing("extra", input, context),
     nextRegenPercent: input.nextRegenPercent,
     ...(usageItemId ? { usageItemId } : {}),
@@ -339,9 +561,11 @@ function buildExtraRateWindowSections(
           windowMinutes: toFiniteNumber(window.windowMinutes),
           resetDescription: toTrimmedString(window.resetDescription),
           nextRegenPercent: toFiniteNumber(window.nextRegenPercent),
+          windowId: toTrimmedString(record.id),
         },
         context,
         usageItemIdFromMeterId(toTrimmedString(record.id)),
+        "extra",
       ),
     );
   }
@@ -407,7 +631,7 @@ function buildPresentationMeterSections(
     const meterId = toTrimmedString(meter.id);
     sections.push(
       kind === "supplemental"
-        ? buildSupplementalMeter(label, input, context, usageItemIdFromMeterId(meterId))
+        ? buildSupplementalMeter(label, input, context, usageItemIdFromMeterId(meterId), "supplemental")
         : buildUsageMeter(
             PRESENTATION_SLOT_TITLES[kind],
             label,

@@ -2,6 +2,7 @@
 // Default ref is the SHA in codexbar-upstream.lock. Override with CODEXBAR_REF, or
 // CODEXBAR_DIR for a local checkout. Resolution failures throw.
 
+import { execFileSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -42,20 +43,61 @@ export function readUpstreamLock(lockSource) {
   return { repo: UPSTREAM_REPO, tag: lock.tag, sha: lock.sha.toLowerCase() };
 }
 
+export function readMenuCardReviewed(lockSource) {
+  let lock;
+  try {
+    lock = JSON.parse(lockSource);
+  } catch {
+    throw new Error("codexbar-upstream.lock is not valid JSON.");
+  }
+
+  const reviewed = lock?.menuCardReviewed;
+  if (!reviewed || typeof reviewed !== "object" || Array.isArray(reviewed)) {
+    throw new Error("codexbar-upstream.lock is missing menuCardReviewed.");
+  }
+
+  if (typeof reviewed.sha !== "string" || !/^[0-9a-f]{40}$/i.test(reviewed.sha)) {
+    throw new Error("codexbar-upstream.lock menuCardReviewed.sha must be a 40-character hex commit.");
+  }
+
+  if (!Array.isArray(reviewed.paths) || reviewed.paths.some((entry) => typeof entry !== "string" || entry.trim() === "")) {
+    throw new Error("codexbar-upstream.lock menuCardReviewed.paths must be a list of paths.");
+  }
+
+  return { sha: reviewed.sha.toLowerCase(), paths: reviewed.paths };
+}
+
 // Written into codexbar-upstream.lock. JSON has no line comments, and readUpstreamLock ignores this.
 export const UPSTREAM_LOCK_NOTE = "Written by npm run upstream:bump. Don't hand-edit.";
 
-export function renderUpstreamLock(target) {
-  return `${JSON.stringify(
-    {
-      note: UPSTREAM_LOCK_NOTE,
-      repo: target.repo,
-      tag: target.tag,
-      sha: target.sha,
-    },
-    null,
-    2,
-  )}\n`;
+export function renderUpstreamLock(target, previousSource) {
+  const lock = {
+    note: UPSTREAM_LOCK_NOTE,
+    repo: target.repo,
+    tag: target.tag,
+    sha: target.sha.toLowerCase(),
+  };
+  // The bump target is only the release pin. Keep the acknowledgement already in the lock.
+  const reviewed = target.menuCardReviewed ?? menuCardReviewedFromLock(previousSource);
+  if (reviewed) {
+    lock.menuCardReviewed = {
+      sha: reviewed.sha.toLowerCase(),
+      paths: reviewed.paths,
+    };
+  }
+  return `${JSON.stringify(lock, null, 2)}\n`;
+}
+
+function menuCardReviewedFromLock(previousSource) {
+  if (!previousSource) return undefined;
+  let parsed;
+  try {
+    parsed = JSON.parse(previousSource);
+  } catch {
+    throw new Error("codexbar-upstream.lock is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object" || !parsed.menuCardReviewed) return undefined;
+  return readMenuCardReviewed(previousSource);
 }
 
 export function assertSafeUpstreamRef(ref) {
@@ -84,6 +126,32 @@ export function isMainModule(moduleUrl, argv1 = process.argv[1]) {
 function githubHeaders() {
   const token = process.env.GITHUB_TOKEN;
   return token ? { authorization: `Bearer ${token}` } : {};
+}
+
+async function resolveCommitSha(ref) {
+  if (/^[0-9a-f]{40}$/i.test(ref)) return ref.toLowerCase();
+  const commit = JSON.parse(
+    await fetchText(`https://api.github.com/repos/${UPSTREAM_REPO}/commits/${encodeRefForUrl(ref)}`, githubHeaders()),
+  );
+  if (typeof commit.sha !== "string" || !/^[0-9a-f]{40}$/i.test(commit.sha)) {
+    throw new Error(`Could not resolve commit SHA for ${UPSTREAM_REPO} ${ref}.`);
+  }
+  return commit.sha.toLowerCase();
+}
+
+async function listGithubChangedPaths(from, to) {
+  if (from.toLowerCase() === to.toLowerCase()) return [];
+  const compare = JSON.parse(
+    await fetchText(
+      `https://api.github.com/repos/${UPSTREAM_REPO}/compare/${encodeRefForUrl(from)}...${encodeRefForUrl(to)}`,
+      githubHeaders(),
+    ),
+  );
+  // The compare response caps files at 300 and then omits the rest.
+  if (!Array.isArray(compare.files) || compare.files.length >= 300) {
+    throw new Error(`GitHub compare ${from}...${to} did not return a complete file list.`);
+  }
+  return compare.files.map((file) => file.filename).filter((filename) => typeof filename === "string");
 }
 
 async function fetchText(url, headers = {}) {
@@ -150,11 +218,23 @@ async function listLocalFiles(dir, suffix) {
   return files;
 }
 
+function gitText(localDir, args) {
+  return execFileSync("git", ["-C", localDir, ...args], { encoding: "utf8" });
+}
+
 export async function createUpstreamSource() {
   const localDir = process.env.CODEXBAR_DIR;
   if (localDir) {
+    const sha = gitText(localDir, ["rev-parse", "HEAD"]).trim().toLowerCase();
     return {
       label: `local checkout ${localDir}`,
+      sha,
+      listChangedPaths: async (from, to) => {
+        if (from.toLowerCase() === to.toLowerCase()) return [];
+        return gitText(localDir, ["diff", "--name-only", from, to])
+          .split("\n")
+          .filter((line) => line.length > 0);
+      },
       listFiles: async (prefix, suffix) => {
         const files = await listLocalFiles(path.join(localDir, prefix), suffix);
         return files.map((file) => path.relative(localDir, file));
@@ -164,11 +244,14 @@ export async function createUpstreamSource() {
   }
 
   const target = await resolveUpstreamTarget();
+  const sha = await resolveCommitSha(target.ref);
   const encodedRef = encodeRefForUrl(target.ref);
   const rawUrl = (repoPath) => `https://raw.githubusercontent.com/${UPSTREAM_REPO}/${encodedRef}/${repoPath}`;
   return {
     label: target.label,
     ref: target.ref,
+    sha,
+    listChangedPaths: (from, to) => listGithubChangedPaths(from, to),
     listFiles: async (prefix, suffix) => {
       const tree = JSON.parse(
         await fetchText(

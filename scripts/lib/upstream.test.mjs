@@ -5,6 +5,7 @@ import {
   assertSafeUpstreamRef,
   encodeRefForUrl,
   isMainModule,
+  readMenuCardReviewed,
   readUpstreamLock,
   renderUpstreamLock,
   UPSTREAM_LOCK_NOTE,
@@ -81,5 +82,60 @@ describe("readUpstreamLock", () => {
     expect(() => readUpstreamLock("{}")).toThrow(/repo must be/);
     expect(() => readUpstreamLock('{"repo":"steipete/CodexBar","tag":"v1","sha":"abc"}')).toThrow(/40-character/);
     expect(() => readUpstreamLock("not-json")).toThrow(/valid JSON/);
+  });
+
+  it("round-trips menuCardReviewed and still returns only the pin", () => {
+    const sha = "10587234B54EB6F00EFC129566CC25BA744DCC32";
+    const paths = ["Sources/CodexBar/MenuCardView.swift", "Sources/CodexBarCore/Resources/Plugins/"];
+    const rendered = renderUpstreamLock({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha,
+      menuCardReviewed: { sha, paths },
+    });
+    expect(JSON.parse(rendered).menuCardReviewed).toEqual({ sha: sha.toLowerCase(), paths });
+    expect(readUpstreamLock(rendered)).toEqual({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha: sha.toLowerCase(),
+    });
+    expect(readMenuCardReviewed(rendered)).toEqual({ sha: sha.toLowerCase(), paths });
+    expect(() => readMenuCardReviewed(valid)).toThrow(/missing menuCardReviewed/);
+  });
+
+  it("keeps menuCardReviewed from the previous lock when the target omits it", () => {
+    const reviewedSha = "a".repeat(40);
+    const paths = ["Sources/CodexBar/MenuCardView.swift"];
+    const previous = renderUpstreamLock({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha: "10587234b54eb6f00efc129566cc25ba744dcc32",
+      menuCardReviewed: { sha: reviewedSha, paths },
+    });
+    const nextSha = "b".repeat(40);
+    const rendered = renderUpstreamLock(
+      {
+        repo: "steipete/CodexBar",
+        tag: "v0.67.0",
+        sha: nextSha,
+      },
+      previous,
+    );
+    expect(JSON.parse(rendered).menuCardReviewed).toEqual({ sha: reviewedSha, paths });
+    expect(readUpstreamLock(rendered)).toEqual({
+      repo: "steipete/CodexBar",
+      tag: "v0.67.0",
+      sha: nextSha,
+    });
+    const replaced = renderUpstreamLock(
+      {
+        repo: "steipete/CodexBar",
+        tag: "v0.67.0",
+        sha: nextSha,
+        menuCardReviewed: { sha: nextSha, paths },
+      },
+      previous,
+    );
+    expect(JSON.parse(replaced).menuCardReviewed.sha).toBe(nextSha);
   });
 });

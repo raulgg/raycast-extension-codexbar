@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readSnapshot, restoreSnapshot, runBump } from "./bump-upstream.mjs";
+import { readSnapshot, restoreSnapshot, runBump, writeBumpedLock } from "./bump-upstream.mjs";
 
 const target = { tag: "v0.67.0", sha: "abc123" };
 const roots = [];
@@ -90,6 +90,45 @@ describe("runBump", () => {
     expect(await runBump(harness)).toBe(1);
     expect(harness.restoreSnapshot).not.toHaveBeenCalled();
     expect(harness.writeLock).not.toHaveBeenCalled();
+  });
+});
+
+describe("writeBumpedLock", () => {
+  it("keeps menuCardReviewed when the lock is rewritten", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "bump-lock-"));
+    roots.push(root);
+    const lockPath = path.join(root, "codexbar-upstream.lock");
+    const reviewed = {
+      sha: "a".repeat(40),
+      paths: ["Sources/CodexBar/MenuCardView.swift", "Sources/CodexBarCore/Resources/Plugins/"],
+    };
+    await writeFile(
+      lockPath,
+      `${JSON.stringify(
+        {
+          note: "old",
+          repo: "steipete/CodexBar",
+          tag: "v0.55.1",
+          sha: "10587234b54eb6f00efc129566cc25ba744dcc32",
+          menuCardReviewed: reviewed,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    const nextSha = "b".repeat(40);
+    await writeBumpedLock(
+      {
+        repo: "steipete/CodexBar",
+        tag: "v0.67.0",
+        sha: nextSha,
+      },
+      lockPath,
+    );
+    const written = JSON.parse(await readFile(lockPath, "utf8"));
+    expect(written.tag).toBe("v0.67.0");
+    expect(written.sha).toBe(nextSha);
+    expect(written.menuCardReviewed).toEqual(reviewed);
   });
 });
 

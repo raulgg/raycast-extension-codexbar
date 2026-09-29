@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractSvgMarkup } from "../../test/svg-markdown";
+import { extractSvgMarkup, parseSvg, rectsWithSize } from "../../test/svg-markdown";
 import { buildProviderDetailMarkdown } from "../render/detailCard";
 import type { ProviderModule } from "../providers/module";
 import { extractProviderErrorMessage, normalizeProviderDetailPayload } from "./normalize";
-import type { ProviderSection, ProviderUsagePacing } from "./types";
+import { formatUsagePacingLine } from "./pacing";
+import type { ProviderSection, ProviderUsagePacing, ProviderUsageSection } from "./types";
 
 const codexPayload = {
   provider: "codex",
@@ -1575,6 +1576,467 @@ describe("usage pacing gating", () => {
       NOW,
     ).sections;
     expect(usagePacing(spark)).toMatchObject({ context: "session" });
+  });
+});
+
+describe("menu card detail", () => {
+  const now = Date.parse("2026-03-23T10:30:00Z");
+  const resetsAt = "2026-04-17T14:30:00Z";
+  const copilotResetsAt = "2026-04-01T00:00:00Z";
+  const balance = "336.73 / 500 credits left";
+
+  function usageSection(detail: { sections: ProviderSection[] }, title: "Primary" | "Secondary" | "Tertiary") {
+    return detail.sections.find(
+      (section): section is ProviderUsageSection => section.kind === "usage" && section.title === title,
+    );
+  }
+
+  function cardSvg(detail: { id: string; name: string; sections: ProviderSection[] }) {
+    const [svg] = extractSvgMarkup(buildProviderDetailMarkdown(detail, "light"));
+    return svg;
+  }
+
+  it("keeps the Raycast countdown and copies resetDescription to detailText", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        usage: { primary: { usedPercent: 33, resetsAt, resetDescription: `  ${balance}  ` } },
+      },
+      "raycast",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({
+      resetsIn: "25d 4h",
+      detailText: balance,
+    });
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("detailLeftText");
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("replacesPace");
+  });
+
+  it("copies detailText from a schema 1 meter", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        presentation: {
+          schemaVersion: 1,
+          meters: [
+            {
+              kind: "primary",
+              label: "Credits",
+              usedPercent: 33,
+              remainingPercent: 67,
+              resetsAt,
+              resetDescription: balance,
+            },
+          ],
+        },
+      },
+      "raycast",
+      now,
+    );
+    expect(detail.sections[0]).toMatchObject({
+      kind: "usage",
+      resetsIn: "25d 4h",
+      detailText: balance,
+    });
+  });
+
+  it("keeps Copilot primary detailLeftText and lets pacing replace it on the card", () => {
+    const paced = normalizeProviderDetailPayload(
+      {
+        provider: "copilot",
+        usage: { primary: { usedPercent: 50, resetsAt: copilotResetsAt, resetDescription: "Included" } },
+      },
+      "copilot",
+      now,
+    );
+    const primary = usageSection(paced, "Primary");
+    expect(primary).toMatchObject({ detailLeftText: "Included" });
+    expect(primary).not.toHaveProperty("replacesPace");
+    expect(primary?.usagePacing).toBeDefined();
+    const pacedSvg = cardSvg(paced);
+    expect(pacedSvg).toContain(`>${formatUsagePacingLine(primary!.usagePacing!)}<`);
+    expect(pacedSvg).not.toContain(">Included<");
+
+    const plain = normalizeProviderDetailPayload(
+      { provider: "copilot", usage: { primary: { usedPercent: 10, resetDescription: "Included" } } },
+      "copilot",
+      now,
+    );
+    expect(usageSection(plain, "Primary")).toMatchObject({ detailLeftText: "Included" });
+    expect(usageSection(plain, "Primary")?.usagePacing).toBeUndefined();
+    const plainSvg = cardSvg(plain);
+    expect(plainSvg).toContain(">Included<");
+    expect(plainSvg).not.toContain("in reserve");
+    expect(plainSvg).not.toContain("in deficit");
+  });
+
+  it("sets replacesPace on Copilot secondary and draws the description unless the forecast is a reset window", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "copilot",
+        usage: { secondary: { usedPercent: 50, resetsAt: copilotResetsAt, resetDescription: "115% used" } },
+      },
+      "copilot",
+      now,
+    );
+    const secondary = usageSection(detail, "Secondary");
+    expect(secondary).toMatchObject({ detailLeftText: "115% used", replacesPace: true });
+    expect(secondary?.usagePacing).toBeDefined();
+    const pacedSvg = cardSvg(detail);
+    expect(pacedSvg).toContain(`>${formatUsagePacingLine(secondary!.usagePacing!)}<`);
+    expect(pacedSvg).not.toContain(">115% used<");
+    expect(rectsWithSize(parseSvg(pacedSvg), 3, 12)).toHaveLength(1);
+
+    const ordinary = {
+      ...detail,
+      sections: detail.sections.map((section) =>
+        section.kind === "usage" && section.title === "Secondary" ? { ...section, resetsAt: undefined } : section,
+      ),
+    };
+    const ordinarySvg = cardSvg(ordinary);
+    expect(ordinarySvg).toContain(">115% used<");
+    expect(ordinarySvg).not.toContain("in reserve");
+    expect(ordinarySvg).not.toContain("in deficit");
+    expect(ordinarySvg).not.toContain(">On pace<");
+    expect(rectsWithSize(parseSvg(ordinarySvg), 3, 12)).toEqual([]);
+  });
+
+  it("draws Zenmux secondary description instead of an ordinary weekly pace line", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "zenmux",
+        usage: {
+          secondary: {
+            usedPercent: 50,
+            windowMinutes: 10_080,
+            resetsAt: "2026-03-28T10:30:00Z",
+            resetDescription: "4 days left",
+          },
+        },
+      },
+      "zenmux",
+      now,
+    );
+    const secondary = usageSection(detail, "Secondary");
+    expect(secondary).toMatchObject({
+      detailLeftText: "4 days left",
+      replacesPace: true,
+      resetsIn: "5d",
+    });
+    expect(secondary?.usagePacing).toBeDefined();
+    const svg = cardSvg(detail);
+    expect(svg).toContain(">4 days left<");
+    expect(svg).not.toContain(formatUsagePacingLine(secondary!.usagePacing!));
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
+
+    const undated = normalizeProviderDetailPayload(
+      { provider: "zenmux", usage: { secondary: { usedPercent: 50, resetDescription: "Weekly quota" } } },
+      "zenmux",
+      now,
+    );
+    expect(usageSection(undated, "Secondary")).toMatchObject({ detailLeftText: "Weekly quota", replacesPace: true });
+    expect(usageSection(undated, "Secondary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(undated, "Secondary")).not.toHaveProperty("resetText");
+  });
+
+  it("formats Kiro credits, skips a zero total, and lets bonus credits replace pacing", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          primary: { usedPercent: 10 },
+          secondary: { usedPercent: 20, windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" },
+          details: [
+            {
+              rows: [
+                { label: "Credits left", value: "120" },
+                { label: "Credits total", value: "500" },
+                { label: "Bonus credits left", value: "40", secondaryValue: "of 100 · expires in 3d" },
+              ],
+            },
+          ],
+        },
+      },
+      "kiro",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailLeftText: "120 of 500 credits left" });
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("detailText");
+    const bonus = usageSection(detail, "Secondary");
+    expect(bonus).toMatchObject({ detailLeftText: "40 of 100 bonus credits left", replacesPace: true });
+    expect(bonus?.usagePacing).toBeDefined();
+    const svg = cardSvg(detail);
+    expect(svg).toContain(">40 of 100 bonus credits left<");
+    expect(svg).not.toContain(formatUsagePacingLine(bonus!.usagePacing!));
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
+
+    const zero = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          primary: { usedPercent: 10 },
+          secondary: { usedPercent: 20 },
+          details: [
+            {
+              rows: [
+                { label: "Credits left", value: "0" },
+                { label: "Credits total", value: "0" },
+                { label: "Bonus credits left", value: "40" },
+              ],
+            },
+          ],
+        },
+      },
+      "kiro",
+      now,
+    );
+    expect(usageSection(zero, "Primary")).not.toHaveProperty("detailLeftText");
+    expect(usageSection(zero, "Secondary")).not.toHaveProperty("detailLeftText");
+    expect(usageSection(zero, "Secondary")).not.toHaveProperty("replacesPace");
+  });
+
+  it("copies an Alibaba tertiary resetDescription to detailText", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "alibaba",
+        usage: { tertiary: { usedPercent: 10, resetDescription: "3,000 / 10,000 left" } },
+      },
+      "alibaba",
+      now,
+    );
+    expect(usageSection(detail, "Tertiary")).toMatchObject({ detailText: "3,000 / 10,000 left" });
+    expect(usageSection(detail, "Tertiary")).not.toHaveProperty("detailLeftText");
+    expect(usageSection(detail, "Tertiary")).not.toHaveProperty("replacesPace");
+  });
+
+  it("uses OpenRouter's reset placement only when the window has no countdown", () => {
+    const withoutDate = normalizeProviderDetailPayload(
+      { provider: "openrouter", usage: { primary: { usedPercent: 10, resetDescription: "monthly" } } },
+      "openrouter",
+      now,
+    );
+    expect(usageSection(withoutDate, "Primary")).toMatchObject({ resetText: "monthly" });
+    expect(usageSection(withoutDate, "Primary")).not.toHaveProperty("detailText");
+    expect(usageSection(withoutDate, "Primary")?.resetsIn).toBeUndefined();
+
+    const withDate = normalizeProviderDetailPayload(
+      {
+        provider: "openrouter",
+        usage: { primary: { usedPercent: 10, resetsAt, resetDescription: "monthly" } },
+      },
+      "openrouter",
+      now,
+    );
+    expect(usageSection(withDate, "Primary")).toMatchObject({ resetsIn: "25d 4h" });
+    expect(usageSection(withDate, "Primary")).not.toHaveProperty("resetText");
+    expect(usageSection(withDate, "Primary")).not.toHaveProperty("detailText");
+  });
+
+  it("reads the Poe balance after the Balance prefix", () => {
+    const detail = normalizeProviderDetailPayload(
+      { provider: "poe", usage: { primary: { usedPercent: 10 }, loginMethod: "Balance: 1.2k points" } },
+      "poe",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "1.2k points" });
+
+    const plain = normalizeProviderDetailPayload(
+      { provider: "poe", usage: { primary: { usedPercent: 10 }, loginMethod: "Pro" } },
+      "poe",
+      now,
+    );
+    expect(usageSection(plain, "Primary")).not.toHaveProperty("detailText");
+  });
+
+  it("copies resetDescription onto a Sub2API extra and the Mistral monthly plan", () => {
+    const sub2api = normalizeProviderDetailPayload(
+      {
+        provider: "sub2api",
+        usage: {
+          extraRateWindows: [
+            { id: "weekly", title: "Weekly", window: { usedPercent: 10, resetDescription: "12 left" } },
+          ],
+        },
+      },
+      "sub2api",
+      now,
+    );
+    const sub2Window = sub2api.sections.find((section) => section.kind === "supplementalUsage");
+    expect(sub2Window).toMatchObject({ detailText: "12 left" });
+    expect(sub2Window).not.toHaveProperty("resetsIn");
+
+    const mistral = normalizeProviderDetailPayload(
+      {
+        provider: "mistral",
+        usage: {
+          extraRateWindows: [
+            {
+              id: "mistral-monthly-plan",
+              title: "Monthly",
+              window: { usedPercent: 10, resetsAt, resetDescription: "plan left" },
+            },
+            { id: "other", title: "Other", window: { usedPercent: 10, resetDescription: "nope" } },
+          ],
+        },
+      },
+      "mistral",
+      now,
+    );
+    const monthly = mistral.sections.find(
+      (section) => section.kind === "supplementalUsage" && section.title === "Monthly",
+    );
+    const other = mistral.sections.find((section) => section.kind === "supplementalUsage" && section.title === "Other");
+    expect(monthly).toMatchObject({ detailText: "plan left", resetsIn: "25d 4h" });
+    expect(other).not.toHaveProperty("detailText");
+    expect(other).not.toHaveProperty("detailLeftText");
+  });
+
+  it("replaces the Kiro overage pace line from the overage rows", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          extraRateWindows: [
+            { id: "kiro-overage", title: "Overage", window: { usedPercent: 10, resetDescription: "ignored" } },
+            { id: "other", title: "Other", window: { usedPercent: 10 } },
+          ],
+          details: [
+            {
+              rows: [
+                { label: "Overage credits left", value: "15" },
+                { label: "Overage usage", value: "5 credits", secondaryValue: "of 20" },
+              ],
+            },
+          ],
+        },
+      },
+      "kiro",
+      now,
+    );
+    const overage = detail.sections.find(
+      (section) => section.kind === "supplementalUsage" && section.title === "Overage",
+    );
+    const other = detail.sections.find((section) => section.kind === "supplementalUsage" && section.title === "Other");
+    expect(overage).toMatchObject({ detailLeftText: "15 of 20 credits left", replacesPace: true });
+    expect(overage).not.toHaveProperty("detailText");
+    expect(other).not.toHaveProperty("detailLeftText");
+    expect(other).not.toHaveProperty("replacesPace");
+
+    const missing = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          extraRateWindows: [{ id: "kiro-overage", title: "Overage", window: { usedPercent: 10 } }],
+          details: [{ rows: [{ label: "Overage credits left", value: "15" }] }],
+        },
+      },
+      "kiro",
+      now,
+    );
+    expect(missing.sections.find((section) => section.kind === "supplementalUsage")).not.toHaveProperty(
+      "detailLeftText",
+    );
+  });
+
+  it("leaves resetDescription alone for a provider outside the table", () => {
+    for (const [id, resetDescription] of [
+      ["devin", "Daily"],
+      ["doubao", "1,200 requests left"],
+    ] as const) {
+      const detail = normalizeProviderDetailPayload(
+        { provider: id, usage: { primary: { usedPercent: 10, resetDescription } } },
+        id,
+        now,
+      );
+      const section = detail.sections.find((item) => item.kind === "usage");
+      expect(section).toBeDefined();
+      expect(section).not.toHaveProperty("detailText");
+      expect(section).not.toHaveProperty("detailLeftText");
+      expect(section).not.toHaveProperty("resetText");
+    }
+  });
+
+  it("clears Warp's secondary countdown when the detail line is present", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "warp",
+        usage: { secondary: { usedPercent: 10, resetsAt, resetDescription: "12 / 40 requests left" } },
+      },
+      "warp",
+      now,
+    );
+    expect(usageSection(detail, "Secondary")).toMatchObject({
+      detailText: "12 / 40 requests left",
+      resetsAt,
+    });
+    expect(usageSection(detail, "Secondary")).not.toHaveProperty("resetsIn");
+  });
+
+  it("keeps an Aixy secondary countdown when the window has a date", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "aixy",
+        usage: {
+          primary: { usedPercent: 10, resetDescription: "1 / 2 left" },
+          secondary: { usedPercent: 20, resetsAt, resetDescription: "12 / 40 requests left" },
+        },
+      },
+      "aixy",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "1 / 2 left" });
+    expect(usageSection(detail, "Secondary")).toMatchObject({
+      detailText: "12 / 40 requests left",
+      resetsIn: "25d 4h",
+    });
+    expect(usageSection(detail, "Secondary")).not.toHaveProperty("replacesPace");
+  });
+
+  it("gives a supplemental meter that is not an extra rate window neither line", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        presentation: {
+          schemaVersion: 1,
+          meters: [
+            {
+              kind: "supplemental",
+              id: "extra",
+              label: "Extra",
+              usedPercent: 10,
+              remainingPercent: 90,
+              resetDescription: balance,
+            },
+          ],
+        },
+      },
+      "raycast",
+      now,
+    );
+    const supplemental = detail.sections.find((section) => section.kind === "supplementalUsage");
+    expect(supplemental).toBeDefined();
+    expect(supplemental).not.toHaveProperty("detailText");
+    expect(supplemental).not.toHaveProperty("detailLeftText");
+    expect(supplemental).not.toHaveProperty("replacesPace");
+  });
+
+  it("does not copy a Raycast extra window's reset description", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        usage: {
+          primary: { usedPercent: 10, resetDescription: balance },
+          extraRateWindows: [{ id: "extra", title: "Extra", window: { usedPercent: 10, resetDescription: balance } }],
+        },
+      },
+      "raycast",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: balance });
+    const supplemental = detail.sections.find((section) => section.kind === "supplementalUsage");
+    expect(supplemental).not.toHaveProperty("detailText");
+    expect(supplemental).not.toHaveProperty("detailLeftText");
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG, PROVIDER_MODULES } from "../src/providers/index.ts";
 import { checkUpstream, DEFAULT_POLICY } from "./check-upstream.mjs";
+import { MENU_CARD_WATCH_PATHS } from "./lib/meter-detail.mjs";
 import {
   compareProviders,
   parseDescriptorMetadata,
@@ -773,9 +774,11 @@ describe("comparePaceCapabilities", () => {
   });
 });
 
-function fakeSource(files) {
+function fakeSource(files, { sha, changed = [] } = {}) {
   return {
     label: "fixture tree",
+    sha,
+    listChangedPaths: async () => changed,
     listFiles: async (prefix, suffix) =>
       Object.keys(files).filter((filePath) => filePath.startsWith(prefix) && filePath.endsWith(suffix)),
     readFile: async (filePath) => {
@@ -819,6 +822,8 @@ const TOY_POLICY = {
   allowedDivergences: {},
   unportableHeadroom: {},
   unportablePresentation: {},
+  meterDetail: {},
+  unportableMenuCard: {},
   rendererPaths: ["Sources/CodexBar/MenuDescriptor.swift"],
   paceRendererPaths: ["Sources/CodexBar/MenuCardView.swift"],
 };
@@ -950,6 +955,144 @@ describe("checkUpstream", () => {
     });
     expect(result.problems).toEqual([`moved: alias "toy" is a provider id`]);
   });
+
+  it("treats a descriptor with no menu card call as the defaults", async () => {
+    const result = await checkUpstream(toyTree(), TOY_POLICY);
+    expect(result.problems).toEqual([]);
+    expect(result.meterEntries).toEqual({});
+  });
+
+  it("fails when a descriptor has two menu card calls", async () => {
+    const result = await checkUpstream(
+      toyTree({
+        extra: `
+          let first = ProviderMenuCardPresentation(showsPrimaryBalanceDescription: true)
+          let second = ProviderMenuCardPresentation(showsSecondaryBalanceDescription: true)
+        `,
+      }),
+      TOY_POLICY,
+    );
+    expect(result.problems.some((problem) => problem.includes("2 ProviderMenuCardPresentation calls"))).toBe(true);
+  });
+
+  it("fails when showsPrimaryBalanceDescription is missing from meterDetail.ts", async () => {
+    const result = await checkUpstream(
+      toyTree({ extra: "let card = ProviderMenuCardPresentation(showsPrimaryBalanceDescription: true)" }),
+      TOY_POLICY,
+    );
+    expect(result.problems.some((problem) => problem.includes("Regenerate src/providers/meterDetail.ts"))).toBe(true);
+    expect(result.meterEntries).toEqual({ toy: { showsPrimaryBalanceDescription: true } });
+  });
+
+  it("requires an unportable entry for request quota and rejects a stale one", async () => {
+    const card = toyTree({ extra: "let card = ProviderMenuCardPresentation(primaryDetailKind: .requestQuota)" });
+    const missing = await checkUpstream(card, TOY_POLICY);
+    expect(missing.problems.some((problem) => problem.includes("primaryDetailKind .requestQuota"))).toBe(true);
+
+    const ported = await checkUpstream(card, {
+      ...TOY_POLICY,
+      unportableMenuCard: { toy: { requestQuota: "CLI JSON does not expose the Request quota row" } },
+    });
+    expect(ported.problems).toEqual([]);
+
+    const stale = await checkUpstream(toyTree(), {
+      ...TOY_POLICY,
+      unportableMenuCard: { toy: { requestQuota: "stale" } },
+    });
+    expect(stale.problems).toEqual(["toy: stale UNPORTABLE_MENU_CARD entry for requestQuota. Delete it."]);
+  });
+
+  it("ports a true extra-window closure and an id check without an unportable entry", async () => {
+    const all = await checkUpstream(
+      toyTree({
+        extra: "let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { _ in true })",
+      }),
+      TOY_POLICY,
+    );
+    expect(all.meterEntries).toEqual({ toy: { extraResetDescriptionAsDetail: true } });
+    expect(all.problems.some((problem) => problem.includes("extraRateWindow"))).toBe(false);
+
+    const id = await checkUpstream(
+      toyTree({
+        extra:
+          'let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { $0.id == "mistral-monthly-plan" })',
+      }),
+      TOY_POLICY,
+    );
+    expect(id.meterEntries).toEqual({ toy: { extraResetDescriptionAsDetail: "mistral-monthly-plan" } });
+    expect(id.problems.some((problem) => problem.includes("extraRateWindow"))).toBe(false);
+
+    const other = await checkUpstream(
+      toyTree({
+        extra:
+          'let card = ProviderMenuCardPresentation(extraRateWindowUsesResetDescriptionAsDetail: { name in name.id.hasPrefix("x") })',
+      }),
+      TOY_POLICY,
+    );
+    expect(other.problems.some((problem) => problem.includes("extraRateWindowUsesResetDescriptionAsDetail"))).toBe(
+      true,
+    );
+  });
+
+  it("fails on a non-default menu card closure until it is named", async () => {
+    const card = toyTree({
+      extra: "let card = ProviderMenuCardPresentation(usageNotesResolver: { _ in .custom })",
+    });
+    const missing = await checkUpstream(card, TOY_POLICY);
+    expect(missing.problems.some((problem) => problem.includes("usageNotesResolver"))).toBe(true);
+
+    const trivial = await checkUpstream(
+      toyTree({ extra: "let card = ProviderMenuCardPresentation(usageNotesResolver: { _ in .unhandled })" }),
+      TOY_POLICY,
+    );
+    expect(trivial.problems).toEqual([]);
+  });
+
+  it("prints a changed plugin path until menuCardReviewed matches the candidate", async () => {
+    const reviewed = "a".repeat(40);
+    const candidate = "b".repeat(40);
+    const result = await checkUpstream(
+      fakeSource(toyFiles(), {
+        sha: candidate,
+        changed: ["Sources/CodexBarCore/Resources/Plugins/raycast.js", "README.md"],
+      }),
+      {
+        ...TOY_POLICY,
+        pinnedSha: reviewed,
+        menuCardReviewed: { sha: reviewed, paths: [...MENU_CARD_WATCH_PATHS] },
+      },
+    );
+    const text = result.problems.join("\n");
+    expect(text).toContain("raycast.js");
+    expect(text).toContain(candidate);
+    expect(text).not.toContain("README.md");
+  });
+
+  it("still names an unlisted plugin path when menuCardReviewed.sha is the candidate", async () => {
+    const pin = "a".repeat(40);
+    const candidate = "b".repeat(40);
+    const plugin = "Sources/CodexBarCore/Resources/Plugins/raycast.js";
+    const calls = [];
+    const source = fakeSource(toyFiles(), { sha: candidate });
+    source.listChangedPaths = async (from, to) => {
+      calls.push([from, to]);
+      return [plugin];
+    };
+    const missing = await checkUpstream(source, {
+      ...TOY_POLICY,
+      pinnedSha: pin,
+      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS] },
+    });
+    expect(calls).toEqual([[pin, candidate]]);
+    expect(missing.problems.join("\n")).toContain("raycast.js");
+
+    const listed = await checkUpstream(source, {
+      ...TOY_POLICY,
+      pinnedSha: pin,
+      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS, plugin] },
+    });
+    expect(listed.problems).toEqual([]);
+  });
 });
 
 const WINDOW_PACE = {
@@ -964,12 +1107,16 @@ const TOY_EXTRA_RENDERER = `func extraRateWindowPaceDetail(provider: UsageProvid
 }
 `;
 
-function toyTree(descriptor = {}, paceRenderer = PACE_RENDERER) {
-  return fakeSource({
+function toyFiles(descriptor = {}, paceRenderer = PACE_RENDERER) {
+  return {
     "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift": descriptorFixture({ id: "toy", ...descriptor }),
     "Sources/CodexBar/MenuDescriptor.swift": LABEL_RENDERER,
     "Sources/CodexBar/MenuCardView.swift": paceRenderer,
-  });
+  };
+}
+
+function toyTree(descriptor = {}, paceRenderer = PACE_RENDERER) {
+  return fakeSource(toyFiles(descriptor, paceRenderer));
 }
 
 describe("provider module pace overlay", () => {
