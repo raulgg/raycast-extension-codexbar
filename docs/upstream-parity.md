@@ -238,7 +238,7 @@ contain `..`, a leading `/`, or a path separator fail the script.
 
 ## Surface 4. Pacing (`upstream:check`)
 
-*Verified against upstream `v0.66.0` (`e665cbf6`). Formula unchanged since `v0.60.4` (`937b2081`).*
+*Verified against upstream `v0.69.0` (`48ded68d`). Formula unchanged since `v0.60.4` (`937b2081`).*
 
 Eligibility lives in [`paceCapabilities.ts`](../src/providers/paceCapabilities.ts), a table that
 mirrors each descriptor's `pace: ProviderPaceCapability(...)`. `computeSlotUsagePacing` in
@@ -288,7 +288,7 @@ is not session-paced.
 **Tick geometry.** Upstream's pace tip is a Canvas three-stripe punch (`UsageProgressBar.swift`).
 We keep a simple 3×12 rounded rect. We punch a transparent gutter through the bar around that tick
 so the color stays readable on similar brand fills. Color and hide-when-on-pace match the app
-(`v0.66.0`, `e665cbf6`; `UsageProgressBar.swift` unchanged since `v0.60.4`). Deficit is SwiftUI
+(`v0.69.0`, `48ded68d`; `UsageProgressBar.swift` unchanged since `v0.60.4`). Deficit is SwiftUI
 `Color.red`, reserve is `Color.green`.
 
 ### Out of scope. Not the plain pace marker
@@ -323,10 +323,14 @@ few special cases:
   These wait until we can sample their live JSON. An unmapped shape renders nothing, silent by
   design, so mapping one requires a real payload to key against, not a guess. See the
   `Supplemental usage` entry in [`CONTEXT.md`](../CONTEXT.md).
+  As of `v0.69.0` (`48ded68d`), also unmapped: Kimi's `blockingQuota` on the `kimi-monthly` extra
+  window (shorter meters show "Blocked by monthly limit" and drop their reset and pace), Claude
+  limit-reset credits (`ClaudeRateLimitResetCredits`, on the app menu and on serve `usage.details`),
+  and Muse's estimated-quota note for a selected dev.meta.ai team.
 
 ## Surface 6. CLI install routine (hand-maintained)
 
-*Verified against upstream `v0.66.0` (`e665cbf6`). Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
+*Verified against upstream `v0.69.0` (`48ded68d`). Algorithm unchanged since `v0.45.1` (`757f1ca1`).*
 
 When the CodexBar CLI is missing but the CodexBar app is installed, the extension can set up the
 app's bundled CLI itself (ADR-0008). `installCodexBarCli` in

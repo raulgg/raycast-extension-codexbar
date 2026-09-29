@@ -86,6 +86,7 @@ export const CATALOG_PROVIDER_ORDER = [
   "xai",
   "notion",
   "ibmbob",
+  "aixy",
   "atlascloud",
   "bifrost",
   "coderabbit",
@@ -98,10 +99,12 @@ export const CATALOG_PROVIDER_ORDER = [
   "muse",
   "nous",
   "pi",
+  "raycast",
   "replicate",
   "typesafe",
   "v0",
   "vercel",
+  "xkiro",
   "zoommate",
 ];
 

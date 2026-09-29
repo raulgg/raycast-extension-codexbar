@@ -11,9 +11,11 @@
 - Refresh Usage Cache runs every 10 minutes and requests a live serve copy (`refresh=true`)
 - Usage Overview does not start serve or enable the background command. If serve is down it uses a one-shot CLI fetch
 - CodexBar serve daemons started by background refresh use a 10-minute response cache TTL
-- Usage overview for every provider the CodexBar CLI supports (84 provider ids matching CodexBar v0.66.0, with alias resolution and shared `~/.codexbar/config.json` ordering)
-- OpenRouter dashboard opens Activity; Amp, Ollama, OpenCode Go, and Cursor extra-window pacing match CodexBar v0.66.0
-- Antigravity session pacing follows a 300-minute window, matching CodexBar v0.66.0
+- Usage overview for every provider the CodexBar CLI supports (87 provider ids matching CodexBar v0.69.0, with alias resolution and shared `~/.codexbar/config.json` ordering)
+- Aixy, Raycast, and xKiro
+- Codex usage dashboard opens the analytics page
+- OpenRouter dashboard opens Activity; Amp, Ollama, OpenCode Go, and Cursor extra-window pacing match CodexBar v0.69.0
+- Antigravity session pacing follows a 300-minute window, matching CodexBar v0.69.0
 - Mistral, Qwen Cloud, and StepFun usage-bar titles follow the CodexBar app's rate-window labelers
 - Helmcode accounts in the NaN Builders organization open `https://cloud.nan.builders/dashboard`
 - Grok weekly credits window shows the same pace marker as the CodexBar app
@@ -22,6 +24,7 @@
 - Detail usage meters put remaining percent and the reset countdown on the title row, with pacing as one line under the bar
 - Cursor, Copilot, Kimi, Zai, Notion, and calendar-month providers (Alibaba, Amp, Command Code, Doubao, MiMo, OpenCode Go, StepFun) show the same plain usage pacer as the CodexBar app
 - Codex, Claude, and Antigravity extra rate windows show the same session and weekly pacer as the CodexBar app
+- `npm run upstream:check` reads bundled-plugin `PluginProviderSpec` descriptors as well as `ProviderMetadata`
 - `npm run upstream:check` diffs each provider's `pace:` capability against `paceCapabilities.ts` so a new upstream pacer fails the check instead of drifting silently
 - `npm run upstream:prune` deletes a Provider directory upstream no longer ships, and `npm run upstream:bump` writes the lock only after that prune typechecks and tests pass
 - `npm run upstream:sync-icons -- --check` fails when leftover SVGs remain under `assets/provider-icons/`

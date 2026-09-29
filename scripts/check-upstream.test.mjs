@@ -149,11 +149,58 @@ describe("parseDescriptorMetadata", () => {
     expect(metadata.definesRateWindowLabeler).toBe(true);
   });
 
-  it("rejects files without exactly one ProviderMetadata literal", () => {
-    expect(() => parseDescriptorMetadata("struct Nothing {}", "Nothing.swift")).toThrow(/expected exactly 1/);
+  it("rejects files without exactly one metadata literal", () => {
+    expect(() => parseDescriptorMetadata("struct Nothing {}", "Nothing.swift")).toThrow(/expected exactly one/);
     expect(() => parseDescriptorMetadata(descriptorFixture() + descriptorFixture(), "Double.swift")).toThrow(
-      /expected exactly 1/,
+      /expected exactly one/,
     );
+  });
+
+  it("parses a PluginProviderSpec the same way as ProviderMetadata", () => {
+    const metadata = parseDescriptorMetadata(`
+public enum AixyProviderDescriptor {
+    public static let spec = PluginProviderSpec(
+        id: .aixy,
+        displayName: "Aixy",
+        sessionLabel: "Spend",
+        weeklyLabel: "Budget",
+        dashboardURL: "https://dash.aixy-gateway.com",
+        color: ProviderColor(hex: 0x123650),
+        aliases: ["aixy-gateway"])
+}
+`);
+    expect(metadata).toMatchObject({
+      id: "aixy",
+      displayName: "Aixy",
+      sessionLabel: "Spend",
+      weeklyLabel: "Budget",
+      dashboardURL: "https://dash.aixy-gateway.com",
+      brandColorHex: "#123650",
+      definesDynamicPrimaryLabel: false,
+      definesRateWindowLabeler: false,
+    });
+  });
+
+  it("parses PluginProviderSpec .init colors, nil URLs, and expression URLs", () => {
+    const metadata = parseDescriptorMetadata(`
+public enum ClinePassProviderDescriptor {
+    public static let spec = PluginProviderSpec(
+        id: .clinepass,
+        displayName: "ClinePass",
+        sessionLabel: "Included",
+        weeklyLabel: "Weekly",
+        opusLabel: "Monthly",
+        dashboardURL: nil,
+        subscriptionDashboardURL: LLMManSettingsReader.defaultBaseURL.absoluteString,
+        statusLinkURL: nil,
+        color: .init(red: 0.38, green: 0.64, blue: 0.98))
+}
+`);
+    expect(metadata.opusLabel).toBe("Monthly");
+    expect(metadata.dashboardURL).toBeUndefined();
+    expect(metadata.statusLinkURL).toBeUndefined();
+    expect(metadata.subscriptionDashboardURL).toBe("expr:LLMManSettingsReader.defaultBaseURL.absoluteString");
+    expect(metadata.brandColorHex).toBe(providerColorToHex("0.38", "0.64", "0.98"));
   });
 });
 
