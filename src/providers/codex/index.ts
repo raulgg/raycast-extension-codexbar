@@ -21,7 +21,7 @@ const codex: ProviderModule = {
     iconFallback: "Terminal",
     brandColor: "#49A3B0",
     usageSectionLabels: { primary: "Session", secondary: "Weekly" },
-    dashboardUrl: "https://chatgpt.com/codex/settings/usage",
+    dashboardUrl: "https://chatgpt.com/codex/cloud/settings/analytics#usage",
     statusPageUrl: "https://status.openai.com/",
   },
   pace: {

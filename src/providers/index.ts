@@ -6,6 +6,7 @@
 import { assembleProviderCatalog, providerIdAliases, type ProviderModule } from "./module";
 import abacus from "./abacus";
 import aiand from "./aiand";
+import aixy from "./aixy";
 import alibaba from "./alibaba";
 import alibabatokenplan from "./alibabatokenplan";
 import amp from "./amp";
@@ -69,6 +70,7 @@ import pi from "./pi";
 import poe from "./poe";
 import qoder from "./qoder";
 import qwencloud from "./qwencloud";
+import raycast from "./raycast";
 import replicate from "./replicate";
 import sakana from "./sakana";
 import stepfun from "./stepfun";
@@ -84,6 +86,7 @@ import warp from "./warp";
 import wayfinder from "./wayfinder";
 import windsurf from "./windsurf";
 import xai from "./xai";
+import xkiro from "./xkiro";
 import zai from "./zai";
 import zed from "./zed";
 import zenmux from "./zenmux";
@@ -92,6 +95,7 @@ import zoommate from "./zoommate";
 export const PROVIDER_MODULES = {
   abacus,
   aiand,
+  aixy,
   alibaba,
   alibabatokenplan,
   amp,
@@ -155,6 +159,7 @@ export const PROVIDER_MODULES = {
   poe,
   qoder,
   qwencloud,
+  raycast,
   replicate,
   sakana,
   stepfun,
@@ -170,6 +175,7 @@ export const PROVIDER_MODULES = {
   wayfinder,
   windsurf,
   xai,
+  xkiro,
   zai,
   zed,
   zenmux,
@@ -244,6 +250,7 @@ const CATALOG_PROVIDER_ORDER = [
   "xai",
   "notion",
   "ibmbob",
+  "aixy",
   "atlascloud",
   "bifrost",
   "coderabbit",
@@ -256,10 +263,12 @@ const CATALOG_PROVIDER_ORDER = [
   "muse",
   "nous",
   "pi",
+  "raycast",
   "replicate",
   "typesafe",
   "v0",
   "vercel",
+  "xkiro",
   "zoommate",
 ] as const;
 

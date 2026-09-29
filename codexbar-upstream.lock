@@ -1,6 +1,6 @@
 {
   "note": "Written by npm run upstream:bump. Don't hand-edit.",
   "repo": "steipete/CodexBar",
-  "tag": "v0.66.0",
-  "sha": "e665cbf64976839dc947e70a942ba8226388d4c9"
+  "tag": "v0.69.0",
+  "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90"
 }

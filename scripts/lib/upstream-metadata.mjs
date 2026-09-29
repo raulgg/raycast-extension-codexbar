@@ -48,12 +48,7 @@ export function extractBalancedCall(source, callee, fileName) {
   throw new Error(`${fileName} has an unbalanced ${callee}( literal.`);
 }
 
-function parseBrandColor(brandingSource, fileName) {
-  const colorBody = brandingSource.match(/color:\s*ProviderColor\(([\s\S]*?)\)/)?.[1]?.trim();
-  if (!colorBody) {
-    throw new Error(`${fileName} has no parseable branding color.`);
-  }
-
+function parseColorBody(colorBody, fileName) {
   const hexMatch = colorBody.match(/^hex:\s*0x([0-9A-Fa-f]{6})$/);
   if (hexMatch) {
     return `#${hexMatch[1].toUpperCase()}`;
@@ -67,29 +62,33 @@ function parseBrandColor(brandingSource, fileName) {
   return providerColorToHex(rgbMatch[1], rgbMatch[2], rgbMatch[3]);
 }
 
-export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
-  const metadataCount = swiftSource.split("ProviderMetadata(").length - 1;
-  if (metadataCount !== 1) {
-    throw new Error(`${fileName} contains ${metadataCount} ProviderMetadata literals; expected exactly 1.`);
+// ProviderBranding uses `color: ProviderColor(...)`. PluginProviderSpec uses that
+// or `color: .init(...)`. `(?<![\w])` skips `widgetColor`.
+function parseBrandColor(source, fileName) {
+  const colorBody = source.match(/(?<![\w])color:\s*(?:ProviderColor|\.init)\(([\s\S]*?)\)/)?.[1]?.trim();
+  if (!colorBody) {
+    throw new Error(`${fileName} has no parseable branding color.`);
   }
+  return parseColorBody(colorBody, fileName);
+}
 
-  const metadata = extractBalancedCall(swiftSource, "ProviderMetadata", fileName);
-  if (!metadata) {
-    throw new Error(`${fileName} has no extractable ProviderMetadata literal.`);
-  }
+function countCalls(source, callee) {
+  return source.split(`${callee}(`).length - 1;
+}
 
-  const id = metadata.match(/^\s*id:\s*\.(\w+)/)?.[1];
+function readDescriptorFields(body, fileName) {
+  const id = body.match(/^\s*id:\s*\.(\w+)/)?.[1];
   if (!id) {
-    throw new Error(`${fileName} has no parseable ProviderMetadata id.`);
+    throw new Error(`${fileName} has no parseable provider id.`);
   }
 
-  const string = (name) => metadata.match(new RegExp(`(?<![\\w])${name}:\\s*"([^"]*)"`))?.[1];
+  const string = (name) => body.match(new RegExp(`(?<![\\w])${name}:\\s*"([^"]*)"`))?.[1];
   // URL fields are sometimes Swift expressions (e.g. `ZaiAPIRegion.global.dashboardURL
   // .absoluteString`) that a regex cannot resolve. Record them as "expr:<code>" so the
   // comparison demands an explicit ALLOWED_DIVERGENCES entry for the manually verified
   // value. That entry goes stale, and fails, if the upstream expression changes.
   const stringOrExpression = (name) => {
-    const raw = metadata.match(new RegExp(`(?<![\\w])${name}:\\s*([^\\n,]+)`))?.[1]?.trim();
+    const raw = body.match(new RegExp(`(?<![\\w])${name}:\\s*([^\\n,]+)`))?.[1]?.trim();
     if (raw === undefined) {
       return undefined;
     }
@@ -102,11 +101,6 @@ export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
     return expression === "nil" || expression === "" ? undefined : `expr:${expression}`;
   };
 
-  const branding = extractBalancedCall(swiftSource, "ProviderBranding", fileName);
-  if (!branding) {
-    throw new Error(`${fileName} has no parseable ProviderBranding literal.`);
-  }
-
   return {
     id,
     displayName: string("displayName"),
@@ -117,11 +111,51 @@ export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
     subscriptionDashboardURL: stringOrExpression("subscriptionDashboardURL"),
     statusPageURL: stringOrExpression("statusPageURL"),
     statusLinkURL: stringOrExpression("statusLinkURL"),
-    brandColorHex: parseBrandColor(branding, fileName),
+  };
+}
+
+function dynamicLabelFlags(swiftSource) {
+  return {
     // Descriptors that define a contextual label helper participate in dynamic
     // relabelling even before any renderer references them.
     definesDynamicPrimaryLabel: /static func primaryLabel\(/.test(swiftSource),
     definesRateWindowLabeler: /rateWindowLabeler\s*:/.test(swiftSource),
+  };
+}
+
+export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
+  const metadataCount = countCalls(swiftSource, "ProviderMetadata");
+  const specCount = countCalls(swiftSource, "PluginProviderSpec");
+  if (metadataCount + specCount !== 1) {
+    throw new Error(
+      `${fileName} contains ${metadataCount} ProviderMetadata literals and ${specCount} PluginProviderSpec literals; expected exactly one.`,
+    );
+  }
+
+  if (metadataCount === 1) {
+    const metadata = extractBalancedCall(swiftSource, "ProviderMetadata", fileName);
+    if (!metadata) {
+      throw new Error(`${fileName} has no extractable ProviderMetadata literal.`);
+    }
+    const branding = extractBalancedCall(swiftSource, "ProviderBranding", fileName);
+    if (!branding) {
+      throw new Error(`${fileName} has no parseable ProviderBranding literal.`);
+    }
+    return {
+      ...readDescriptorFields(metadata, fileName),
+      brandColorHex: parseBrandColor(branding, fileName),
+      ...dynamicLabelFlags(swiftSource),
+    };
+  }
+
+  const spec = extractBalancedCall(swiftSource, "PluginProviderSpec", fileName);
+  if (!spec) {
+    throw new Error(`${fileName} has no extractable PluginProviderSpec literal.`);
+  }
+  return {
+    ...readDescriptorFields(spec, fileName),
+    brandColorHex: parseBrandColor(spec, fileName),
+    ...dynamicLabelFlags(swiftSource),
   };
 }
 

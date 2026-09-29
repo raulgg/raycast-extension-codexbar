@@ -177,10 +177,28 @@ describe("provider registry", () => {
       usageSectionLabels: { primary: "Savings", secondary: "Requests" },
       dashboardUrl: "http://127.0.0.1:8088/router",
     });
+    expect(getProviderMetadata("aixy")).toMatchObject({
+      name: "Aixy",
+      brandColor: "#123650",
+      usageSectionLabels: { primary: "Budget", secondary: "Secondary budget" },
+      dashboardUrl: "https://dash.aixy-gateway.com",
+    });
+    expect(getProviderMetadata("raycast")).toMatchObject({
+      name: "Raycast",
+      brandColor: "#FF6363",
+      usageSectionLabels: { primary: "Credits", secondary: "Plan" },
+      dashboardUrl: "https://www.raycast.com/settings",
+    });
+    expect(getProviderMetadata("xkiro")).toMatchObject({
+      name: "xKiro",
+      brandColor: "#52C99B",
+      usageSectionLabels: { primary: "Daily free tokens", secondary: "Weekly" },
+      dashboardUrl: "https://xkiro.com",
+    });
   });
 
   it("harvests upstream dashboard URLs for providers that have one", () => {
-    expect(getProviderMetadata("codex").dashboardUrl).toBe("https://chatgpt.com/codex/settings/usage");
+    expect(getProviderMetadata("codex").dashboardUrl).toBe("https://chatgpt.com/codex/cloud/settings/analytics#usage");
     expect(getProviderMetadata("claude").dashboardUrl).toBe("https://console.anthropic.com/settings/billing");
     expect(getProviderMetadata("cursor").dashboardUrl).toBe("https://cursor.com/dashboard?tab=usage");
     expect(getProviderMetadata("qwencloud").dashboardUrl).toBe(

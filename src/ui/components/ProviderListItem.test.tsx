@@ -134,7 +134,7 @@ describe("ProviderListItem", () => {
 
     expect(actions).toHaveLength(5);
     expect(actions[1].props.title).toBe("Open Usage Dashboard");
-    expect(actions[1].props.url).toBe("https://chatgpt.com/codex/settings/usage");
+    expect(actions[1].props.url).toBe("https://chatgpt.com/codex/cloud/settings/analytics#usage");
     expect(actions[1].props.shortcut).toEqual({ modifiers: ["cmd"], key: "o" });
     expect(actions[2].props.title).toBe("Open Status Page");
     expect(actions[2].props.url).toBe("https://status.openai.com/");

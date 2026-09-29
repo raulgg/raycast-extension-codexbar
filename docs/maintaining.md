@@ -238,9 +238,10 @@ Upstream ships often. A periodic sync pass:
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.
-5. **Cite the ref.** In `docs/upstream-parity.md`, the commit message, or a plan note, name the
-   upstream file and SHA you verified against. A source comment should name the Swift symbol and
-   point at that doc. Do not stamp a release or SHA into a comment whose only change would be the pin.
+5. **Leave the pin in the lock.** `codexbar-upstream.lock` records the release you synced. Name
+   the upstream file in the commit message or a plan note. A source comment should name the Swift
+   symbol and point at `docs/upstream-parity.md`. Do not copy that release or SHA into that doc or
+   into a comment.
 6. **Test and lint**, then commit.
 
 The `plans/*.local.md` files (gitignored) capture larger in-flight parity efforts (missing providers,
