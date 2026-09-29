@@ -282,6 +282,7 @@ export type DynamicTitleFn = (slotTitle: SlotTitle, options: DynamicTitleOptions
 
 export const DYNAMIC_SLOT_TITLES: Record<string, DynamicTitleFn> = {};
 
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
 export const UNPORTABLE_DYNAMIC_TITLES: Record<string, { reason: string }> = {
   cursor: { reason: "needs snapshot.detailRow Request quota" },
 };

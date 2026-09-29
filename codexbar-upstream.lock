@@ -1,4 +1,5 @@
 {
+  "note": "Written by npm run upstream:bump. Don't hand-edit.",
   "repo": "steipete/CodexBar",
   "tag": "v0.66.0",
   "sha": "e665cbf64976839dc947e70a942ba8226388d4c9"

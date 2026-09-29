@@ -70,6 +70,7 @@ const PACE_RENDERER_PATHS = [
 // matcher: "predicate" resolves it to { type: "predicate", id } on the module. The
 // pace engine calls that field's matches function. The fingerprint still has to
 // match the Swift body.
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
 const CUSTOM_PACE_RULES = {
   "claude.sessionPaceWindowRule": {
     matcher: "always",
@@ -114,6 +115,7 @@ const CUSTOM_PACE_RULES = {
   },
 };
 
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
 const UNPORTABLE_PRESENTATION_PACE = {
   abacus: {
     usesAbacusPace: "billing-cycle copy on the primary bar, not UsagePace",
@@ -123,6 +125,7 @@ const UNPORTABLE_PRESENTATION_PACE = {
   },
 };
 
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
 const UNPORTABLE_HEADROOM_HINT = {
   codex: "1.5× session headroom hint, not implemented",
 };
@@ -131,6 +134,7 @@ const UNPORTABLE_HEADROOM_HINT = {
 // the exact value pair they excuse. When either side moves, the checker flags the entry
 // as stale so it gets re-reviewed instead of rotting. "expr:" upstream values are Swift
 // expressions the parser cannot resolve. `ours` is the manually resolved constant.
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
 const ALLOWED_DIVERGENCES = {
   alibaba: {
     dashboardUrl: {

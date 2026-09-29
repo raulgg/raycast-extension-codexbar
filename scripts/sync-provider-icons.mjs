@@ -8,6 +8,7 @@ import { optimize } from "svgo";
 import { PROVIDER_CATALOG } from "../src/providers/index.ts";
 import { createUpstreamSource, isMainModule } from "./lib/upstream.mjs";
 
+// Writes assets/provider-icons/*.svg. Don't hand-edit them: SVGO strips comments, so the warning stays here.
 const ASSETS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../assets/provider-icons");
 const CONCURRENCY = 6;
 const CHECK_ONLY = process.argv.includes("--check");
