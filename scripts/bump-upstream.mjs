@@ -5,7 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { fetchLatestReleaseTarget, isMainModule, upstreamLockPath } from "./lib/upstream.mjs";
+import { fetchLatestReleaseTarget, isMainModule, renderUpstreamLock, upstreamLockPath } from "./lib/upstream.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -115,7 +115,7 @@ async function bump() {
     readSnapshot: (paths) => readSnapshot(paths),
     restoreSnapshot: (snapshot) => restoreSnapshot(snapshot),
     writeLock: async (target) => {
-      await writeFile(upstreamLockPath(), `${JSON.stringify(target, null, 2)}\n`, "utf8");
+      await writeFile(upstreamLockPath(), renderUpstreamLock(target), "utf8");
     },
     lockPath: upstreamLockPath(),
     log: (message) => console.log(message),

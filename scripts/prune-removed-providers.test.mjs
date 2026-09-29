@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { executePrune, planSummary, pruneMode } from "./prune-removed-providers.mjs";
-import { planPrune, removeObjectProperties } from "./lib/prune-provider.mjs";
+import { planPrune, removeObjectProperties, removeOrderIds } from "./lib/prune-provider.mjs";
 
 function moduleSource(id, iconSlug = id) {
   return `const ${id} = { metadata: { iconSlug: "${iconSlug}" } };\nexport default ${id};\n`;
@@ -156,6 +156,24 @@ describe("planPrune", () => {
     expect(next).not.toContain('"codex.sessionPaceWindowRule"');
     expect(next).toContain('"claude.sessionPaceWindowRule"');
     expect(next).toContain("window.windowMinutes");
+    const head = next.slice(0, next.indexOf("const CUSTOM_PACE_RULES"));
+    expect(head).toContain("upstream:prune removes an id only when CodexBar no longer ships that Provider.");
+  });
+
+  it("keeps a comment above a hand-maintained list when it drops an id", () => {
+    const note = `// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
+`;
+    const order = `${note}export const CATALOG_PROVIDER_ORDER = [\n  "codex",\n  "zoommate",\n];\n`;
+    const nextOrder = removeOrderIds(order, ["zoommate"]);
+    expect(nextOrder.startsWith(note)).toBe(true);
+    expect(nextOrder).toContain('"codex"');
+    expect(nextOrder).not.toContain("zoommate");
+
+    const object = `${note}const ALLOWED_DIVERGENCES = {\n  zoommate: { reason: "x" },\n  codex: { reason: "y" },\n};\n`;
+    const nextObject = removeObjectProperties(object, "ALLOWED_DIVERGENCES", (key) => key === "zoommate");
+    expect(nextObject.startsWith(note)).toBe(true);
+    expect(nextObject).toContain("codex");
+    expect(nextObject).not.toContain("zoommate");
   });
 });
 

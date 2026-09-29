@@ -1,7 +1,14 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { assertSafeUpstreamRef, encodeRefForUrl, isMainModule, readUpstreamLock } from "./upstream.mjs";
+import {
+  assertSafeUpstreamRef,
+  encodeRefForUrl,
+  isMainModule,
+  readUpstreamLock,
+  renderUpstreamLock,
+  UPSTREAM_LOCK_NOTE,
+} from "./upstream.mjs";
 
 describe("assertSafeUpstreamRef", () => {
   it("accepts tags, SHAs, and slashed branch names", () => {
@@ -50,6 +57,20 @@ describe("readUpstreamLock", () => {
 
   it("reads tag and lowercase sha", () => {
     expect(readUpstreamLock(valid)).toEqual({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha: "10587234b54eb6f00efc129566cc25ba744dcc32",
+    });
+  });
+
+  it("ignores a note and still returns repo, tag, and sha", () => {
+    const rendered = renderUpstreamLock({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha: "10587234B54EB6F00EFC129566CC25BA744DCC32",
+    });
+    expect(JSON.parse(rendered).note).toBe(UPSTREAM_LOCK_NOTE);
+    expect(readUpstreamLock(rendered)).toEqual({
       repo: "steipete/CodexBar",
       tag: "v0.55.1",
       sha: "10587234b54eb6f00efc129566cc25ba744dcc32",

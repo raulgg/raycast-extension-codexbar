@@ -42,6 +42,22 @@ export function readUpstreamLock(lockSource) {
   return { repo: UPSTREAM_REPO, tag: lock.tag, sha: lock.sha.toLowerCase() };
 }
 
+// Written into codexbar-upstream.lock. JSON has no line comments, and readUpstreamLock ignores this.
+export const UPSTREAM_LOCK_NOTE = "Written by npm run upstream:bump. Don't hand-edit.";
+
+export function renderUpstreamLock(target) {
+  return `${JSON.stringify(
+    {
+      note: UPSTREAM_LOCK_NOTE,
+      repo: target.repo,
+      tag: target.tag,
+      sha: target.sha,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
 export function assertSafeUpstreamRef(ref) {
   if (typeof ref !== "string" || ref.trim() === "") {
     throw new Error("Upstream ref is empty.");
