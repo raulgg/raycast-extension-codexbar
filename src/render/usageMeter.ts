@@ -124,7 +124,9 @@ function renderUsageMeter({
   title,
   remainingPercent,
   resetsIn,
+  resetText,
   pacingLine,
+  detailLine,
   regenLine,
   providerId,
   appearance,
@@ -135,7 +137,9 @@ function renderUsageMeter({
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  resetText?: string;
   pacingLine?: string;
+  detailLine?: string;
   regenLine?: string;
   providerId: string;
   appearance: DetailAppearance;
@@ -146,7 +150,7 @@ function renderUsageMeter({
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
-  const footerLines = [pacingLine, regenLine].filter((line): line is string => line !== undefined);
+  const footerLines = [pacingLine, detailLine, regenLine].filter((line): line is string => line !== undefined);
   const markup = [
     buildText(
       titleText,
@@ -168,10 +172,11 @@ function renderUsageMeter({
     ),
   ];
 
-  if (resetsIn) {
+  const titleReset = resetText ?? (resetsIn ? `Resets in ${resetsIn}` : undefined);
+  if (titleReset) {
     markup.push(
       buildText(
-        `Resets in ${resetsIn}`,
+        titleReset,
         CONTENT_RIGHT_X,
         startY,
         palette.labelFill,
@@ -233,7 +238,9 @@ export function renderMetricSection(
     title,
     remainingPercent: section.remainingPercent,
     resetsIn: section.resetsIn,
+    resetText: "resetText" in section ? section.resetText : undefined,
     pacingLine: usagePacing ? formatUsagePacingLine(usagePacing) : undefined,
+    detailLine: section.detailText,
     regenLine:
       section.nextRegenPercent !== undefined
         ? `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`

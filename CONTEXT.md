@@ -66,7 +66,7 @@ A projection, from the current pace, of when a window's remaining usage will be 
 
 ## Balances & Cost
 
-> **Mostly not surfaced.** The detail view focuses on Usage and Supplemental usage meters. Two small info sections remain: OpenRouter's balance and key usage (under "OpenRouter") and Codex's available limit-reset credits (under "Limit Reset Credits"). Everything else below describes concepts the CodexBar CLI still reports but that the extension no longer renders; kept as vocabulary for a possible later revisit.
+> The detail view focuses on Usage and Supplemental usage meters. The balance line under a usage meter is part of that meter, for example Raycast's `336.73 / 500 credits left`. Two small info sections remain: OpenRouter's balance and key usage (under "OpenRouter") and Codex's available limit-reset credits (under "Limit Reset Credits"). Everything else below describes concepts the CodexBar CLI still reports that the extension no longer renders; kept as vocabulary for a possible later revisit.
 
 **Credits**:
 A spendable balance a Provider draws down over time, independent of any reset window. Replenished by purchase or plan, not by a reset clock.

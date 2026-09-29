@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { executePrune, planSummary, pruneMode } from "./prune-removed-providers.mjs";
+import { renderMeterDetail } from "./lib/meter-detail.mjs";
 import { planPrune, removeObjectProperties, removeOrderIds } from "./lib/prune-provider.mjs";
 
 function moduleSource(id, iconSlug = id) {
@@ -174,6 +175,39 @@ describe("planPrune", () => {
     expect(nextObject.startsWith(note)).toBe(true);
     expect(nextObject).toContain("codex");
     expect(nextObject).not.toContain("zoommate");
+  });
+
+  it("rewrites the meter detail table and drops the removed Provider", () => {
+    const files = tree(["codex", "warp"], {
+      "src/providers/meterDetail.ts": renderMeterDetail({
+        codex: { primary: true },
+        warp: { primary: true, secondary: true },
+      }),
+      "scripts/check-upstream.mjs": [
+        "const UNPORTABLE_MENU_CARD = {",
+        '  warp: { primaryDescriptionIsDetail: "menu descriptor" },',
+        '  codex: { requestQuota: "missing row" },',
+        "};",
+        "",
+      ].join("\n"),
+    });
+    const result = planPrune(files, [{ id: "warp", iconSlug: "warp" }]);
+
+    expect(result.ok).toBe(true);
+    expect(result.files["src/providers/meterDetail.ts"]).toBe(renderMeterDetail({ codex: { primary: true } }));
+    expect(result.files["src/providers/meterDetail.ts"]).toContain("Don't hand-edit.");
+    expect(result.files["scripts/check-upstream.mjs"]).not.toContain("warp:");
+    expect(result.files["scripts/check-upstream.mjs"]).toContain("codex:");
+  });
+
+  it("blocks when the meter detail table cannot be parsed", () => {
+    const files = tree(["codex", "warp"], {
+      "src/providers/meterDetail.ts": "export const METER_DETAIL = {",
+    });
+    const result = planPrune(files, [{ id: "warp", iconSlug: "warp" }]);
+    expect(result.ok).toBe(false);
+    expect(result.blockers[0]).toMatch(/METER_DETAIL|Unterminated/);
+    expect(result.updates).toEqual([]);
   });
 });
 

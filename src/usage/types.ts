@@ -73,6 +73,10 @@ export type ProviderUsageSection = {
   remainingPercent: number;
   // resetsIn is the countdown the card shows. resetsAt and windowMinutes are the source window.
   resetsIn?: string;
+  // Title-row text when the card has no countdown. The CLI string, with no "Resets in" prefix.
+  resetText?: string;
+  // Balance line under the bar. The CLI string, not a recomputed total.
+  detailText?: string;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
@@ -86,6 +90,8 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  // Balance line under the bar. The CLI string, not a recomputed total.
+  detailText?: string;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;

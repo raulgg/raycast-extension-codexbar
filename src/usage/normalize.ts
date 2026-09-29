@@ -8,12 +8,21 @@ import {
 } from "../providers/paceCapabilities";
 import { PROVIDER_MODULES } from "../providers/index";
 import type { ProviderModuleMap } from "../providers/module";
+import { METER_DETAIL } from "../providers/meterDetail";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
 import { calculateUsagePacing } from "./pacing";
 import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
 import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
-import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
+import {
+  clampPercent,
+  firstString,
+  isRecord,
+  toFiniteNumber,
+  toNonBlankString,
+  toRecord,
+  toTrimmedString,
+} from "./json";
 import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
@@ -121,6 +130,7 @@ type MeterContext = {
   pacingAllowed: boolean;
   now: number;
   modules: ProviderModuleMap;
+  payload: RawProviderPayload;
 };
 
 function meterContext(
@@ -129,7 +139,7 @@ function meterContext(
   now: number,
   modules: ProviderModuleMap = PROVIDER_MODULES,
 ): MeterContext {
-  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules };
+  return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules, payload };
 }
 
 function computeMeterPacing(
@@ -174,6 +184,108 @@ function meterResetFields(input: MeterInput): { resetsAt?: string; windowMinutes
   };
 }
 
+function balanceSlot(slot: SlotTitle): "primary" | "secondary" | undefined {
+  if (slot === "Primary") return "primary";
+  if (slot === "Secondary") return "secondary";
+  return undefined;
+}
+
+function detailRowValue(payload: RawProviderPayload, label: string): string | undefined {
+  const usage = toRecord(payload.usage);
+  if (!usage || !Array.isArray(usage.details)) {
+    return undefined;
+  }
+
+  for (const section of usage.details) {
+    const rows = toRecord(section)?.rows;
+    if (!Array.isArray(rows)) {
+      continue;
+    }
+
+    for (const row of rows) {
+      const record = toRecord(row);
+      if (toTrimmedString(record?.label) !== label) {
+        continue;
+      }
+      const value = record?.value;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return String(value);
+      }
+      return toTrimmedString(value);
+    }
+  }
+
+  return undefined;
+}
+
+// KiroStatusProbe writes these rows. The menu card formats them and skips a zero total.
+function kiroCreditsDetail(payload: RawProviderPayload): string | undefined {
+  const remaining = detailRowValue(payload, "Credits left");
+  const total = detailRowValue(payload, "Credits total");
+  if (!remaining || !total || total === "0") {
+    return undefined;
+  }
+  return `${remaining} of ${total} credits left`;
+}
+
+// MenuBarLayoutBalanceResolver keeps the substring after "Balance:". formatPlanText would slug-format it.
+function poeBalanceDetail(payload: RawProviderPayload): string | undefined {
+  const usage = toRecord(payload.usage);
+  const identity = toRecord(payload.identity);
+  const usageIdentity = toRecord(usage?.identity);
+  const loginMethod = firstString(
+    payload.loginMethod,
+    identity?.loginMethod,
+    usage?.loginMethod,
+    usageIdentity?.loginMethod,
+  );
+  const prefix = "Balance:";
+  if (!loginMethod?.startsWith(prefix)) {
+    return undefined;
+  }
+  const balance = loginMethod.slice(prefix.length).trim();
+  return balance || undefined;
+}
+
+function meterDetailFields(
+  slot: "primary" | "secondary" | undefined,
+  input: MeterInput,
+  context: MeterContext,
+  resetsIn: string | undefined,
+): { detailText?: string; resetText?: string } {
+  if (!slot) {
+    return {};
+  }
+  const entry = METER_DETAIL[context.providerId];
+  if (!entry) {
+    return {};
+  }
+
+  const description = input.resetDescription?.trim() || undefined;
+  const fields: { detailText?: string; resetText?: string } = {};
+  if (slot === "primary" && entry.primaryReset && !resetsIn && description) {
+    fields.resetText = description;
+  }
+
+  if (slot === "primary" && entry.primary === true && description) {
+    fields.detailText = description;
+  } else if (slot === "primary" && entry.primary === "kiroCredits") {
+    const detailText = kiroCreditsDetail(context.payload);
+    if (detailText) {
+      fields.detailText = detailText;
+    }
+  } else if (slot === "primary" && entry.primary === "poeBalance") {
+    const detailText = poeBalanceDetail(context.payload);
+    if (detailText) {
+      fields.detailText = detailText;
+    }
+  } else if (slot === "secondary" && entry.secondary && description) {
+    fields.detailText = description;
+  }
+
+  return fields;
+}
+
 function buildUsageMeter(
   slot: SlotTitle,
   displayTitle: string,
@@ -181,13 +293,15 @@ function buildUsageMeter(
   context: MeterContext,
   usageItemId: string,
 ): ProviderUsageSection {
+  const resetsIn = input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined;
   return {
     kind: "usage",
     title: slot,
     displayTitle,
     remainingPercent: clampPercent(input.remainingPercent),
-    resetsIn: input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined,
+    resetsIn,
     ...meterResetFields(input),
+    ...meterDetailFields(balanceSlot(slot), input, context, resetsIn),
     usagePacing: computeMeterPacing(slot, input, context),
     nextRegenPercent: input.nextRegenPercent,
     usageItemId,

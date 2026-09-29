@@ -5,6 +5,7 @@ import {
   assertSafeUpstreamRef,
   encodeRefForUrl,
   isMainModule,
+  readMenuCardReviewed,
   readUpstreamLock,
   renderUpstreamLock,
   UPSTREAM_LOCK_NOTE,
@@ -81,5 +82,24 @@ describe("readUpstreamLock", () => {
     expect(() => readUpstreamLock("{}")).toThrow(/repo must be/);
     expect(() => readUpstreamLock('{"repo":"steipete/CodexBar","tag":"v1","sha":"abc"}')).toThrow(/40-character/);
     expect(() => readUpstreamLock("not-json")).toThrow(/valid JSON/);
+  });
+
+  it("round-trips menuCardReviewed and still returns only the pin", () => {
+    const sha = "10587234B54EB6F00EFC129566CC25BA744DCC32";
+    const paths = ["Sources/CodexBar/MenuCardView.swift", "Sources/CodexBarCore/Resources/Plugins/"];
+    const rendered = renderUpstreamLock({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha,
+      menuCardReviewed: { sha, paths },
+    });
+    expect(JSON.parse(rendered).menuCardReviewed).toEqual({ sha: sha.toLowerCase(), paths });
+    expect(readUpstreamLock(rendered)).toEqual({
+      repo: "steipete/CodexBar",
+      tag: "v0.55.1",
+      sha: sha.toLowerCase(),
+    });
+    expect(readMenuCardReviewed(rendered)).toEqual({ sha: sha.toLowerCase(), paths });
+    expect(() => readMenuCardReviewed(valid)).toThrow(/missing menuCardReviewed/);
   });
 });

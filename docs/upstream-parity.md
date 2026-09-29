@@ -57,8 +57,8 @@ compares against the wrong thing is worse than a hard failure.
 
 ## The parity surfaces at a glance
 
-There are seven distinct surfaces where we track upstream. Three are guarded by scripts (drift
-fails the check). The rest are hand-maintained (drift is silent until you re-read Swift).
+Script-guarded rows fail `npm run upstream:check` or the icon check. The rest are hand-maintained
+(drift is silent until you re-read Swift).
 
 | # | What | Where it lives here | How drift is caught | Upstream source |
 | - | --- | --- | --- | --- |
@@ -67,6 +67,7 @@ fails the check). The rest are hand-maintained (drift is silent until you re-rea
 | 3 | Provider icons | `assets/provider-icons/*.svg` | `npm run upstream:sync-icons -- --check` | `Sources/CodexBar/Resources/ProviderIcon-<slug>.svg` |
 | 4 | Pacing, gating | `paceCapabilities.ts`, or a module `pace` / `extraWindowPace` | `npm run upstream:check` | descriptor `pace:` plus MenuCardView extra/secondary scans |
 | 4b | Pacing, formula and labels | `usage/pacing.ts` | ❌ hand-maintained | `UsagePace.swift`, `UsagePaceText.swift` |
+| 4c | Menu-card balance line | `src/providers/meterDetail.ts` `detailText` | `npm run upstream:check` | `ProviderMenuCardPresentation` and the watched menu-card files |
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
@@ -302,6 +303,42 @@ remaining is 0 and still binding, Primary is forced to 0% remaining and its rese
 `bindingReset`. The reset it reads is the section's `resetsAt`.
 Presentation meters stay authoritative (ADR-0005). The cap is not re-applied on that path.
 
+## Surface 4c. Menu-card balance line (`upstream:check`)
+
+`src/providers/meterDetail.ts` says which Providers copy a balance line under the usage meter.
+`npm run upstream:check` parses one `ProviderMenuCardPresentation` per descriptor and fails when
+that file drifts. Regenerate it from the descriptors. `upstream:prune` rewrites it when a Provider
+is removed.
+
+A primary or secondary slot copies that window's `resetDescription` into `detailText`. The CLI
+string is the copy. `.detail` and `.detailLeft` use that same under-bar line. `.reset` (OpenRouter)
+stores `primaryReset`: the title row shows `resetDescription` when the window has no countdown.
+`.kiroCredits` builds `X of Y credits left` from the Credits left and Credits total rows, and skips
+a zero total. `.poeBalance` reads the text after `Balance:` on `loginMethod`. `.requestQuota` stays
+in `UNPORTABLE_MENU_CARD` because the CLI JSON does not expose that row. A non-default
+`usageNotesResolver`, `extraRateWindowUsesResetDescriptionAsDetail`, or `primaryDescriptionIsDetail`
+closure is unportable until an entry names it. `primaryDescriptionIsDetail` is the menu descriptor,
+including Raycast's `{ _ in true }`.
+
+Warp, Alibaba, and Alibaba Token Plan have secondary rows even when the descriptor flag is false.
+`MenuCardView.secondaryMetric` draws that line for those three Providers.
+
+`codexbar-upstream.lock` keeps the review pin on `menuCardReviewed`. The watched paths are:
+
+- `Sources/CodexBar/MenuCardView.swift`
+- `Sources/CodexBar/MenuCardView+ModelHelpers.swift`
+- `Sources/CodexBar/MenuCardMetricRow.swift`
+- `Sources/CodexBarCLI/CLIRenderer.swift`
+- `Sources/CodexBarCore/Resources/Plugins/`
+
+When one of those paths changes relative to `menuCardReviewed.sha`, `upstream:check` prints the
+path and fails until `menuCardReviewed` names it and its sha is the candidate. A plugin change
+names the file, such as `raycast.js`.
+
+DeepSeek localizes this line in the app. The extension shows the CLI's English text. Providers
+absent from the table keep `resetDescription` as a pace hint (Devin "Daily", Z.ai "MCP", Amp
+"renews in …").
+
 ## Surface 5. Supplemental usage shapes (hand-maintained)
 
 Beyond Primary/Secondary/Tertiary, upstream models a long list of provider-specific meters. We map a
@@ -314,6 +351,10 @@ few special cases:
   draws (on the Antigravity provider module). Primary and Secondary are copies for the list
   adornment, the same rule as `antigravityMetrics` in `MenuCardView+ModelHelpers.swift`. Skip
   the slot-hiding rewrite when presentation meters are already present.
+- **Recorded, not rendered.** A Raycast card with a zero total has no meter. The bundled plugin
+  sends Left and Total rows and a `Renews:` note (`Sources/CodexBarCore/Resources/Plugins/raycast.js`).
+  Those rows stay off the card. The balance line is the CLI `resetDescription`. `upstream:check`
+  names `raycast.js` when that plugin changes.
 - **Deferred / unmapped.** `cursorRequests`, `zaiUsage`, `minimaxUsage`, `kiroUsage`, `mistralUsage`,
   `deepseekUsage`, `deepgramUsage`, `openAIAPIUsage`, `claudeAdminAPIUsage`, `antigravityPlanInfo`.
   These wait until we can sample their live JSON. An unmapped shape renders nothing, silent by

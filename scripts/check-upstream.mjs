@@ -15,12 +15,14 @@
 //   CODEXBAR_DIR=~/code/CodexBar npm run ...    # compare against a local checkout
 //
 // Exits 1 on any undocumented divergence, missing provider, stale allowlist entry,
-// unported dynamic override, pace-capability mismatch, or provider-module index
-// that does not match the directories under src/providers.
+// unported dynamic override, pace-capability mismatch, menu-card balance drift,
+// or provider-module index that does not match the directories under src/providers.
 
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { METER_DETAIL } from "../src/providers/meterDetail.ts";
 import { PROVIDER_CATALOG, PROVIDER_MODULES } from "../src/providers/index.ts";
 import {
   DYNAMIC_SLOT_TITLES,
@@ -28,8 +30,21 @@ import {
   PACE_CAPABILITIES,
   UNPORTABLE_DYNAMIC_TITLES,
 } from "../src/providers/paceCapabilities.ts";
+import {
+  checkMeterDetailFile,
+  compareMeterDetail,
+  compareUnportableMenuCard,
+  menuCardReviewProblems,
+  parseMenuCardPresentation,
+} from "./lib/meter-detail.mjs";
 import { checkProviderModuleIndex } from "./lib/provider-modules.mjs";
-import { createUpstreamSource, isMainModule, readFilesWithConcurrency } from "./lib/upstream.mjs";
+import {
+  createUpstreamSource,
+  isMainModule,
+  readFilesWithConcurrency,
+  readMenuCardReviewed,
+  upstreamLockPath,
+} from "./lib/upstream.mjs";
 import { compareProviders, parseDescriptorMetadata, parseDynamicOverrideProviders } from "./lib/upstream-metadata.mjs";
 import {
   comparePaceCapabilities,
@@ -130,6 +145,83 @@ const UNPORTABLE_HEADROOM_HINT = {
   codex: "1.5× session headroom hint, not implemented",
 };
 
+// Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
+// Balance flags have no entry here: regenerate src/providers/meterDetail.ts instead.
+const UNPORTABLE_MENU_CARD = {
+  abacus: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  aixy: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  azureopenai: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  bifrost: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  chutes: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  cursor: {
+    requestQuota: "CLI JSON does not expose the Request quota row",
+  },
+  deepinfra: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  deepseek: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+    usageNotesResolver: "usage notes resolver, not the balance line",
+  },
+  helmcode: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  kilo: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  litellm: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  llmman: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  longcat: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  manus: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  mimo: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  mistral: {
+    extraRateWindowUsesResetDescriptionAsDetail: "extra rate window, not the primary or secondary balance line",
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  neuralwatt: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  ollama: {
+    usageNotesResolver: "usage notes resolver, not the balance line",
+  },
+  openai: {
+    usageNotesResolver: "usage notes resolver, not the balance line",
+  },
+  qoder: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  raycast: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  sub2api: {
+    extraRateWindowUsesResetDescriptionAsDetail: "extra rate window, not the primary or secondary balance line",
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  warp: {
+    primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+};
+
 // Known intentional differences from upstream, keyed provider then field. Entries record
 // the exact value pair they excuse. When either side moves, the checker flags the entry
 // as stale so it gets re-reviewed instead of rotting. "expr:" upstream values are Swift
@@ -205,6 +297,9 @@ export const DEFAULT_POLICY = {
   allowedDivergences: ALLOWED_DIVERGENCES,
   unportableHeadroom: UNPORTABLE_HEADROOM_HINT,
   unportablePresentation: UNPORTABLE_PRESENTATION_PACE,
+  meterDetail: METER_DETAIL,
+  unportableMenuCard: UNPORTABLE_MENU_CARD,
+  menuCardReviewed: readMenuCardReviewed(readFileSync(upstreamLockPath(), "utf8")),
   rendererPaths: RENDERER_PATHS,
   paceRendererPaths: PACE_RENDERER_PATHS,
 };
@@ -221,6 +316,9 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
     allowedDivergences,
     unportableHeadroom,
     unportablePresentation,
+    meterDetail = METER_DETAIL,
+    unportableMenuCard = UNPORTABLE_MENU_CARD,
+    menuCardReviewed,
     rendererPaths,
     paceRendererPaths,
   } = policy;
@@ -245,14 +343,23 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
 
   const upstreamById = new Map();
   const presentationFlagsById = new Map();
+  const menuCards = new Map();
+  const menuCardProblems = [];
   for (const { path: filePath, content } of descriptorFiles) {
     const metadata = parseDescriptorMetadata(content, filePath);
     metadata.pace = parseDescriptorPace(content, filePath);
     upstreamById.set(metadata.id, metadata);
     presentationFlagsById.set(metadata.id, parsePresentationPaceFlags(content));
+    const menuCard = parseMenuCardPresentation(content, filePath);
+    if (!menuCard.ok) {
+      menuCardProblems.push(menuCard.error);
+      continue;
+    }
+    menuCards.set(metadata.id, menuCard.presentation);
   }
 
   const problems = compareProviders(catalog, upstreamById, allowedDivergences);
+  problems.push(...menuCardProblems);
   const paceComparison = comparePaceCapabilities(paceEntries, upstreamById, customPaceRules);
   problems.push(...paceComparison.problems);
   problems.push(...moduleAliasProblems(modules, Object.keys(catalog)));
@@ -354,8 +461,16 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
     }
   }
 
+  const meterComparison = compareMeterDetail(menuCards, meterDetail);
+  problems.push(...meterComparison.problems);
+  problems.push(...compareUnportableMenuCard(menuCards, unportableMenuCard));
+  if (menuCardReviewed) {
+    problems.push(...(await reviewMenuCard(source, menuCardReviewed)));
+  }
+
   return {
     problems,
+    meterEntries: meterComparison.entries,
     label: source.label,
     catalogCount: Object.keys(catalog).length,
     overrideCount: dynamicOverrides.size,
@@ -363,10 +478,23 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   };
 }
 
+async function reviewMenuCard(source, reviewed) {
+  if (!source.sha || typeof source.listChangedPaths !== "function") {
+    return ["menuCardReviewed needs an upstream source sha and a path diff."];
+  }
+  const candidate = source.sha.toLowerCase();
+  if (reviewed.sha.toLowerCase() === candidate) {
+    return menuCardReviewProblems(reviewed, candidate, []);
+  }
+  const changed = await source.listChangedPaths(reviewed.sha, candidate);
+  return menuCardReviewProblems(reviewed, candidate, changed);
+}
+
 async function main() {
   const source = await createUpstreamSource();
   const [indexProblems, result] = await Promise.all([checkProviderModuleIndex(ROOT), checkUpstream(source)]);
-  const problems = [...indexProblems, ...result.problems];
+  const detailProblems = await checkMeterDetailFile(ROOT, result.meterEntries);
+  const problems = [...indexProblems, ...result.problems, ...detailProblems];
   if (problems.length > 0) {
     console.error(`Catalog out of sync with ${result.label}:\n`);
     for (const problem of problems) {

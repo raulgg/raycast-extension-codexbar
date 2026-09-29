@@ -2,6 +2,7 @@
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
+- Usage meters show the menu-card balance line under the bar, for example Raycast's `336.73 / 500 credits left`
 - Targets the Raycast 2.5 extension API
 - Usage Overview shows an enabled Provider the catalog does not list yet
 - Usage Overview keeps working after Raycast restores its cached CodexBar CLI check

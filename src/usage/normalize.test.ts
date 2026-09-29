@@ -1578,6 +1578,211 @@ describe("usage pacing gating", () => {
   });
 });
 
+describe("menu card balance line", () => {
+  const now = Date.parse("2026-03-23T10:30:00Z");
+  const resetsAt = "2026-04-17T14:30:00Z";
+  const balance = "336.73 / 500 credits left";
+
+  function usageSection(detail: { sections: ProviderSection[] }, title: "Primary" | "Secondary" | "Tertiary") {
+    return detail.sections.find(
+      (section): section is Extract<ProviderSection, { kind: "usage" }> =>
+        section.kind === "usage" && section.title === title,
+    );
+  }
+
+  it("keeps the Raycast countdown and copies the CLI balance line", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        usage: { primary: { usedPercent: 33, resetsAt, resetDescription: `  ${balance}  ` } },
+      },
+      "raycast",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({
+      resetsIn: "25d 4h",
+      detailText: balance,
+    });
+  });
+
+  it("copies the balance line from a schema 1 meter", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        presentation: {
+          schemaVersion: 1,
+          meters: [
+            {
+              kind: "primary",
+              label: "Credits",
+              usedPercent: 33,
+              remainingPercent: 67,
+              resetsAt,
+              resetDescription: balance,
+            },
+          ],
+        },
+      },
+      "raycast",
+      now,
+    );
+    expect(detail.sections[0]).toMatchObject({
+      kind: "usage",
+      resetsIn: "25d 4h",
+      detailText: balance,
+    });
+  });
+
+  it("leaves resetDescription alone for a provider outside the table", () => {
+    for (const [id, resetDescription] of [
+      ["devin", "Daily"],
+      ["doubao", "1,200 requests left"],
+    ] as const) {
+      const detail = normalizeProviderDetailPayload(
+        { provider: id, usage: { primary: { usedPercent: 10, resetDescription } } },
+        id,
+        now,
+      );
+      const section = detail.sections.find((item) => item.kind === "usage");
+      expect(section).toBeDefined();
+      expect(section).not.toHaveProperty("detailText");
+      expect(section).not.toHaveProperty("resetText");
+    }
+  });
+
+  it("copies an Aixy secondary window onto its own line", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "aixy",
+        usage: {
+          primary: { usedPercent: 10, resetDescription: "1 / 2 left" },
+          secondary: { usedPercent: 20, resetsAt, resetDescription: "12 / 40 requests left" },
+        },
+      },
+      "aixy",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "1 / 2 left" });
+    expect(usageSection(detail, "Secondary")).toMatchObject({
+      detailText: "12 / 40 requests left",
+      resetsIn: "25d 4h",
+    });
+  });
+
+  it("keeps Warp's secondary countdown when the balance line is present", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "warp",
+        usage: { secondary: { usedPercent: 10, resetsAt, resetDescription: "12 / 40 requests left" } },
+      },
+      "warp",
+      now,
+    );
+    expect(usageSection(detail, "Secondary")).toMatchObject({
+      detailText: "12 / 40 requests left",
+      resetsIn: "25d 4h",
+    });
+  });
+
+  it("uses OpenRouter reset text only when the window has no countdown", () => {
+    const withoutDate = normalizeProviderDetailPayload(
+      { provider: "openrouter", usage: { primary: { usedPercent: 10, resetDescription: "monthly" } } },
+      "openrouter",
+      now,
+    );
+    expect(usageSection(withoutDate, "Primary")).toMatchObject({ resetText: "monthly" });
+    expect(usageSection(withoutDate, "Primary")).not.toHaveProperty("detailText");
+    expect(usageSection(withoutDate, "Primary")?.resetsIn).toBeUndefined();
+
+    const withDate = normalizeProviderDetailPayload(
+      {
+        provider: "openrouter",
+        usage: { primary: { usedPercent: 10, resetsAt, resetDescription: "monthly" } },
+      },
+      "openrouter",
+      now,
+    );
+    expect(usageSection(withDate, "Primary")).toMatchObject({ resetsIn: "25d 4h" });
+    expect(usageSection(withDate, "Primary")).not.toHaveProperty("resetText");
+    expect(usageSection(withDate, "Primary")).not.toHaveProperty("detailText");
+  });
+
+  it("formats Kiro credits and skips a zero total", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          primary: { usedPercent: 10 },
+          details: [
+            {
+              rows: [
+                { label: "Credits left", value: "120" },
+                { label: "Credits total", value: "500" },
+              ],
+            },
+          ],
+        },
+      },
+      "kiro",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "120 of 500 credits left" });
+
+    const zero = normalizeProviderDetailPayload(
+      {
+        provider: "kiro",
+        usage: {
+          primary: { usedPercent: 10 },
+          details: [
+            {
+              rows: [
+                { label: "Credits left", value: "0" },
+                { label: "Credits total", value: "0" },
+              ],
+            },
+          ],
+        },
+      },
+      "kiro",
+      now,
+    );
+    expect(usageSection(zero, "Primary")).not.toHaveProperty("detailText");
+  });
+
+  it("reads the Poe balance after the Balance prefix", () => {
+    const detail = normalizeProviderDetailPayload(
+      { provider: "poe", usage: { primary: { usedPercent: 10 }, loginMethod: "Balance: 1.2k points" } },
+      "poe",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "1.2k points" });
+
+    const plain = normalizeProviderDetailPayload(
+      { provider: "poe", usage: { primary: { usedPercent: 10 }, loginMethod: "Pro" } },
+      "poe",
+      now,
+    );
+    expect(usageSection(plain, "Primary")).not.toHaveProperty("detailText");
+  });
+
+  it("does not copy a supplemental window's reset description", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        usage: {
+          primary: { usedPercent: 10, resetDescription: balance },
+          extraRateWindows: [{ id: "extra", title: "Extra", window: { usedPercent: 10, resetDescription: balance } }],
+        },
+      },
+      "raycast",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: balance });
+    const supplemental = detail.sections.find((section) => section.kind === "supplementalUsage");
+    expect(supplemental).not.toHaveProperty("detailText");
+  });
+});
+
 describe("provider module interpretation", () => {
   const fixture: ProviderModule = {
     metadata: {

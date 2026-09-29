@@ -2,5 +2,15 @@
   "note": "Written by npm run upstream:bump. Don't hand-edit.",
   "repo": "steipete/CodexBar",
   "tag": "v0.69.0",
-  "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90"
+  "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90",
+  "menuCardReviewed": {
+    "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90",
+    "paths": [
+      "Sources/CodexBar/MenuCardView.swift",
+      "Sources/CodexBar/MenuCardView+ModelHelpers.swift",
+      "Sources/CodexBar/MenuCardMetricRow.swift",
+      "Sources/CodexBarCLI/CLIRenderer.swift",
+      "Sources/CodexBarCore/Resources/Plugins/"
+    ]
+  }
 }
