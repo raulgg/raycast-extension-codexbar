@@ -43,6 +43,7 @@ import {
   isMainModule,
   readFilesWithConcurrency,
   readMenuCardReviewed,
+  readUpstreamLock,
   upstreamLockPath,
 } from "./lib/upstream.mjs";
 import { compareProviders, parseDescriptorMetadata, parseDynamicOverrideProviders } from "./lib/upstream-metadata.mjs";
@@ -286,6 +287,8 @@ const ALLOWED_DIVERGENCES = {
   },
 };
 
+const upstreamLockText = readFileSync(upstreamLockPath(), "utf8");
+
 export const DEFAULT_POLICY = {
   catalog: PROVIDER_CATALOG,
   modules: PROVIDER_MODULES,
@@ -299,7 +302,8 @@ export const DEFAULT_POLICY = {
   unportablePresentation: UNPORTABLE_PRESENTATION_PACE,
   meterDetail: METER_DETAIL,
   unportableMenuCard: UNPORTABLE_MENU_CARD,
-  menuCardReviewed: readMenuCardReviewed(readFileSync(upstreamLockPath(), "utf8")),
+  menuCardReviewed: readMenuCardReviewed(upstreamLockText),
+  pinnedSha: readUpstreamLock(upstreamLockText).sha,
   rendererPaths: RENDERER_PATHS,
   paceRendererPaths: PACE_RENDERER_PATHS,
 };
@@ -319,6 +323,7 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
     meterDetail = METER_DETAIL,
     unportableMenuCard = UNPORTABLE_MENU_CARD,
     menuCardReviewed,
+    pinnedSha,
     rendererPaths,
     paceRendererPaths,
   } = policy;
@@ -465,7 +470,7 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   problems.push(...meterComparison.problems);
   problems.push(...compareUnportableMenuCard(menuCards, unportableMenuCard));
   if (menuCardReviewed) {
-    problems.push(...(await reviewMenuCard(source, menuCardReviewed)));
+    problems.push(...(await reviewMenuCard(source, menuCardReviewed, pinnedSha)));
   }
 
   return {
@@ -478,15 +483,17 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   };
 }
 
-async function reviewMenuCard(source, reviewed) {
+// Bump checks the candidate before it rewrites the lock pin. A copied review sha still has to name every changed path.
+async function reviewMenuCard(source, reviewed, pinnedSha) {
   if (!source.sha || typeof source.listChangedPaths !== "function") {
     return ["menuCardReviewed needs an upstream source sha and a path diff."];
   }
-  const candidate = source.sha.toLowerCase();
-  if (reviewed.sha.toLowerCase() === candidate) {
-    return menuCardReviewProblems(reviewed, candidate, []);
+  if (typeof pinnedSha !== "string" || !/^[0-9a-f]{40}$/i.test(pinnedSha)) {
+    return ["menuCardReviewed needs the pinned lock sha."];
   }
-  const changed = await source.listChangedPaths(reviewed.sha, candidate);
+  const candidate = source.sha.toLowerCase();
+  const pin = pinnedSha.toLowerCase();
+  const changed = pin === candidate ? [] : await source.listChangedPaths(pin, candidate);
   return menuCardReviewProblems(reviewed, candidate, changed);
 }
 

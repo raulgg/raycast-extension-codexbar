@@ -43,6 +43,16 @@ export async function readSnapshot(paths, root = ROOT) {
   return snapshot;
 }
 
+export async function writeBumpedLock(target, lockPath = upstreamLockPath()) {
+  let previous;
+  try {
+    previous = await readFile(lockPath, "utf8");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  await writeFile(lockPath, renderUpstreamLock(target, previous), "utf8");
+}
+
 export async function restoreSnapshot(snapshot, root = ROOT) {
   for (const [relative, contents] of Object.entries(snapshot)) {
     const target = path.join(root, relative);
@@ -114,9 +124,7 @@ async function bump() {
     runNpm: (args, env, options) => runNpm(args, env, options),
     readSnapshot: (paths) => readSnapshot(paths),
     restoreSnapshot: (snapshot) => restoreSnapshot(snapshot),
-    writeLock: async (target) => {
-      await writeFile(upstreamLockPath(), renderUpstreamLock(target), "utf8");
-    },
+    writeLock: (target) => writeBumpedLock(target),
     lockPath: upstreamLockPath(),
     log: (message) => console.log(message),
     stderr: (message) => console.error(message),

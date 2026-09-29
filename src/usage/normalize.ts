@@ -218,7 +218,7 @@ function detailRowValue(payload: RawProviderPayload, label: string): string | un
   return undefined;
 }
 
-// KiroStatusProbe writes these rows. The menu card formats them and skips a zero total.
+// Skip a zero total.
 function kiroCreditsDetail(payload: RawProviderPayload): string | undefined {
   const remaining = detailRowValue(payload, "Credits left");
   const total = detailRowValue(payload, "Credits total");
@@ -228,7 +228,7 @@ function kiroCreditsDetail(payload: RawProviderPayload): string | undefined {
   return `${remaining} of ${total} credits left`;
 }
 
-// MenuBarLayoutBalanceResolver keeps the substring after "Balance:". formatPlanText would slug-format it.
+// Keep the text after "Balance:".
 function poeBalanceDetail(payload: RawProviderPayload): string | undefined {
   const usage = toRecord(payload.usage);
   const identity = toRecord(payload.identity);

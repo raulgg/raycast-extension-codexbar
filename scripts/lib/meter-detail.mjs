@@ -32,9 +32,9 @@ const TRIVIAL_FALSE = "{_infalse}";
 const TRIVIAL_UNHANDLED = "{_in.unhandled}";
 
 const CLOSURE_FIELDS = [
-  ["usageNotesResolver", "usageNotesResolver"],
-  ["extraRateWindowUsesResetDescriptionAsDetail", "extraRateWindowUsesResetDescriptionAsDetail"],
-  ["primaryDescriptionIsDetail", "primaryDescriptionIsDetail"],
+  "usageNotesResolver",
+  "extraRateWindowUsesResetDescriptionAsDetail",
+  "primaryDescriptionIsDetail",
 ];
 
 export function parseMenuCardPresentation(source, filePath = "descriptor") {
@@ -127,12 +127,12 @@ export function compareUnportableMenuCard(presentations, allowances) {
         used.add(`${id}.requestQuota`);
       }
     }
-    for (const [field, key] of CLOSURE_FIELDS) {
+    for (const field of CLOSURE_FIELDS) {
       if (!presentation[field]) continue;
-      if (!allowance[key]) {
-        problems.push(`${id}: descriptor sets ${key}. Port it or add UNPORTABLE_MENU_CARD.`);
+      if (!allowance[field]) {
+        problems.push(`${id}: descriptor sets ${field}. Port it or add UNPORTABLE_MENU_CARD.`);
       } else {
-        used.add(`${id}.${key}`);
+        used.add(`${id}.${field}`);
       }
     }
     for (const key of Object.keys(allowance)) {
@@ -171,12 +171,13 @@ export function menuCardReviewProblems(reviewed, candidateSha, changedPaths) {
     }
   }
   const candidate = candidateSha.toLowerCase();
-  if (reviewed.sha === candidate) return problems;
   const changed = watchedMenuCardChanges(changedPaths);
   if (changed.length === 0) return problems;
-  problems.push(
-    `Menu card files changed since menuCardReviewed.sha. Set menuCardReviewed.sha to ${candidate} and list: ${changed.join(", ")}.`,
-  );
+  if (reviewed.sha.toLowerCase() !== candidate) {
+    problems.push(
+      `Menu card files changed since menuCardReviewed.sha. Set menuCardReviewed.sha to ${candidate} and list: ${changed.join(", ")}.`,
+    );
+  }
   for (const file of changed) {
     if (!reviewed.paths.includes(file)) {
       problems.push(`menuCardReviewed does not list changed path ${file}.`);
@@ -203,27 +204,6 @@ export function renderMeterDetail(entries) {
   return `${METER_DETAIL_BANNER}${type}\n${body}`;
 }
 
-export function meterEntriesFromSource(source) {
-  const marker = "export const METER_DETAIL";
-  const start = source.indexOf(marker);
-  if (start < 0) {
-    throw new Error("METER_DETAIL is missing");
-  }
-  const open = source.indexOf("{", start);
-  const close = matchCloser(source, open, "{", "}");
-  const entries = {};
-  for (const part of splitTopLevel(source.slice(open + 1, close), ",")) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    const match = /^([A-Za-z0-9]+)\s*:\s*\{([\s\S]*)\}$/.exec(trimmed);
-    if (!match) {
-      throw new Error(`Could not parse meter detail entry: ${trimmed}`);
-    }
-    entries[match[1]] = parseEntryBody(match[2]);
-  }
-  return entries;
-}
-
 export async function checkMeterDetailFile(root, entries) {
   const expected = renderMeterDetail(entries);
   const actual = await readFile(path.join(root, METER_DETAIL_PATH), "utf8");
@@ -238,26 +218,6 @@ function renderEntry(entry) {
   if (entry.secondary) fields.push("secondary: true");
   if (entry.primaryReset) fields.push("primaryReset: true");
   return `{ ${fields.join(", ")} }`;
-}
-
-function parseEntryBody(body) {
-  const entry = {};
-  for (const part of body.split(",")) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    const match = /^([A-Za-z0-9]+)\s*:\s*([\s\S]+)$/.exec(trimmed);
-    if (!match) {
-      throw new Error(`Could not parse meter detail field: ${trimmed}`);
-    }
-    const key = match[1];
-    const raw = match[2].trim();
-    if (key === "primary" && raw === "true") entry.primary = true;
-    else if (key === "primary" && (raw === '"kiroCredits"' || raw === '"poeBalance"')) entry.primary = JSON.parse(raw);
-    else if (key === "secondary" && raw === "true") entry.secondary = true;
-    else if (key === "primaryReset" && raw === "true") entry.primaryReset = true;
-    else throw new Error(`Unexpected meter detail field ${key}: ${raw}`);
-  }
-  return entry;
 }
 
 function compareCatalogId(left, right) {

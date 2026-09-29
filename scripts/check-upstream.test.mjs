@@ -1026,6 +1026,7 @@ describe("checkUpstream", () => {
       }),
       {
         ...TOY_POLICY,
+        pinnedSha: reviewed,
         menuCardReviewed: { sha: reviewed, paths: [...MENU_CARD_WATCH_PATHS] },
       },
     );
@@ -1035,20 +1036,30 @@ describe("checkUpstream", () => {
     expect(text).not.toContain("README.md");
   });
 
-  it("skips the menu card diff when menuCardReviewed.sha is the candidate", async () => {
-    const sha = "c".repeat(40);
-    let diffs = 0;
-    const source = fakeSource(toyFiles(), { sha, changed: ["Sources/CodexBar/MenuCardView.swift"] });
-    source.listChangedPaths = async () => {
-      diffs += 1;
-      return ["Sources/CodexBar/MenuCardView.swift"];
+  it("still names an unlisted plugin path when menuCardReviewed.sha is the candidate", async () => {
+    const pin = "a".repeat(40);
+    const candidate = "b".repeat(40);
+    const plugin = "Sources/CodexBarCore/Resources/Plugins/raycast.js";
+    const calls = [];
+    const source = fakeSource(toyFiles(), { sha: candidate });
+    source.listChangedPaths = async (from, to) => {
+      calls.push([from, to]);
+      return [plugin];
     };
-    const result = await checkUpstream(source, {
+    const missing = await checkUpstream(source, {
       ...TOY_POLICY,
-      menuCardReviewed: { sha, paths: [...MENU_CARD_WATCH_PATHS] },
+      pinnedSha: pin,
+      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS] },
     });
-    expect(diffs).toBe(0);
-    expect(result.problems).toEqual([]);
+    expect(calls).toEqual([[pin, candidate]]);
+    expect(missing.problems.join("\n")).toContain("raycast.js");
+
+    const listed = await checkUpstream(source, {
+      ...TOY_POLICY,
+      pinnedSha: pin,
+      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS, plugin] },
+    });
+    expect(listed.problems).toEqual([]);
   });
 });
 

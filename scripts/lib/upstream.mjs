@@ -70,20 +70,34 @@ export function readMenuCardReviewed(lockSource) {
 // Written into codexbar-upstream.lock. JSON has no line comments, and readUpstreamLock ignores this.
 export const UPSTREAM_LOCK_NOTE = "Written by npm run upstream:bump. Don't hand-edit.";
 
-export function renderUpstreamLock(target) {
+export function renderUpstreamLock(target, previousSource) {
   const lock = {
     note: UPSTREAM_LOCK_NOTE,
     repo: target.repo,
     tag: target.tag,
     sha: target.sha.toLowerCase(),
   };
-  if (target.menuCardReviewed) {
+  // The bump target is only the release pin. Keep the acknowledgement already in the lock.
+  const reviewed = target.menuCardReviewed ?? menuCardReviewedFromLock(previousSource);
+  if (reviewed) {
     lock.menuCardReviewed = {
-      sha: target.menuCardReviewed.sha.toLowerCase(),
-      paths: target.menuCardReviewed.paths,
+      sha: reviewed.sha.toLowerCase(),
+      paths: reviewed.paths,
     };
   }
   return `${JSON.stringify(lock, null, 2)}\n`;
+}
+
+function menuCardReviewedFromLock(previousSource) {
+  if (!previousSource) return undefined;
+  let parsed;
+  try {
+    parsed = JSON.parse(previousSource);
+  } catch {
+    throw new Error("codexbar-upstream.lock is not valid JSON.");
+  }
+  if (!parsed || typeof parsed !== "object" || !parsed.menuCardReviewed) return undefined;
+  return readMenuCardReviewed(previousSource);
 }
 
 export function assertSafeUpstreamRef(ref) {

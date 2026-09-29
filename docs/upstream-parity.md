@@ -331,8 +331,8 @@ Warp, Alibaba, and Alibaba Token Plan have secondary rows even when the descript
 - `Sources/CodexBarCLI/CLIRenderer.swift`
 - `Sources/CodexBarCore/Resources/Plugins/`
 
-When one of those paths changes relative to `menuCardReviewed.sha`, `upstream:check` prints the
-path and fails until `menuCardReviewed` names it and its sha is the candidate. A plugin change
+`upstream:check` diffs the pinned lock sha against the candidate. A changed watched path fails
+the check until `menuCardReviewed.sha` is the candidate and the path is listed. A plugin change
 names the file, such as `raycast.js`.
 
 DeepSeek localizes this line in the app. The extension shows the CLI's English text. Providers

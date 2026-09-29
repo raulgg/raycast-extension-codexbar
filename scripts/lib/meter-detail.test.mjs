@@ -7,7 +7,6 @@ import {
   checkMeterDetailFile,
   menuCardReviewProblems,
   MENU_CARD_WATCH_PATHS,
-  meterEntriesFromSource,
   meterEntryFromPresentation,
   parseMenuCardPresentation,
   renderMeterDetail,
@@ -89,19 +88,6 @@ describe("meter detail generation", () => {
     });
   });
 
-  it("round-trips a rendered table", () => {
-    const entries = {
-      warp: { primary: true, secondary: true },
-      kiro: { primary: "kiroCredits" },
-      openrouter: { primaryReset: true },
-    };
-    expect(meterEntriesFromSource(renderMeterDetail(entries))).toEqual({
-      kiro: { primary: "kiroCredits" },
-      warp: { primary: true, secondary: true },
-      openrouter: { primaryReset: true },
-    });
-  });
-
   it("rejects a hand edit and accepts the regenerated file", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "meter-detail-"));
     const entries = { raycast: { primary: true } };
@@ -116,21 +102,24 @@ describe("meter detail generation", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("names a changed plugin file until the review sha moves", () => {
+  it("names a changed plugin file until the review lists it at the candidate", () => {
     const candidate = "b".repeat(40);
-    const problems = menuCardReviewProblems(
+    const plugin = "Sources/CodexBarCore/Resources/Plugins/raycast.js";
+    const changed = [plugin, "README.md"];
+    const missingSha = menuCardReviewProblems(
       { sha: "a".repeat(40), paths: [...MENU_CARD_WATCH_PATHS] },
       candidate,
-      ["Sources/CodexBarCore/Resources/Plugins/raycast.js", "README.md"],
+      changed,
     );
-    const text = problems.join("\n");
-    expect(text).toContain("raycast.js");
-    expect(text).toContain(candidate);
-    expect(text).not.toContain("README.md");
+    const missingText = missingSha.join("\n");
+    expect(missingText).toContain("raycast.js");
+    expect(missingText).toContain(candidate);
+    expect(missingText).not.toContain("README.md");
+
+    const shaOnly = menuCardReviewProblems({ sha: candidate, paths: [...MENU_CARD_WATCH_PATHS] }, candidate, changed);
+    expect(shaOnly.join("\n")).toContain("raycast.js");
     expect(
-      menuCardReviewProblems({ sha: candidate, paths: [...MENU_CARD_WATCH_PATHS] }, candidate, [
-        "Sources/CodexBarCore/Resources/Plugins/raycast.js",
-      ]),
+      menuCardReviewProblems({ sha: candidate, paths: [...MENU_CARD_WATCH_PATHS, plugin] }, candidate, changed),
     ).toEqual([]);
   });
 });
