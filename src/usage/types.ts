@@ -73,12 +73,16 @@ export type ProviderUsageSection = {
   remainingPercent: number;
   // resetsIn is the countdown the card shows. resetsAt and windowMinutes are the source window.
   resetsIn?: string;
-  // Title-row text when the card has no countdown. The CLI string, with no "Resets in" prefix.
+  // Title-row reset. Schema 1 is the description with no "Resets in" prefix. Schema 2 is the menu card's text and is not paired with a second countdown.
   resetText?: string;
   // Second line under the bar. Pacing does not replace it.
   detailText?: string;
   // Shared line under the bar when this meter does not draw a pace line.
   detailLeftText?: string;
+  // Joined menu-card line under the bar. Local pacing does not replace it.
+  metaText?: string;
+  // Pace-marker position on the remaining bar. Absent when the line under the bar is not a pace tick.
+  pacePercent?: number;
   // Provider text owns the shared line. Render still draws a reset-window forecast on Secondary.
   replacesPace?: true;
   resetsAt?: string;
@@ -94,10 +98,16 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  // Title-row reset from a schema 2 meter. Not a countdown formatted here.
+  resetText?: string;
   // Second line under the bar. Pacing does not replace it.
   detailText?: string;
   // Shared line under the bar when this meter does not draw a pace line.
   detailLeftText?: string;
+  // Joined menu-card line under the bar. Local pacing does not replace it.
+  metaText?: string;
+  // Pace-marker position on the remaining bar. Absent when the line under the bar is not a pace tick.
+  pacePercent?: number;
   // Provider text owns the shared line, so the pace line and marker stay off.
   replacesPace?: true;
   resetsAt?: string;

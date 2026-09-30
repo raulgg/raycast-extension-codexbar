@@ -192,7 +192,7 @@ also used. `cursor` is unportable. MenuCardView keys on
 `snapshot.detailRow(label: "Request quota")`, which the CLI JSON does not expose.
 
 A green check means every scanned id is a module `displayTitle`, a `DYNAMIC_SLOT_TITLES` key, or an
-unportable entry. Presentation meters (`schemaVersion === 1`) still use the CLI's `meter.label` and
+unportable entry. Presentation meters at schema 1 or 2 still use the CLI's `meter.label` and
 never call `resolveDynamicSlotTitle`. If upstream adds a dynamic override, the check fails until
 you add a module `displayTitle`, a map entry, or mark it unportable.
 
@@ -299,11 +299,16 @@ implemented.
 
 ### Lines under the bar
 
-`meterLines` in [`usage/normalize.ts`](../src/usage/normalize.ts) fills every usage meter from
-[`meterDetail.ts`](../src/providers/meterDetail.ts). Schema 1 meters use that same function. A
-supplemental meter that is not an extra rate window gets neither line. The list adornment ignores
-both strings. Pacing is applied when the card draws the meter: it replaces `detailLeftText` and
-keeps `detailText` on the next line. Regen stays under those.
+A schema 2 meter copies `resetText`, `metaText`, `detailText`, and `pacePercent` from the CLI and does
+not call `meterLines`. The named sets below are the old-CLI fallback, and they are frozen. Schema 1
+meters and a raw payload with no presentation still go through `meterLines` in
+[`usage/normalize.ts`](../src/usage/normalize.ts), which reads
+[`meterDetail.ts`](../src/providers/meterDetail.ts). `menuCardReviewed` stays while that fallback
+exists. A supplemental meter that is not an extra rate window gets neither line on that fallback.
+The list adornment ignores `metaText` and `detailText`. On the fallback, pacing replaces
+`detailLeftText` and keeps `detailText` on the next line. Regen stays under those. A schema 2 footer
+is `metaText`, then `detailText`, with no local regen line. A numeric `pacePercent` is the pace
+marker on the remaining bar.
 
 Primary, in the app's order:
 
@@ -334,8 +339,9 @@ drops the countdown when the window has no date. `true` is every extra window (S
 from Overage credits left and the `of …` prefix on Overage usage, and that text replaces the pace
 line. Skip when a piece is missing. Other extras keep the pace line they already have.
 
-These ids are not on the descriptor. They are `MenuCardView` branches, kept as named sets in
-`scripts/lib/meter-detail.mjs`, so a drift in the Swift list still requires the `menuCardReviewed` pin:
+These ids are not on the descriptor. They are `MenuCardView` branches, kept as frozen named sets in
+`scripts/lib/meter-detail.mjs` for the old-CLI fallback. A drift in the Swift list still requires the
+`menuCardReviewed` pin, which stays while that fallback exists:
 
 - `secondaryDetailText`: Warp, Alibaba, Alibaba Token Plan. Warp also clears the secondary countdown
   when the window has no supplied reset text. The CLI JSON does not carry `suppliedResetText`, so
@@ -370,7 +376,7 @@ absent from the table keep `resetDescription` as a pace hint (Devin "Daily", Z.a
 
 ## Codex-only raw projection. Weekly caps session
 
-On the raw usage path (no `presentation.schemaVersion === 1` meters), Codex applies the app's
+On the raw usage path (no presentation meters at schema 1 or 2), Codex applies the app's
 `CodexConsumerProjection.weeklyCapsSession` rule in `src/providers/codex/usageCard.ts`. When weekly
 remaining is 0 and still binding, Primary is forced to 0% remaining and its reset is retargeted via
 `bindingReset`. The reset it reads is the section's `resetsAt`.

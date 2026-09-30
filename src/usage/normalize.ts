@@ -589,6 +589,43 @@ function toPresentationMeterKind(value: unknown): PresentationMeterKind | undefi
   return undefined;
 }
 
+function buildCopiedPresentationMeter(
+  kind: PresentationMeterKind,
+  label: string,
+  input: MeterInput,
+  meter: Record<string, unknown>,
+  usageItemId: string | undefined,
+): ProviderSection {
+  const resetText = toTrimmedString(meter.resetText);
+  const metaText = toTrimmedString(meter.metaText);
+  const detailText = toTrimmedString(meter.detailText);
+  const pacePercent = toFiniteNumber(meter.pacePercent);
+  const copied = {
+    remainingPercent: clampPercent(input.remainingPercent),
+    ...meterResetFields(input),
+    ...(resetText ? { resetText } : {}),
+    ...(metaText ? { metaText } : {}),
+    ...(detailText ? { detailText } : {}),
+    ...(pacePercent !== undefined ? { pacePercent: clampPercent(pacePercent) } : {}),
+  };
+  if (kind === "supplemental") {
+    return {
+      kind: "supplementalUsage",
+      title: label,
+      ...copied,
+      ...(usageItemId ? { usageItemId } : {}),
+    };
+  }
+
+  return {
+    kind: "usage",
+    title: PRESENTATION_SLOT_TITLES[kind],
+    displayTitle: label,
+    ...copied,
+    usageItemId: usageItemId ?? `metric:${kind}`,
+  };
+}
+
 function buildPresentationMeterSections(
   providerId: string,
   payload: RawProviderPayload,
@@ -597,7 +634,7 @@ function buildPresentationMeterSections(
 ): { schemaVersion: number; sections: ProviderSection[] } | undefined {
   const presentation = toRecord(payload.presentation);
   const schemaVersion = toFiniteNumber(presentation?.schemaVersion);
-  if (schemaVersion !== 1 || !Array.isArray(presentation?.meters)) {
+  if ((schemaVersion !== 1 && schemaVersion !== 2) || !Array.isArray(presentation?.meters)) {
     return undefined;
   }
 
@@ -629,16 +666,16 @@ function buildPresentationMeterSections(
     };
 
     const meterId = toTrimmedString(meter.id);
+    const usageItemId = usageItemIdFromMeterId(meterId);
+    if (schemaVersion === 2) {
+      sections.push(buildCopiedPresentationMeter(kind, label, input, meter, usageItemId));
+      continue;
+    }
+
     sections.push(
       kind === "supplemental"
-        ? buildSupplementalMeter(label, input, context, usageItemIdFromMeterId(meterId), "supplemental")
-        : buildUsageMeter(
-            PRESENTATION_SLOT_TITLES[kind],
-            label,
-            input,
-            context,
-            usageItemIdFromMeterId(meterId) ?? `metric:${kind}`,
-          ),
+        ? buildSupplementalMeter(label, input, context, usageItemId, "supplemental")
+        : buildUsageMeter(PRESENTATION_SLOT_TITLES[kind], label, input, context, usageItemId ?? `metric:${kind}`),
     );
   }
 

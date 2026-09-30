@@ -429,6 +429,89 @@ describe("provider markdown", () => {
     expect(svg).not.toContain("Included");
   });
 
+  it("draws a schema 2 pace marker at pacePercent and keeps the local pace line off", () => {
+    const detail = {
+      id: "codex",
+      name: "Codex",
+      sections: [
+        {
+          kind: "usage" as const,
+          title: "Primary" as const,
+          displayTitle: "Session",
+          remainingPercent: 80,
+          resetsAt: "2026-03-23T13:30:00Z",
+          resetsIn: "3h",
+          resetText: "Ready Tuesday",
+          metaText: "80 of 100 left",
+          detailText: "second line",
+          pacePercent: 40,
+          nextRegenPercent: 4,
+          usagePacing: {
+            stage: "farUnder" as const,
+            usedVsIdealDeltaPercent: -39.98,
+            idealUsedPercentByNow: 92.98,
+            actualUsedPercent: 20,
+            lastsUntilReset: true,
+            computedAt: "2026-04-16T12:30:00.000Z",
+          },
+        },
+      ],
+    };
+    const parsed = parseDetailSvg(buildProviderDetailMarkdown(detail, "light"));
+
+    expect(textY(parsed, "Ready Tuesday")).toBe(textY(parsed, "Session 80% left"));
+    expect(textY(parsed, "80 of 100 left")).toBeGreaterThan(textY(parsed, "Session 80% left"));
+    expect(textY(parsed, "second line")).toBeGreaterThan(textY(parsed, "80 of 100 left"));
+    expect(rectsWithSize(parsed, 3, 12)).toHaveLength(1);
+    expect(rectsWithSize(parsed, 3, 12)[0]?.x).toBe(174.5);
+    expect(markerFills(parsed)).toEqual(["#34C759"]);
+    expect(parsed.texts.some((text) => text.content.includes("Resets in"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("Regenerates"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("in reserve"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("in deficit"))).toBe(false);
+  });
+
+  it("draws schema 2 metaText with no marker when pacePercent is null", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "codex",
+        name: "Codex",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Session",
+            remainingPercent: 80,
+            resetsAt: "2026-03-23T13:30:00Z",
+            resetsIn: "3h",
+            resetText: "Ready Tuesday",
+            metaText: "80 of 100 left",
+            detailText: "second line",
+            nextRegenPercent: 4,
+            usagePacing: {
+              stage: "farUnder",
+              usedVsIdealDeltaPercent: -39.98,
+              idealUsedPercentByNow: 92.98,
+              actualUsedPercent: 20,
+              lastsUntilReset: true,
+              computedAt: "2026-04-16T12:30:00.000Z",
+            },
+          },
+        ],
+      },
+      "light",
+    );
+    const parsed = parseDetailSvg(markdown);
+
+    expect(textY(parsed, "80 of 100 left")).toBeGreaterThan(textY(parsed, "Session 80% left"));
+    expect(textY(parsed, "second line")).toBeGreaterThan(textY(parsed, "80 of 100 left"));
+    expect(rectsWithSize(parsed, 3, 12)).toEqual([]);
+    expect(parsed.texts.some((text) => text.content.includes("Resets in"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("Regenerates"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("in reserve"))).toBe(false);
+    expect(parsed.texts.some((text) => text.content.includes("in deficit"))).toBe(false);
+  });
+
   it("draws reset text in place of the countdown", () => {
     const markdown = buildProviderDetailMarkdown(
       {
