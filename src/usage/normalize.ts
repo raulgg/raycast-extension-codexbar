@@ -589,24 +589,6 @@ function toPresentationMeterKind(value: unknown): PresentationMeterKind | undefi
   return undefined;
 }
 
-function copiedPresentationFields(meter: Record<string, unknown>): {
-  resetText?: string;
-  metaText?: string;
-  detailText?: string;
-  pacePercent?: number;
-} {
-  const resetText = toTrimmedString(meter.resetText);
-  const metaText = toTrimmedString(meter.metaText);
-  const detailText = toTrimmedString(meter.detailText);
-  const pacePercent = toFiniteNumber(meter.pacePercent);
-  return {
-    ...(resetText ? { resetText } : {}),
-    ...(metaText ? { metaText } : {}),
-    ...(detailText ? { detailText } : {}),
-    ...(pacePercent !== undefined ? { pacePercent: clampPercent(pacePercent) } : {}),
-  };
-}
-
 function buildCopiedPresentationMeter(
   kind: PresentationMeterKind,
   label: string,
@@ -614,10 +596,17 @@ function buildCopiedPresentationMeter(
   meter: Record<string, unknown>,
   usageItemId: string | undefined,
 ): ProviderSection {
+  const resetText = toTrimmedString(meter.resetText);
+  const metaText = toTrimmedString(meter.metaText);
+  const detailText = toTrimmedString(meter.detailText);
+  const pacePercent = toFiniteNumber(meter.pacePercent);
   const copied = {
     remainingPercent: clampPercent(input.remainingPercent),
     ...meterResetFields(input),
-    ...copiedPresentationFields(meter),
+    ...(resetText ? { resetText } : {}),
+    ...(metaText ? { metaText } : {}),
+    ...(detailText ? { detailText } : {}),
+    ...(pacePercent !== undefined ? { pacePercent: clampPercent(pacePercent) } : {}),
   };
   if (kind === "supplemental") {
     return {
@@ -678,17 +667,8 @@ function buildPresentationMeterSections(
 
     const meterId = toTrimmedString(meter.id);
     const usageItemId = usageItemIdFromMeterId(meterId);
-    // Schema 2 lines are the menu card's. Schema 1 still rebuilds them locally.
     if (schemaVersion === 2) {
-      sections.push(
-        buildCopiedPresentationMeter(
-          kind,
-          label,
-          input,
-          meter,
-          kind === "supplemental" ? usageItemId : (usageItemId ?? `metric:${kind}`),
-        ),
-      );
+      sections.push(buildCopiedPresentationMeter(kind, label, input, meter, usageItemId));
       continue;
     }
 
