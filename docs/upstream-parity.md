@@ -39,16 +39,16 @@ Upstream is the public repo `steipete/CodexBar`. It changes fast. A new provider
 
 The sync scripts default to the pinned commit in [`codexbar-upstream.lock`](../codexbar-upstream.lock)
 (tag plus SHA of a shipped GitHub release). They do not float on `releases/latest`. Run
-`npm run upstream:bump` to check the current latest release and move the pin after a clean prune,
-`npm run typecheck`, `npm test`, and both guards.
+`npm run upstream:bump` to check the current latest release and move the pin after prune,
+`npm run typecheck`, `npm test` (even when prune changes nothing), and both guards.
 Override when you need to:
 
 | Env var | Effect |
 | --- | --- |
 | _(none)_ | Compare against the lockfile SHA. Missing or malformed lockfile throws. |
 | `CODEXBAR_REF=main` | Compare against a branch, tag, or SHA (preview a future release). |
-| `CODEXBAR_DIR=~/code/CodexBar` | Compare against a local checkout. Skips the network. Ignores the lockfile and `CODEXBAR_REF`. |
-| `GITHUB_TOKEN=…` | Raise the GitHub API rate limit. The unauthenticated limit is low. A bare `403` from `api.github.com` is almost always this. Set the token or use `CODEXBAR_DIR`. |
+| `CODEXBAR_DIR=~/code/CodexBar` | Compare against a local checkout. Skips the network for file reads. Ignores the lockfile and `CODEXBAR_REF`. `upstream:bump` still asks GitHub for the latest release and exits unless `HEAD` is that SHA and `git status` is empty. |
+| `GITHUB_TOKEN=…` | Raise the GitHub API rate limit. When unset, the scripts use `gh auth token`. A bare `403` from `api.github.com` names `GITHUB_TOKEN=$(gh auth token)`. |
 
 Resolution failures throw rather than falling back to a different ref. A checker that silently
 compares against the wrong thing is worse than a hard failure.
@@ -70,7 +70,7 @@ Script-guarded rows fail `npm run upstream:check` or the icon check. The rest ar
 | 5 | Supplemental usage shapes | `usage/providerRules/` | ❌ hand-maintained | descriptor / snapshot shapes |
 | 6 | CLI install routine (the app's Install CLI button) | `cli/install.ts` `installCodexBarCli` | ❌ hand-maintained | `Sources/CodexBar/PreferencesAdvancedPane.swift` |
 | 7 | Hidden usage items | `usage/usageItemVisibility.ts`, read from Provider config | ❌ hand-maintained | `Sources/CodexBar/ProviderUsageItemVisibility.swift` |
-| | Provider id aliases | module `aliases`, derived `PROVIDER_ID_ALIASES` | `npm run upstream:check` (collisions only) | `ProviderCLIConfig` (`cliName` plus aliases) |
+| | Provider id aliases | module `aliases`, derived `PROVIDER_ID_ALIASES` | `npm run upstream:check` | `ProviderCLIConfig` (`cliName` plus aliases) |
 
 Everything else the extension renders is derived, not tracked. Quota bars and usage meters use
 `brandColor` in both appearances (`buildProgressPalette`). A Provider config `accentColor`
@@ -229,8 +229,8 @@ Every catalog `iconSlug` maps to `assets/provider-icons/<slug>.svg`, harvested f
   A quoted id, a `providers/<id>` or `providerRules/<id>` path, or a `/<id>/` URL in production
   code that would survive the edit blocks the write, so the catalog row is still there on the next
   run. A test that mentions the id is printed and left in place. `--check` reports the removals
-  and writes nothing. `npm run upstream:bump` writes the lock only after this prune, `npm run typecheck`,
-  and `npm test`. See [ADR-0011](adr/0011-fail-closed-provider-prune.md).
+  and writes nothing. `npm run upstream:bump` writes the lock only after `npm run typecheck` and
+  `npm test`, including when this prune changes nothing. See [ADR-0011](adr/0011-fail-closed-provider-prune.md).
 
 Icons are tinted `Color.PrimaryText` at render time, so upstream's own fills don't matter. The
 geometry does. SVGO runs `preset-default` plus `removeScripts` before compare/write. Slugs that
@@ -433,7 +433,7 @@ When re-verifying, re-read `installCLI()` and its `isLink` helper in
 `PreferencesAdvancedPane.swift`. [`cli/install.test.ts`](../src/cli/install.test.ts) pins each
 property against real temp dirs, but only Swift says whether the algorithm itself moved.
 
-## Provider id aliases (hand-maintained)
+## Provider id aliases
 
 The CLI accepts alternate spellings for a provider id (its `cliName` plus upstream aliases from
 `ProviderCLIConfig`, e.g. `alibaba-coding-plan` → `alibaba`, `groqcloud` → `groq`). Each provider
@@ -442,7 +442,10 @@ lists and resolves each spelling to the canonical id, the upstream enum case nam
 `config.json` and the payloads use. A config listing either spelling renders one row. When
 upstream adds an alias, add it on the module, or a user's config that uses the new spelling falls
 through to the title-cased fallback row. `upstream:check` fails if two modules share one, or if an
-alias equals any provider id. That check does not compare the spellings to upstream.
+alias equals any provider id. It also compares the module list to the descriptor: `cliName` when
+that name is not the id, then each string in `aliases: ["…"]` except the id itself. A non-literal
+alias array fails with the filename. The id stays off the module because that collision check
+rejects it.
 
 ---
 

@@ -125,7 +125,7 @@ src/
 
 scripts/
   check-upstream.mjs          npm run upstream:check      metadata, override ids, pace gating, module index.
-  bump-upstream.mjs           npm run upstream:bump       prune, typecheck, test, then pin the lockfile.
+  bump-upstream.mjs           npm run upstream:bump       typecheck and test, then pin the lockfile.
   prune-removed-providers.mjs npm run upstream:prune      delete Provider directories upstream no longer ships.
   sync-provider-icons.mjs     npm run upstream:sync-icons icon harvest / drift guard.
   lib/provider-modules.mjs    Provider directory index: render, list, and drift check.
@@ -151,9 +151,9 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run lint` / `npm run fix-lint` | Raycast ESLint (`--fix` to autofix). |
 | `npm run typecheck` | `tsc --noEmit` over `src/**` (tests included). Vitest does not type-check, and `ray build` runs this same check, so a type error in a test file breaks the build. |
 | `npm run build` | `ray build`. Production build. |
-| `npm run upstream:check` | Guard: provider metadata, override **ids**, and pace gating vs the lockfile SHA. |
+| `npm run upstream:check` | Guard: provider metadata, alias strings, menu-card flags, override **ids**, and pace gating vs the lockfile SHA. |
 | `npm run upstream:prune [-- --check]` | Delete Provider directories the lockfile SHA no longer ships, regenerate the module index, and drop allowlist entries. An icon is deleted only when no remaining Provider uses it. Writes nothing when a production reference remains. `--check` writes nothing and exits 1 when a Provider would be removed. |
-| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after a clean prune, `npm run typecheck`, `npm test`, and both guards. A failed typecheck or test restores the prune. |
+| `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release. Always runs prune, then `npm run typecheck` and `npm test`, even when the prune plan is empty, then both guards. A failed typecheck or test restores files only when prune changed them; an empty plan only withholds the lock. An `upstream:check` failure after those edits keeps them and does not write the lock. |
 | `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
 
 Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
@@ -202,13 +202,25 @@ newly pace-eligible, fix its mock too. See the pacing worked example in
 
 Upstream ships often. A periodic sync pass:
 
-1. **Point at the ref you want.** Default is the SHA in `codexbar-upstream.lock`. To take a new
-   upstream release, `npm run upstream:bump`. That writes the lock only after a clean prune,
+1. **Point at the ref you want.** Default is the SHA in `codexbar-upstream.lock`. Create the sync
+   branch with `git checkout --no-track -b sync-upstream-vX.Y.Z origin/main`, then `git push -u origin HEAD`.
+   To take a new upstream release, `npm run upstream:bump`. That writes the lock only after prune,
    `npm run typecheck`, `npm test`, and both `upstream:check` and
-   `upstream:sync-icons -- --check` pass against that SHA. A failed typecheck or test restores the
-   prune. For iterating, clone upstream once and
-   export `CODEXBAR_DIR=~/code/CodexBar` (no network, no rate limit). To preview an unreleased
-   change without moving the pin, `CODEXBAR_REF=main`. Set `GITHUB_TOKEN` if you hit a `403`.
+   `upstream:sync-icons -- --check` pass against that SHA. Typecheck and tests run even when the
+   prune plan is empty. A failed typecheck or test after prune changed files restores that snapshot
+   and does not write the lock. A failure when the plan is empty only withholds the lock. If
+   `upstream:check` fails after a prune that changed files, those edits stay and the lock is not
+   written. If the descriptor parser or prune fails, iterate with `CODEXBAR_DIR` and
+   `npm run upstream:check`, then bump again. If `upstream:sync-icons -- --check` fails, no SVGs
+   were written; run `npm run upstream:sync-icons`, then bump again.
+
+   When `CODEXBAR_DIR` is set, `HEAD` must be the release SHA and `git status` must be empty, or
+   bump exits with that reason. A dirty checkout fails. Fetch tags from the `upstream` remote
+   (this fork's `origin` may not have them) and point `CODEXBAR_DIR` at a detached worktree of the
+   tag. `upstream:check` can use that checkout with no network. To preview an unreleased change
+   without moving the pin, leave `CODEXBAR_DIR` unset and set `CODEXBAR_REF=main`. When
+   `GITHUB_TOKEN` is unset, the scripts use `gh auth token`. If `gh` is not logged in, a GitHub
+   `403` names `GITHUB_TOKEN=$(gh auth token)`.
 2. **Run the guards.**
    ```
    npm run upstream:check
@@ -220,8 +232,10 @@ Upstream ships often. A periodic sync pass:
    ([ADR-0010](adr/0010-render-providers-missing-from-the-catalog.md)); this check still fails.
    Put the id in `CATALOG_PROVIDER_ORDER` in `scripts/lib/provider-modules.mjs`, then keep
    `src/providers/index.ts` equal to that renderer.
-   New alias → `aliases` on the provider module. Two
-   modules cannot share an alias, and an alias cannot be a provider id. Field
+   New alias → `aliases` on the provider module. The list is the descriptor `cliName` when that
+   name is not the id, then each string in `aliases: ["…"]` except the id. A non-literal alias
+   array fails `upstream:check` with the filename. Two modules cannot share an alias, and an
+   alias cannot be a provider id. Field
    mismatch → update the catalog, or record an intentional `ALLOWED_DIVERGENCES` entry with a
    reason. New/removed dynamic override → port it into `DYNAMIC_SLOT_TITLES` or the module's
    `displayTitle`, or mark it unportable.
@@ -236,8 +250,11 @@ Upstream ships often. A periodic sync pass:
    remaining Provider uses it. A quoted id, `providers/<id>` path, or `/<id>/` URL that would
    survive the edit blocks the write ([ADR-0011](adr/0011-fail-closed-provider-prune.md)).
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
-   labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
-   the lockfile with any catalog, title, pace, or icon edits.
+   labels in `usage/pacing.ts`, plus supplemental shapes and CLI install. Menu-card flags
+   (`showsPrimaryBalanceDescription`, `showsSecondaryBalanceDescription`, and the other
+   `ProviderMenuCardPresentation` literals) are in the check; regenerate
+   `src/providers/meterDetail.ts` when they move. After a bump, commit the lockfile with any
+   catalog, title, pace, icon, or menu-card edits.
 5. **Leave the pin in the lock.** `codexbar-upstream.lock` records the release you synced. Name
    the upstream file in the commit message or a plan note. A source comment should name the Swift
    symbol and point at `docs/upstream-parity.md`. Do not copy that release or SHA into that doc or

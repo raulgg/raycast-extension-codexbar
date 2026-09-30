@@ -1,8 +1,9 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readSnapshot, restoreSnapshot, runBump, writeBumpedLock } from "./bump-upstream.mjs";
+import { inspectReleaseCheckout, readSnapshot, restoreSnapshot, runBump, writeBumpedLock } from "./bump-upstream.mjs";
 
 const target = { tag: "v0.67.0", sha: "abc123" };
 const roots = [];
@@ -36,9 +37,12 @@ describe("runBump", () => {
     expect(calls).toEqual(["run --silent upstream:prune -- --plan"]);
     expect(harness.writeLock).not.toHaveBeenCalled();
     expect(harness.restoreSnapshot).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith(
+      expect.stringContaining("Iterate with CODEXBAR_DIR and npm run upstream:check."),
+    );
   });
 
-  it("skips typecheck and tests when the plan changes nothing", async () => {
+  it("runs typecheck and tests before the lock when the plan changes nothing", async () => {
     const calls = [];
     const harness = deps(async (args) => {
       calls.push(args.join(" "));
@@ -50,10 +54,51 @@ describe("runBump", () => {
     expect(await runBump(harness)).toBe(0);
     expect(calls).toEqual([
       "run --silent upstream:prune -- --plan",
+      "run typecheck",
+      "test",
       "run upstream:check",
       "run upstream:sync-icons -- --check",
     ]);
     expect(harness.writeLock).toHaveBeenCalledWith(target);
+    expect(harness.restoreSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("withholds the lock when typecheck fails and the plan is empty", async () => {
+    const calls = [];
+    const harness = deps(async (args) => {
+      calls.push(args.join(" "));
+      if (args.includes("--plan")) {
+        return { code: 0, stdout: '{"ok":true,"updates":[],"deleted":[],"blockers":[],"testMentions":[]}\n' };
+      }
+      if (args.includes("typecheck")) return { code: 2, stdout: "" };
+      return { code: 0, stdout: "" };
+    });
+    expect(await runBump(harness)).toBe(2);
+    expect(calls).toEqual(["run --silent upstream:prune -- --plan", "run typecheck"]);
+    expect(harness.restoreSnapshot).not.toHaveBeenCalled();
+    expect(harness.writeLock).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith("typecheck or tests failed. Lockfile not updated.");
+  });
+
+  it("restores the snapshot when applying the prune fails", async () => {
+    const calls = [];
+    const harness = deps(async (args) => {
+      calls.push(args.join(" "));
+      if (args.includes("--plan")) {
+        return {
+          code: 0,
+          stdout: '{"ok":true,"updates":["src/providers/index.ts"],"deleted":[],"blockers":[],"testMentions":[]}\n',
+        };
+      }
+      return { code: 1, stdout: "" };
+    });
+    expect(await runBump(harness)).toBe(1);
+    expect(calls).toEqual(["run --silent upstream:prune -- --plan", "run upstream:prune"]);
+    expect(harness.restoreSnapshot).toHaveBeenCalledTimes(1);
+    expect(harness.writeLock).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith(
+      "upstream:prune failed; restored. Lockfile not updated. Iterate with CODEXBAR_DIR and npm run upstream:check.",
+    );
   });
 
   it("restores the snapshot when typecheck fails and does not write the lock", async () => {
@@ -90,6 +135,71 @@ describe("runBump", () => {
     expect(await runBump(harness)).toBe(1);
     expect(harness.restoreSnapshot).not.toHaveBeenCalled();
     expect(harness.writeLock).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith(
+      "upstream:check failed. Those edits were kept and the lock was not written.",
+    );
+  });
+
+  it("names the icon sync when --check fails and writes no lock", async () => {
+    const harness = deps(async (args) => {
+      if (args.includes("--plan")) {
+        return { code: 0, stdout: '{"ok":true,"updates":[],"deleted":[],"blockers":[],"testMentions":[]}\n' };
+      }
+      if (args.includes("--check")) return { code: 1, stdout: "" };
+      return { code: 0, stdout: "" };
+    });
+    expect(await runBump(harness)).toBe(1);
+    expect(harness.writeLock).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith(
+      expect.stringContaining("SVGs were not written. Run npm run upstream:sync-icons, then bump again."),
+    );
+  });
+
+  it("keeps a clean CODEXBAR_DIR and refuses one that is not the release", async () => {
+    const seen = [];
+    const harness = deps(async (args, env) => {
+      seen.push(env.CODEXBAR_DIR);
+      if (args.includes("--plan")) {
+        return { code: 0, stdout: '{"ok":true,"updates":[],"deleted":[],"blockers":[],"testMentions":[]}\n' };
+      }
+      return { code: 0, stdout: "" };
+    });
+    harness.env = { CODEXBAR_DIR: "/tmp/codexbar-release" };
+    harness.inspectCheckout = vi.fn(async () => "CODEXBAR_DIR /tmp/codexbar-release git status is not empty.");
+    expect(await runBump(harness)).toBe(1);
+    expect(seen).toEqual([]);
+    expect(harness.writeLock).not.toHaveBeenCalled();
+    expect(harness.stderr).toHaveBeenCalledWith("CODEXBAR_DIR /tmp/codexbar-release git status is not empty.");
+
+    harness.inspectCheckout = vi.fn(async (dir, sha) => {
+      expect(dir).toBe("/tmp/codexbar-release");
+      expect(sha).toBe(target.sha);
+      return null;
+    });
+    expect(await runBump(harness)).toBe(0);
+    expect(seen.every((dir) => dir === "/tmp/codexbar-release")).toBe(true);
+    expect(harness.writeLock).toHaveBeenCalledWith(target);
+  });
+});
+
+describe("inspectReleaseCheckout", () => {
+  it("accepts a clean checkout at the release sha and rejects a dirty tree", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "bump-checkout-"));
+    roots.push(root);
+    execFileSync("git", ["init", "-b", "main", root], { stdio: "ignore" });
+    await writeFile(path.join(root, "file"), "a");
+    execFileSync("git", ["-C", root, "add", "file"]);
+    execFileSync(
+      "git",
+      ["-C", root, "-c", "commit.gpgsign=false", "-c", "user.email=test@example.com", "-c", "user.name=test", "commit", "-m", "init"],
+      { stdio: "ignore" },
+    );
+    const head = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    expect(inspectReleaseCheckout(root, head)).toBeNull();
+    expect(inspectReleaseCheckout(root, "a".repeat(40))).toContain(`HEAD is ${head}, not release ${"a".repeat(40)}`);
+    await writeFile(path.join(root, "file"), "b");
+    expect(inspectReleaseCheckout(root, head)).toContain("git status is not empty");
+    expect(inspectReleaseCheckout(root, "b".repeat(40))).toContain("git status is not empty");
   });
 });
 

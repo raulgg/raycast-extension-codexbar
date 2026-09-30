@@ -4,6 +4,9 @@ import { checkUpstream, DEFAULT_POLICY } from "./check-upstream.mjs";
 import { MENU_CARD_WATCH_PATHS } from "./lib/meter-detail.mjs";
 import {
   compareProviders,
+  descriptorAliasProblems,
+  expectedModuleAliases,
+  parseDescriptorCliAliases,
   parseDescriptorMetadata,
   parseDynamicOverrideProviders,
   providerColorToHex,
@@ -903,7 +906,7 @@ describe("checkUpstream", () => {
   it("keeps the legacy pace row when the module sets no pace", async () => {
     const result = await checkUpstream(toyTree(), {
       ...TOY_POLICY,
-      modules: { toy: { aliases: ["toy-alias"] } },
+      modules: { toy: {} },
     });
     expect(result.problems).toEqual([]);
   });
@@ -938,7 +941,7 @@ describe("checkUpstream", () => {
   });
 
   it("fails when two modules share an alias", async () => {
-    const result = await checkUpstream(toyTree(), {
+    const result = await checkUpstream(toyTree({ extra: 'aliases: ["shared"]' }), {
       ...TOY_POLICY,
       modules: {
         other: { aliases: ["shared"] },
@@ -946,6 +949,36 @@ describe("checkUpstream", () => {
       },
     });
     expect(result.problems).toEqual([`alias "shared" is shared by other and toy`]);
+  });
+
+  it("matches cliName plus the descriptor alias array and drops the provider id", async () => {
+    const source = descriptorFixture({
+      id: "toy",
+      extra: `aliases: [
+        "toy",
+        "toy-api",
+      ]`,
+    }).replace('cliName: "toy"', 'cliName: "toy-cloud"');
+    const matched = await checkUpstream(fakeSource(toyFilesFrom(source)), {
+      ...TOY_POLICY,
+      modules: { toy: { aliases: ["toy-cloud", "toy-api"] } },
+    });
+    expect(matched.problems).toEqual([]);
+
+    const drifted = await checkUpstream(fakeSource(toyFilesFrom(source)), {
+      ...TOY_POLICY,
+      modules: { toy: { aliases: ["stale"] } },
+    });
+    expect(drifted.problems).toEqual([
+      'Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift: toy aliases ["stale"] != ["toy-cloud","toy-api"]',
+    ]);
+  });
+
+  it("fails a non-literal alias array with the filename", async () => {
+    const result = await checkUpstream(toyTree({ extra: "aliases: names" }), TOY_POLICY);
+    expect(result.problems).toEqual([
+      "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift aliases is not a string array literal.",
+    ]);
   });
 
   it("fails when an alias is a provider id", async () => {
@@ -1107,12 +1140,16 @@ const TOY_EXTRA_RENDERER = `func extraRateWindowPaceDetail(provider: UsageProvid
 }
 `;
 
-function toyFiles(descriptor = {}, paceRenderer = PACE_RENDERER) {
+function toyFilesFrom(source, paceRenderer = PACE_RENDERER) {
   return {
-    "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift": descriptorFixture({ id: "toy", ...descriptor }),
+    "Sources/CodexBarCore/Providers/Toy/ToyProviderDescriptor.swift": source,
     "Sources/CodexBar/MenuDescriptor.swift": LABEL_RENDERER,
     "Sources/CodexBar/MenuCardView.swift": paceRenderer,
   };
+}
+
+function toyFiles(descriptor = {}, paceRenderer = PACE_RENDERER) {
+  return toyFilesFrom(descriptorFixture({ id: "toy", ...descriptor }), paceRenderer);
 }
 
 function toyTree(descriptor = {}, paceRenderer = PACE_RENDERER) {
@@ -1160,6 +1197,32 @@ describe("provider module pace overlay", () => {
 
   it("accepts the committed module aliases", () => {
     expect(moduleAliasProblems(PROVIDER_MODULES, Object.keys(PROVIDER_CATALOG))).toEqual([]);
+  });
+});
+
+describe("descriptor alias strings", () => {
+  it("reads a literal array and treats a missing key as none", () => {
+    expect(parseDescriptorCliAliases('cliName: "groqcloud"\naliases: ["groq", "groq-api"]', "groq", "Groq.swift")).toEqual({
+      id: "groq",
+      fileName: "Groq.swift",
+      cliName: "groqcloud",
+      aliases: ["groq", "groq-api"],
+    });
+    expect(expectedModuleAliases("groq", "groqcloud", ["groq", "groq-api"])).toEqual(["groqcloud", "groq-api"]);
+    expect(parseDescriptorCliAliases("PluginProviderSpec(id: .aixy)", "aixy", "Aixy.swift").aliases).toEqual([]);
+    expect(
+      descriptorAliasProblems(
+        [{ id: "aixy", fileName: "Aixy.swift", cliName: "aixy", aliases: ["aixy-gateway"] }],
+        { aixy: { aliases: ["aixy-gateway"] } },
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects a non-literal element and a second aliases array", () => {
+    expect(parseDescriptorCliAliases('aliases: ["ok", computed]', "toy", "Toy.swift").error).toBe(
+      "Toy.swift aliases is not a string array literal.",
+    );
+    expect(parseDescriptorCliAliases('aliases: ["a"]\naliases: ["b"]', "toy", "Toy.swift").error).toContain("Toy.swift");
   });
 });
 
