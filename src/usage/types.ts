@@ -73,7 +73,7 @@ export type ProviderUsageSection = {
   remainingPercent: number;
   // resetsIn is the countdown the card shows. resetsAt and windowMinutes are the source window.
   resetsIn?: string;
-  // Title-row text in place of the countdown. The CLI string, with no "Resets in" prefix.
+  // Title-row reset. Schema 1 is the description with no "Resets in" prefix. Schema 2 is the menu card's text and is not paired with a second countdown.
   resetText?: string;
   // Drawn in place of the bar: the title, then this sentence. No percent and no other lines.
   statusText?: string;
@@ -85,6 +85,10 @@ export type ProviderUsageSection = {
   detailRightText?: string;
   // Draw the pace marker from usagePacing. The only signal render reads to draw it.
   showPaceMarker?: true;
+  // Joined menu-card line from schema 2. It replaces the settled left and right labels.
+  metaText?: string;
+  // Pace-marker position on the remaining bar from schema 2.
+  pacePercent?: number;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
@@ -98,6 +102,8 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  // Title-row reset from a schema 2 meter. Not a countdown formatted here.
+  resetText?: string;
   // Drawn in place of the bar: the title, then this sentence. No percent and no other lines.
   statusText?: string;
   // Second line under the bar. Pacing does not replace it.
@@ -108,6 +114,10 @@ export type ProviderSupplementalUsageSection = {
   detailRightText?: string;
   // Draw the pace marker from usagePacing. The only signal render reads to draw it.
   showPaceMarker?: true;
+  // Joined menu-card line from schema 2. It replaces the settled left and right labels.
+  metaText?: string;
+  // Pace-marker position on the remaining bar from schema 2.
+  pacePercent?: number;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;

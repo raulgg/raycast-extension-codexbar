@@ -421,6 +421,7 @@ describe("ProviderListItem", () => {
     if (primary?.kind === "usage") {
       primary.detailText = "336.73 / 500 credits left";
       primary.detailLeftText = "Included";
+      primary.metaText = "80 of 100 left";
     }
 
     const accessories = buildProviderListItemAccessories("codex", detail, undefined, false);
@@ -433,6 +434,7 @@ describe("ProviderListItem", () => {
     });
     expect(JSON.stringify(accessories)).not.toContain("336.73 / 500 credits left");
     expect(JSON.stringify(accessories)).not.toContain("Included");
+    expect(JSON.stringify(accessories)).not.toContain("80 of 100 left");
   });
 
   it("shows only primary text and tooltip while keeping an empty lower track when secondary is missing", () => {
