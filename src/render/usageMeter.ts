@@ -42,6 +42,12 @@ type ProgressMarker = {
   fill: string;
 };
 
+// pacePercent is already a position on this remaining bar. A shorter fill has used past that point.
+function copiedPaceMarker(remainingPercent: number, pacePercent: number, appearance: DetailAppearance): ProgressMarker {
+  const kind = remainingPercent < pacePercent ? "deficit" : "reserve";
+  return { percent: pacePercent, fill: PACE_MARKER_FILLS[kind][appearance] };
+}
+
 const LOADING_SKELETON_LAYOUT = {
   sectionCount: 2,
   titleWidth: 88,
@@ -128,6 +134,7 @@ function renderUsageMeter({
   resetsIn,
   resetText,
   pacingLine,
+  metaLine,
   detailLeftLine,
   detailLine,
   regenLine,
@@ -142,6 +149,7 @@ function renderUsageMeter({
   resetsIn?: string;
   resetText?: string;
   pacingLine?: string;
+  metaLine?: string;
   detailLeftLine?: string;
   detailLine?: string;
   regenLine?: string;
@@ -154,7 +162,7 @@ function renderUsageMeter({
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
-  const footerLines = [pacingLine ?? detailLeftLine, detailLine, regenLine].filter(
+  const footerLines = [metaLine ?? pacingLine ?? detailLeftLine, detailLine, regenLine].filter(
     (line): line is string => line !== undefined,
   );
   const markup = [
@@ -230,29 +238,33 @@ export function renderMetricSection(
   }
 
   const title = section.kind === "usage" ? section.displayTitle : section.title;
-  const showPace = drawPaceLine(section, providerId);
+  const copiedLines = section.metaText !== undefined || section.pacePercent !== undefined;
+  const showPace = !copiedLines && drawPaceLine(section, providerId);
   const usagePacing = showPace ? section.usagePacing : undefined;
   const markerKind = usagePacing ? paceMarkerKind(usagePacing) : undefined;
   const marker =
-    usagePacing && markerKind
-      ? {
-          percent: Math.max(0, 100 - usagePacing.idealUsedPercentByNow),
-          fill: PACE_MARKER_FILLS[markerKind][appearance],
-        }
-      : undefined;
+    section.pacePercent !== undefined
+      ? copiedPaceMarker(section.remainingPercent, section.pacePercent, appearance)
+      : usagePacing && markerKind
+        ? {
+            percent: Math.max(0, 100 - usagePacing.idealUsedPercentByNow),
+            fill: PACE_MARKER_FILLS[markerKind][appearance],
+          }
+        : undefined;
 
   return renderUsageMeter({
     title,
     remainingPercent: section.remainingPercent,
     resetsIn: section.resetsIn,
-    resetText: "resetText" in section ? section.resetText : undefined,
+    resetText: section.resetText,
     pacingLine: usagePacing ? formatUsagePacingLine(usagePacing) : undefined,
+    metaLine: section.metaText,
     detailLeftLine: showPace ? undefined : section.detailLeftText,
     detailLine: section.detailText,
     regenLine:
-      section.nextRegenPercent !== undefined
-        ? `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`
-        : undefined,
+      copiedLines || section.nextRegenPercent === undefined
+        ? undefined
+        : `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`,
     providerId,
     appearance,
     startY,

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractSvgMarkup, parseSvg, rectsWithSize } from "../../test/svg-markdown";
+import { extractSvgMarkup, markerFills, parseSvg, rectsWithSize, textY } from "../../test/svg-markdown";
 import { buildProviderDetailMarkdown } from "../render/detailCard";
+import { PROVIDER_MODULES } from "../providers/index";
+import { METER_DETAIL } from "../providers/meterDetail";
 import type { ProviderModule } from "../providers/module";
 import { extractProviderErrorMessage, normalizeProviderDetailPayload } from "./normalize";
 import { formatUsagePacingLine } from "./pacing";
@@ -202,6 +204,50 @@ describe("provider normalization", () => {
     );
 
     expect(detail.sections).toEqual([]);
+  });
+
+  it("treats an empty schema 2 meter list as authoritative", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "codex",
+        presentation: { schemaVersion: 2, meters: [] },
+        usage: { primary: { usedPercent: 20 } },
+      },
+      "codex",
+    );
+
+    expect(detail.presentationSchemaVersion).toBe(2);
+    expect(detail.sections).toEqual([]);
+  });
+
+  it("falls through to raw usage for a presentation schema it does not know", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        presentation: {
+          schemaVersion: 3,
+          meters: [
+            {
+              kind: "primary",
+              label: "Ignored",
+              remainingPercent: 1,
+              metaText: "from schema 3",
+              detailText: "from schema 3",
+            },
+          ],
+        },
+        usage: { primary: { usedPercent: 33, resetDescription: "336.73 / 500 credits left" } },
+      },
+      "raycast",
+    );
+
+    expect(detail.presentationSchemaVersion).toBeUndefined();
+    expect(detail.sections[0]).toMatchObject({
+      kind: "usage",
+      remainingPercent: 67,
+      detailText: "336.73 / 500 credits left",
+    });
+    expect(detail.sections[0]).not.toHaveProperty("metaText");
   });
 
   it("preserves fractional remaining percent through normalize", () => {
@@ -1247,6 +1293,51 @@ describe("Codex weekly caps session (raw path)", () => {
     ]);
   });
 
+  it("does not re-apply the cap when schema 2 meters are authoritative", () => {
+    const result = sections(
+      "codex",
+      {
+        primary: { windowMinutes: 300, usedPercent: 1, resetsAt: SESSION_RESETS_AT },
+        secondary: { windowMinutes: 10_080, usedPercent: 157, resetsAt: WEEKLY_RESETS_AT },
+      },
+      {
+        schemaVersion: 2,
+        meters: [
+          {
+            id: "primary",
+            kind: "primary",
+            label: "Session",
+            usedPercent: 1,
+            remainingPercent: 99,
+            windowMinutes: 300,
+            resetsAt: SESSION_RESETS_AT,
+            resetText: "Resets in 3h",
+          },
+          {
+            id: "secondary",
+            kind: "secondary",
+            label: "Weekly",
+            usedPercent: 100,
+            remainingPercent: 0,
+            windowMinutes: 10_080,
+            resetsAt: WEEKLY_RESETS_AT,
+          },
+        ],
+      },
+    );
+
+    expect(result[0]).toMatchObject({
+      kind: "usage",
+      title: "Primary",
+      remainingPercent: 99,
+      resetText: "Resets in 3h",
+    });
+    expect(result[0]).not.toHaveProperty("resetsIn");
+    expect(result[1]).toMatchObject({ kind: "usage", title: "Secondary", remainingPercent: 0 });
+    expect(result[1]).not.toHaveProperty("resetsIn");
+    expect(result[0]).not.toHaveProperty("usagePacing");
+  });
+
   it("when both lanes are exhausted, retargets Primary reset to the later of the two", () => {
     const sessionLater = "2026-03-23T14:30:00Z"; // 4h out
     const weeklySooner = "2026-03-23T11:30:00Z"; // 1h out
@@ -2037,6 +2128,271 @@ describe("menu card detail", () => {
     const supplemental = detail.sections.find((section) => section.kind === "supplementalUsage");
     expect(supplemental).not.toHaveProperty("detailText");
     expect(supplemental).not.toHaveProperty("detailLeftText");
+  });
+
+  it("uses meterLines when a payload has no presentation", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        usage: { primary: { usedPercent: 33, resetsAt, resetDescription: `  ${balance}  ` } },
+      },
+      "raycast",
+      now,
+    );
+
+    expect(detail.presentationSchemaVersion).toBeUndefined();
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: balance, resetsIn: "25d 4h" });
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("metaText");
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("pacePercent");
+    expect(cardSvg(detail)).toContain(`>${balance}<`);
+  });
+
+  it("stacks a schema 1 Raycast pace line over the credits detail", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "raycast",
+        presentation: {
+          schemaVersion: 1,
+          meters: [
+            {
+              kind: "primary",
+              label: "Credits",
+              usedPercent: 33,
+              remainingPercent: 67,
+              windowMinutes: 30 * 24 * 60,
+              resetsAt,
+              resetDescription: balance,
+              nextRegenPercent: 4,
+            },
+          ],
+        },
+      },
+      "raycast",
+      now,
+      {
+        raycast: {
+          ...PROVIDER_MODULES.raycast,
+          pace: {
+            resetWindowPace: { type: "unsupported" },
+            inferredMonthlyDuration: { type: "unsupported" },
+            sessionPaceWindowRule: { type: "always" },
+          },
+        },
+      },
+    );
+    const primary = usageSection(detail, "Primary");
+    expect(primary).toMatchObject({ detailText: balance, resetsIn: "25d 4h" });
+    expect(primary).not.toHaveProperty("metaText");
+    expect(primary).not.toHaveProperty("pacePercent");
+    expect(primary?.usagePacing).toBeDefined();
+
+    const svg = cardSvg(detail);
+    const parsed = parseSvg(svg);
+    const paceLine = formatUsagePacingLine(primary!.usagePacing!);
+    expect(svg).toContain(`>${paceLine}<`);
+    expect(svg).toContain(`>${balance}<`);
+    expect(svg).toContain(">Regenerates 4% next tick<");
+    expect(textY(parsed, paceLine)).toBeGreaterThan(textY(parsed, "Credits 67% left"));
+    expect(textY(parsed, balance)).toBeGreaterThan(textY(parsed, paceLine));
+    expect(textY(parsed, "Regenerates 4% next tick")).toBeGreaterThan(textY(parsed, balance));
+  });
+
+  it("copies schema 2 lines for an unknown provider and does not read METER_DETAIL", () => {
+    const providerId = "brand-new-provider";
+    const tableLine = "from the table";
+    METER_DETAIL[providerId] = {
+      primaryDescriptionPlacement: "detailLeft",
+      showsPrimaryBalanceDescription: true,
+    };
+    try {
+      const detail = normalizeProviderDetailPayload(
+        {
+          provider: providerId,
+          presentation: {
+            schemaVersion: 2,
+            meters: [
+              {
+                id: "primary",
+                kind: "primary",
+                label: "Session",
+                usedPercent: 20,
+                remainingPercent: 80,
+                resetsAt,
+                windowMinutes: 300,
+                resetDescription: tableLine,
+                resetText: "Ready Tuesday",
+                metaText: "meta from cli",
+                detailText: "detail from cli",
+                pacePercent: null,
+                nextRegenPercent: 4,
+              },
+              {
+                id: "extra:bonus",
+                kind: "supplemental",
+                label: "Bonus",
+                usedPercent: 30,
+                remainingPercent: 70,
+                resetsAt,
+                resetText: "soon",
+                metaText: "extra meta",
+                detailText: "extra detail",
+                pacePercent: 40,
+              },
+            ],
+          },
+          usage: {
+            primary: { usedPercent: 99, resetDescription: tableLine },
+            details: [
+              {
+                rows: [
+                  { label: "Credits left", value: "1" },
+                  { label: "Credits total", value: "2" },
+                ],
+              },
+            ],
+          },
+        },
+        providerId,
+        now,
+      );
+      const primary = usageSection(detail, "Primary");
+      const supplemental = detail.sections.find((section) => section.kind === "supplementalUsage");
+
+      expect(detail).toMatchObject({ id: providerId, name: "Brand New Provider", presentationSchemaVersion: 2 });
+      expect(primary).toMatchObject({
+        displayTitle: "Session",
+        remainingPercent: 80,
+        resetText: "Ready Tuesday",
+        metaText: "meta from cli",
+        detailText: "detail from cli",
+        resetsAt,
+      });
+      expect(primary).not.toHaveProperty("detailLeftText");
+      expect(primary).not.toHaveProperty("pacePercent");
+      expect(primary).not.toHaveProperty("resetsIn");
+      expect(primary).not.toHaveProperty("usagePacing");
+      expect(primary).not.toHaveProperty("nextRegenPercent");
+      expect(primary).not.toHaveProperty("replacesPace");
+      expect(supplemental).toMatchObject({
+        title: "Bonus",
+        remainingPercent: 70,
+        resetText: "soon",
+        metaText: "extra meta",
+        detailText: "extra detail",
+        pacePercent: 40,
+        usageItemId: "metric:bonus",
+      });
+      expect(supplemental).not.toHaveProperty("detailLeftText");
+      expect(supplemental).not.toHaveProperty("usagePacing");
+      expect(supplemental).not.toHaveProperty("resetsIn");
+
+      const svg = cardSvg(detail);
+      expect(svg).toContain(">meta from cli<");
+      expect(svg).toContain(">detail from cli<");
+      expect(svg).toContain(">extra meta<");
+      expect(svg).toContain(">extra detail<");
+      expect(svg).toContain(">Ready Tuesday<");
+      expect(svg).toContain(">soon<");
+      expect(svg).not.toContain(tableLine);
+      expect(svg).not.toContain("Resets in");
+      expect(svg).not.toContain("Regenerates");
+      expect(svg).not.toContain("in reserve");
+      expect(svg).not.toContain("in deficit");
+      expect(svg).not.toContain(">On pace<");
+    } finally {
+      delete METER_DETAIL[providerId];
+    }
+  });
+
+  it("draws a schema 2 pace marker from pacePercent and skips the local pace line", () => {
+    const paced = normalizeProviderDetailPayload(
+      {
+        provider: "codex",
+        presentation: {
+          schemaVersion: 2,
+          meters: [
+            {
+              kind: "primary",
+              label: "Session",
+              usedPercent: 20,
+              remainingPercent: 80,
+              windowMinutes: 300,
+              resetsAt: "2026-03-23T13:30:00Z",
+              resetText: "Ready Tuesday",
+              metaText: "80 of 100 left",
+              detailText: "second line",
+              pacePercent: 40,
+              nextRegenPercent: 4,
+            },
+          ],
+        },
+      },
+      "codex",
+      now,
+    );
+    const primary = usageSection(paced, "Primary");
+    expect(primary).toMatchObject({
+      metaText: "80 of 100 left",
+      detailText: "second line",
+      pacePercent: 40,
+      resetText: "Ready Tuesday",
+    });
+    expect(primary).not.toHaveProperty("detailLeftText");
+    expect(primary).not.toHaveProperty("usagePacing");
+    expect(primary).not.toHaveProperty("resetsIn");
+    expect(primary).not.toHaveProperty("nextRegenPercent");
+
+    const svg = cardSvg(paced);
+    const parsed = parseSvg(svg);
+    expect(textY(parsed, "Ready Tuesday")).toBe(textY(parsed, "Session 80% left"));
+    expect(textY(parsed, "80 of 100 left")).toBeGreaterThan(textY(parsed, "Session 80% left"));
+    expect(textY(parsed, "second line")).toBeGreaterThan(textY(parsed, "80 of 100 left"));
+    expect(rectsWithSize(parsed, 3, 12)).toHaveLength(1);
+    expect(rectsWithSize(parsed, 3, 12)[0]?.x).toBe(174.5);
+    expect(markerFills(parsed)).toEqual(["#34C759"]);
+    expect(svg).not.toContain("Resets in");
+    expect(svg).not.toContain("Regenerates");
+    expect(svg).not.toContain("in reserve");
+    expect(svg).not.toContain("in deficit");
+    expect(svg).not.toContain(">On pace<");
+
+    const unpaced = normalizeProviderDetailPayload(
+      {
+        provider: "codex",
+        presentation: {
+          schemaVersion: 2,
+          meters: [
+            {
+              kind: "primary",
+              label: "Session",
+              usedPercent: 20,
+              remainingPercent: 80,
+              windowMinutes: 300,
+              resetsAt: "2026-03-23T13:30:00Z",
+              metaText: "80 of 100 left",
+              pacePercent: null,
+              nextRegenPercent: 4,
+            },
+          ],
+        },
+      },
+      "codex",
+      now,
+    );
+    const plain = usageSection(unpaced, "Primary");
+    expect(plain).toMatchObject({ metaText: "80 of 100 left" });
+    expect(plain).not.toHaveProperty("pacePercent");
+    expect(plain).not.toHaveProperty("usagePacing");
+    expect(plain).not.toHaveProperty("detailLeftText");
+    const plainSvg = cardSvg(unpaced);
+    const plainParsed = parseSvg(plainSvg);
+    expect(plainSvg).toContain(">80 of 100 left<");
+    expect(rectsWithSize(plainParsed, 3, 12)).toEqual([]);
+    expect(plainSvg).not.toContain("Resets in");
+    expect(plainSvg).not.toContain("Regenerates");
+    expect(plainSvg).not.toContain("in reserve");
+    expect(plainSvg).not.toContain("in deficit");
+    expect(plainSvg).not.toContain(">On pace<");
   });
 });
 

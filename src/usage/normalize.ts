@@ -589,6 +589,54 @@ function toPresentationMeterKind(value: unknown): PresentationMeterKind | undefi
   return undefined;
 }
 
+function copiedPresentationFields(meter: Record<string, unknown>): {
+  resetText?: string;
+  metaText?: string;
+  detailText?: string;
+  pacePercent?: number;
+} {
+  const resetText = toTrimmedString(meter.resetText);
+  const metaText = toTrimmedString(meter.metaText);
+  const detailText = toTrimmedString(meter.detailText);
+  const pacePercent = toFiniteNumber(meter.pacePercent);
+  return {
+    ...(resetText ? { resetText } : {}),
+    ...(metaText ? { metaText } : {}),
+    ...(detailText ? { detailText } : {}),
+    ...(pacePercent !== undefined ? { pacePercent: clampPercent(pacePercent) } : {}),
+  };
+}
+
+function buildCopiedPresentationMeter(
+  kind: PresentationMeterKind,
+  label: string,
+  input: MeterInput,
+  meter: Record<string, unknown>,
+  usageItemId: string | undefined,
+): ProviderSection {
+  const copied = {
+    remainingPercent: clampPercent(input.remainingPercent),
+    ...meterResetFields(input),
+    ...copiedPresentationFields(meter),
+  };
+  if (kind === "supplemental") {
+    return {
+      kind: "supplementalUsage",
+      title: label,
+      ...copied,
+      ...(usageItemId ? { usageItemId } : {}),
+    };
+  }
+
+  return {
+    kind: "usage",
+    title: PRESENTATION_SLOT_TITLES[kind],
+    displayTitle: label,
+    ...copied,
+    usageItemId: usageItemId ?? `metric:${kind}`,
+  };
+}
+
 function buildPresentationMeterSections(
   providerId: string,
   payload: RawProviderPayload,
@@ -597,7 +645,7 @@ function buildPresentationMeterSections(
 ): { schemaVersion: number; sections: ProviderSection[] } | undefined {
   const presentation = toRecord(payload.presentation);
   const schemaVersion = toFiniteNumber(presentation?.schemaVersion);
-  if (schemaVersion !== 1 || !Array.isArray(presentation?.meters)) {
+  if ((schemaVersion !== 1 && schemaVersion !== 2) || !Array.isArray(presentation?.meters)) {
     return undefined;
   }
 
@@ -629,16 +677,25 @@ function buildPresentationMeterSections(
     };
 
     const meterId = toTrimmedString(meter.id);
+    const usageItemId = usageItemIdFromMeterId(meterId);
+    // Schema 2 lines are the menu card's. Schema 1 still rebuilds them locally.
+    if (schemaVersion === 2) {
+      sections.push(
+        buildCopiedPresentationMeter(
+          kind,
+          label,
+          input,
+          meter,
+          kind === "supplemental" ? usageItemId : (usageItemId ?? `metric:${kind}`),
+        ),
+      );
+      continue;
+    }
+
     sections.push(
       kind === "supplemental"
-        ? buildSupplementalMeter(label, input, context, usageItemIdFromMeterId(meterId), "supplemental")
-        : buildUsageMeter(
-            PRESENTATION_SLOT_TITLES[kind],
-            label,
-            input,
-            context,
-            usageItemIdFromMeterId(meterId) ?? `metric:${kind}`,
-          ),
+        ? buildSupplementalMeter(label, input, context, usageItemId, "supplemental")
+        : buildUsageMeter(PRESENTATION_SLOT_TITLES[kind], label, input, context, usageItemId ?? `metric:${kind}`),
     );
   }
 

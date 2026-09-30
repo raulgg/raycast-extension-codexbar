@@ -46,7 +46,7 @@ The canonical ordered slots a Provider's reset windows occupy, taken directly fr
 The per-Provider human label for a usage slot (Session, Weekly, Sonnet, Total, Auto, …). The slot is the position; the display title is what the user reads.
 
 **Usage meter**:
-The visual progress bar showing how much of a reset window remains.
+The visual progress bar showing how much of a reset window remains. A schema 2 meter brings its own lines.
 _Avoid_: Progress bar, gauge
 
 **Usage adornment**:
@@ -66,7 +66,7 @@ A projection, from the current pace, of when a window's remaining usage will be 
 
 ## Balances & Cost
 
-> The detail view focuses on Usage and Supplemental usage meters. Text under a usage meter is part of that meter. It follows the menu card, pacing or the meter's own detail, for example Raycast's `336.73 / 500 credits left`. Two small info sections remain: OpenRouter's balance and key usage (under "OpenRouter") and Codex's available limit-reset credits (under "Limit Reset Credits"). Everything else below describes concepts the CodexBar CLI still reports that the extension no longer renders; kept as vocabulary for a possible later revisit.
+> The detail view focuses on Usage and Supplemental usage meters. Text under a usage meter is part of that meter. It follows the menu card, pacing or the meter's own detail, for example Raycast's `336.73 / 500 credits left`. A schema 2 meter brings its own lines. Two small info sections remain: OpenRouter's balance and key usage (under "OpenRouter") and Codex's available limit-reset credits (under "Limit Reset Credits"). Everything else below describes concepts the CodexBar CLI still reports that the extension no longer renders; kept as vocabulary for a possible later revisit.
 
 **Credits**:
 A spendable balance a Provider draws down over time, independent of any reset window. Replenished by purchase or plan, not by a reset clock.
