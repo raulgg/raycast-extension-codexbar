@@ -155,6 +155,7 @@ Tests are colocated (`src/**/*.test.ts[x]`, `scripts/*.test.mjs`) with shared se
 | `npm run upstream:prune [-- --check]` | Delete Provider directories the lockfile SHA no longer ships, regenerate the module index, and drop allowlist entries. An icon is deleted only when no remaining Provider uses it. Writes nothing when a production reference remains. `--check` writes nothing and exits 1 when a Provider would be removed. |
 | `npm run upstream:bump` | Move `codexbar-upstream.lock` to the latest GitHub release after a clean prune, `npm run typecheck`, `npm test`, and both guards. A failed typecheck or test restores the prune. |
 | `npm run upstream:sync-icons [-- --check]` | Sync (or check) provider icons vs the lockfile SHA. Without `--check`, delete SVGs the catalog no longer uses. |
+| `npm run upstream:sync-meter-detail` | Write `src/providers/meterDetail.ts` from the menu card descriptors at the lockfile SHA. Writes nothing when a descriptor fails to parse. |
 
 Before opening a PR: `npm test && npm run typecheck && npm run lint && npm run upstream:check && npm run upstream:sync-icons -- --check`.
 
@@ -235,6 +236,20 @@ Upstream ships often. A periodic sync pass:
    `CATALOG_PROVIDER_ORDER` and the upstream allowlists. An icon is deleted only when no
    remaining Provider uses it. A quoted id, `providers/<id>` path, or `/<id>/` URL that would
    survive the edit blocks the write ([ADR-0011](adr/0011-fail-closed-provider-prune.md)).
+   Meter-detail drift (`meterDetail.ts has … but the menu card needs …`, or `meterDetail.ts does
+   not match`) → run `npm run upstream:sync-meter-detail`, then `npm run upstream:check` again.
+   That file's banner says not to edit it, and the check rejects a hand edit. A menu card argument
+   the script does not know fails the check until it is ported in `scripts/lib/meter-detail.mjs`
+   or listed in `UNPORTABLE_MENU_CARD`.
+   Changed menu card files (`Watched menu card files at … do not match menuCardReviewed.digest`)
+   → `upstream:bump` does not advance `menuCardReviewed`. Review the named files against
+   `meterDetail.ts` and `UNPORTABLE_MENU_CARD`. Then set `menuCardReviewed.sha` and
+   `menuCardReviewed.digest` in `codexbar-upstream.lock` to the values the error prints, and add
+   each changed file to `menuCardReviewed.paths`. Only then expect the bump to write the lock. The
+   sha alone, or a longer path list alone, still fails: the digest is a sha256 of the watched
+   file contents at that sha. A bump that leaves the watched bytes alone needs no edit. The lock
+   rewrite keeps the whole `menuCardReviewed` object (`writeBumpedLock` passes the old lock to
+   `renderUpstreamLock`), so sha, digest, and paths survive the bump.
 4. **Re-verify the remaining hand-maintained work** the scripts can't see. Pace formula and
    labels in `usage/pacing.ts`, plus supplemental shapes, CLI install, and aliases. After a bump, commit
    the lockfile with any catalog, title, pace, or icon edits.

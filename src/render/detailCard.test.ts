@@ -299,6 +299,9 @@ describe("provider markdown", () => {
           displayTitle: "Weekly",
           remainingPercent: 47,
           resetsIn: "11h 47m",
+          detailLeftText: "40% in reserve",
+          detailRightText: "Lasts until reset",
+          showPaceMarker: true as const,
           usagePacing: {
             stage: "farUnder" as const,
             usedVsIdealDeltaPercent: -39.98,
@@ -335,6 +338,190 @@ describe("provider markdown", () => {
     expect(markerFills(darkParsed)).toEqual(["#30D158"]);
   });
 
+  it("renders detailText under the pace line and keeps the countdown on the title row", () => {
+    const detail = {
+      id: "raycast",
+      name: "Raycast",
+      sections: [
+        {
+          kind: "usage" as const,
+          title: "Primary" as const,
+          displayTitle: "Credits",
+          remainingPercent: 67,
+          resetsIn: "25d 4h",
+          detailText: "336.73 / 500 credits left",
+          detailLeftText: "40% in reserve",
+          detailRightText: "Lasts until reset",
+          showPaceMarker: true as const,
+          usagePacing: {
+            stage: "farUnder" as const,
+            usedVsIdealDeltaPercent: -39.98,
+            idealUsedPercentByNow: 92.98,
+            actualUsedPercent: 33,
+            lastsUntilReset: true,
+            computedAt: "2026-04-16T12:30:00.000Z",
+          },
+          nextRegenPercent: 4,
+        },
+      ],
+    };
+    const markdown = buildProviderDetailMarkdown(detail, "light");
+    const [svg] = extractSvgMarkup(markdown);
+    const parsed = parseSvg(svg);
+    const titleY = textY(parsed, "Credits 67% left");
+    const paceY = textY(parsed, "40% in reserve · Lasts until reset");
+    const detailY = textY(parsed, "336.73 / 500 credits left");
+    const regenY = textY(parsed, "Regenerates 4% next tick");
+
+    expect(svg).toContain(">Resets in 25d 4h<");
+    expect(svg).toContain(">336.73 / 500 credits left<");
+    expect(titleY).toBe(textY(parsed, "Resets in 25d 4h"));
+    expect(paceY).toBeGreaterThan(titleY);
+    expect(detailY).toBeGreaterThan(paceY);
+    expect(regenY).toBeGreaterThan(detailY);
+  });
+
+  it("draws detailLeftText when the meter has no pacing", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "kiro",
+        name: "Kiro",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Credits",
+            remainingPercent: 76,
+            detailLeftText: "120 of 500 credits left",
+          },
+        ],
+      },
+      "light",
+    );
+    const [svg] = extractSvgMarkup(markdown);
+    const parsed = parseSvg(svg);
+
+    expect(textY(parsed, "120 of 500 credits left")).toBeGreaterThan(textY(parsed, "Credits 76% left"));
+  });
+
+  it("draws only the line normalize settled, not one derived from usagePacing", () => {
+    const usagePacing = {
+      stage: "farUnder" as const,
+      usedVsIdealDeltaPercent: -39.98,
+      idealUsedPercentByNow: 92.98,
+      actualUsedPercent: 33,
+      lastsUntilReset: true,
+      computedAt: "2026-04-16T12:30:00.000Z",
+    };
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "copilot",
+        name: "Copilot",
+        sections: [
+          {
+            kind: "usage",
+            title: "Secondary",
+            displayTitle: "Chat",
+            remainingPercent: 67,
+            detailLeftText: "115% used",
+            usagePacing,
+          },
+        ],
+      },
+      "light",
+    );
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(svg).toContain(">115% used<");
+    expect(svg).not.toContain("in reserve");
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
+  });
+
+  it("keeps the pace marker and right label beside Provider left text", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "kiro",
+        name: "Kiro",
+        sections: [
+          {
+            kind: "supplementalUsage",
+            title: "Overage",
+            remainingPercent: 75,
+            detailLeftText: "15 of 20 credits left",
+            detailRightText: "Runs out in 2d",
+            showPaceMarker: true,
+            usagePacing: {
+              stage: "over",
+              usedVsIdealDeltaPercent: 12,
+              idealUsedPercentByNow: 13,
+              actualUsedPercent: 25,
+              lastsUntilReset: false,
+              computedAt: "2026-04-16T12:30:00.000Z",
+            },
+          },
+        ],
+      },
+      "light",
+    );
+    const parsed = parseDetailSvg(markdown);
+
+    expect(requireText(parsed, "15 of 20 credits left · Runs out in 2d")).toBeDefined();
+    expect(markerFills(parsed)).toEqual(["#FF383C"]);
+  });
+
+  it("draws the title and status text with no bar", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "deepseek",
+        name: "DeepSeek",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Balance",
+            remainingPercent: 100,
+            resetsIn: "3d",
+            statusText: "$12.40 available",
+            detailLeftText: "On pace",
+            showPaceMarker: true,
+          },
+        ],
+      },
+      "light",
+    );
+    const parsed = parseDetailSvg(markdown);
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(textY(parsed, "$12.40 available")).toBeGreaterThan(textY(parsed, "Balance"));
+    expect(svg).not.toContain("100% left");
+    expect(svg).not.toContain("Resets in");
+    expect(svg).not.toContain("On pace");
+    expect(rectsWithSize(parsed, DETAIL_PANEL.width, 8)).toEqual([]);
+  });
+
+  it("draws reset text in place of the countdown", () => {
+    const markdown = buildProviderDetailMarkdown(
+      {
+        id: "openrouter",
+        name: "OpenRouter",
+        sections: [
+          {
+            kind: "usage",
+            title: "Primary",
+            displayTitle: "Credits",
+            remainingPercent: 51,
+            resetText: "monthly",
+          },
+        ],
+      },
+      "light",
+    );
+    const [svg] = extractSvgMarkup(markdown);
+
+    expect(svg).toContain(">monthly<");
+    expect(svg).not.toContain("Resets in");
+  });
+
   it("does not render a usage pacing marker when usage pacing is on track", () => {
     const markdown = buildProviderDetailMarkdown(
       {
@@ -347,6 +534,9 @@ describe("provider markdown", () => {
             displayTitle: "Weekly",
             remainingPercent: 47,
             resetsIn: "11h 47m",
+            detailLeftText: "On pace",
+            detailRightText: "Lasts until reset",
+            showPaceMarker: true,
             usagePacing: {
               stage: "onTrack",
               usedVsIdealDeltaPercent: 1.2,
@@ -379,6 +569,7 @@ describe("provider markdown", () => {
           displayTitle: "Weekly",
           remainingPercent: 10,
           resetsIn: "2d",
+          showPaceMarker: true as const,
           usagePacing: {
             stage: "farOver" as const,
             usedVsIdealDeltaPercent: 23.4,
@@ -639,6 +830,9 @@ describe("provider markdown", () => {
             remainingPercent: 47,
             resetsIn: "11h 47m",
             nextRegenPercent: 4,
+            detailLeftText: "40% in reserve",
+            detailRightText: "Lasts until reset",
+            showPaceMarker: true,
             usagePacing: {
               stage: "farUnder",
               usedVsIdealDeltaPercent: -39.98,
@@ -684,6 +878,9 @@ describe("provider markdown", () => {
             displayTitle: "Weekly",
             remainingPercent: 88,
             resetsIn: "7d",
+            detailLeftText: "40% in reserve",
+            detailRightText: "Lasts until reset",
+            showPaceMarker: true,
             usagePacing: {
               stage: "farUnder",
               usedVsIdealDeltaPercent: -39.98,

@@ -3,6 +3,7 @@
 // and drops the id from the catalog order and the upstream allowlists.
 // A production reference that would survive the edit blocks the write.
 
+import { METER_DETAIL_PATH } from "./meter-detail.mjs";
 import { PROVIDER_INDEX_PATH, providerModuleIdsFromFiles, renderProviderIndex } from "./provider-modules.mjs";
 
 const ORDER_PATH = "scripts/lib/provider-modules.mjs";
@@ -14,10 +15,12 @@ const ALLOWLISTS = [
   [CHECK_PATH, "ALLOWED_DIVERGENCES", (key, id) => key === id],
   [CHECK_PATH, "UNPORTABLE_PRESENTATION_PACE", (key, id) => key === id],
   [CHECK_PATH, "UNPORTABLE_HEADROOM_HINT", (key, id) => key === id],
+  [CHECK_PATH, "UNPORTABLE_MENU_CARD", (key, id) => key === id],
   [PACE_PATH, "UNPORTABLE_DYNAMIC_TITLES", (key, id) => key === id],
+  [METER_DETAIL_PATH, "METER_DETAIL", (key, id) => key === id],
 ];
 
-const REWRITTEN = new Set([PROVIDER_INDEX_PATH, ORDER_PATH, CHECK_PATH, PACE_PATH]);
+const REWRITTEN = new Set([PROVIDER_INDEX_PATH, ORDER_PATH, CHECK_PATH, PACE_PATH, METER_DETAIL_PATH]);
 
 export function planPrune(files, removed) {
   try {

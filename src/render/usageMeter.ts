@@ -1,6 +1,6 @@
 import { formatPercentRemaining } from "./format";
 import { buildSvgProgressBar, buildSvgRect } from "./svg";
-import { formatUsagePacingLine, paceMarkerKind } from "../usage/pacing";
+import { paceMarkerKind } from "../usage/pacing";
 import { getProviderProgressPalette } from "../providers/registry";
 import {
   buildText,
@@ -11,6 +11,7 @@ import {
   CONTENT_WIDTH,
   CONTENT_LEFT_X,
   CONTENT_RIGHT_X,
+  getTextBaselineY,
   getTextBottomY,
   type DetailAppearance,
 } from "./layout";
@@ -124,7 +125,9 @@ function renderUsageMeter({
   title,
   remainingPercent,
   resetsIn,
-  pacingLine,
+  resetText,
+  sharedLine,
+  detailLine,
   regenLine,
   providerId,
   appearance,
@@ -135,7 +138,9 @@ function renderUsageMeter({
   title: string;
   remainingPercent: number;
   resetsIn?: string;
-  pacingLine?: string;
+  resetText?: string;
+  sharedLine?: string;
+  detailLine?: string;
   regenLine?: string;
   providerId: string;
   appearance: DetailAppearance;
@@ -146,7 +151,7 @@ function renderUsageMeter({
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
-  const footerLines = [pacingLine, regenLine].filter((line): line is string => line !== undefined);
+  const footerLines = [sharedLine, detailLine, regenLine].filter((line): line is string => line !== undefined);
   const markup = [
     buildText(
       titleText,
@@ -168,10 +173,11 @@ function renderUsageMeter({
     ),
   ];
 
-  if (resetsIn) {
+  const titleReset = resetText ?? (resetsIn ? `Resets in ${resetsIn}` : undefined);
+  if (titleReset) {
     markup.push(
       buildText(
-        `Resets in ${resetsIn}`,
+        titleReset,
         CONTENT_RIGHT_X,
         startY,
         palette.labelFill,
@@ -219,7 +225,11 @@ export function renderMetricSection(
   }
 
   const title = section.kind === "usage" ? section.displayTitle : section.title;
-  const usagePacing = section.usagePacing;
+  if (section.statusText) {
+    return renderStatusMeter({ title, statusText: section.statusText, appearance, startY });
+  }
+
+  const usagePacing = section.showPaceMarker ? section.usagePacing : undefined;
   const markerKind = usagePacing ? paceMarkerKind(usagePacing) : undefined;
   const marker =
     usagePacing && markerKind
@@ -228,12 +238,16 @@ export function renderMetricSection(
           fill: PACE_MARKER_FILLS[markerKind][appearance],
         }
       : undefined;
+  const sharedParts = [section.detailLeftText, section.detailRightText].filter((text): text is string => Boolean(text));
 
   return renderUsageMeter({
     title,
     remainingPercent: section.remainingPercent,
     resetsIn: section.resetsIn,
-    pacingLine: usagePacing ? formatUsagePacingLine(usagePacing) : undefined,
+    resetText: "resetText" in section ? section.resetText : undefined,
+    // MetricRow.linePresentation joins the left and right labels with " · ".
+    sharedLine: sharedParts.length > 0 ? sharedParts.join(" · ") : undefined,
+    detailLine: section.detailText,
     regenLine:
       section.nextRegenPercent !== undefined
         ? `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`
@@ -244,6 +258,46 @@ export function renderMetricSection(
     marker,
     accentColor,
   });
+}
+
+// MetricRow with statusText: the title, then the sentence. No percent, bar, or other lines.
+function renderStatusMeter({
+  title,
+  statusText,
+  appearance,
+  startY,
+}: {
+  title: string;
+  statusText: string;
+  appearance: DetailAppearance;
+  startY: number;
+}): { markup: string[]; contentBottomY: number } {
+  const palette = DETAIL_PALETTES[appearance];
+  const statusY = getTextBaselineY(
+    getTextBottomY(startY, DETAIL_TYPOGRAPHY.sectionTitleSize) + USAGE_LAYOUT.sectionGap,
+    DETAIL_TYPOGRAPHY.rowLabelSize,
+  );
+  return {
+    markup: [
+      buildText(
+        title,
+        CONTENT_LEFT_X,
+        startY,
+        palette.sectionTitleFill,
+        DETAIL_TYPOGRAPHY.sectionTitleSize,
+        DETAIL_FONT_WEIGHT.bold,
+      ),
+      buildText(
+        statusText,
+        CONTENT_LEFT_X,
+        statusY,
+        palette.labelFill,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
+      ),
+    ],
+    contentBottomY: getTextBottomY(statusY, DETAIL_TYPOGRAPHY.rowLabelSize),
+  };
 }
 
 function renderLoadingSkeletonSection(

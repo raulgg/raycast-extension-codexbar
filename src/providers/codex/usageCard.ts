@@ -1,6 +1,6 @@
 import { formatCountdown } from "../../usage/duration";
 import { clampPercent, firstString, toFiniteNumber, toNonBlankString, toRecord } from "../../usage/json";
-import type { ProviderSection, ProviderSectionItem, RawProviderPayload } from "../../usage/types";
+import type { ProviderSection, ProviderSectionItem, ProviderUsageSection, RawProviderPayload } from "../../usage/types";
 import type { ProviderModule } from "../module";
 
 const SESSION_WINDOW_MINUTES = 5 * 60;
@@ -125,12 +125,17 @@ function applyCodexWeeklySessionCap(sections: ProviderSection[], now: number): P
 
   const bindingResetsAt = codexBindingResetsAt(primary.remainingPercent, primary.resetsAt, weeklyResetsAt, now);
   const next = sections.slice();
-  next[primaryIndex] = {
+  // The pace line was settled from the dropped pacing, so it goes too.
+  const capped: ProviderUsageSection = {
     ...primary,
     remainingPercent: 0,
     resetsIn: bindingResetsAt ? formatCountdown(bindingResetsAt, now) : undefined,
     usagePacing: undefined,
   };
+  delete capped.detailLeftText;
+  delete capped.detailRightText;
+  delete capped.showPaceMarker;
+  next[primaryIndex] = capped;
   return next;
 }
 

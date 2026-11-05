@@ -145,6 +145,16 @@ export function getPaceCapability(providerId: string, modules: ProviderModuleMap
   return modules[providerId]?.pace ?? PACE_CAPABILITIES[providerId] ?? UNSUPPORTED;
 }
 
+// True when this window is the reset-window forecast, not the generic weekly fallback.
+export function matchesResetWindowPace(
+  providerId: string,
+  window: PaceWindow,
+  now: number,
+  modules: ProviderModuleMap,
+): boolean {
+  return matchWindowRule(getPaceCapability(providerId, modules).resetWindowPace, window, now);
+}
+
 function isKnownProviderId(providerId: string, modules: ProviderModuleMap): boolean {
   for (const [id, providerModule] of Object.entries(modules)) {
     if (id === providerId || providerModule.aliases?.includes(providerId)) {
