@@ -1,8 +1,6 @@
 import { formatPercentRemaining } from "./format";
 import { buildSvgProgressBar, buildSvgRect } from "./svg";
-import { formatUsagePacingLine, paceMarkerKind } from "../usage/pacing";
-import { PROVIDER_MODULES } from "../providers/index";
-import { matchesResetWindowPace } from "../providers/paceCapabilities";
+import { paceMarkerKind } from "../usage/pacing";
 import { getProviderProgressPalette } from "../providers/registry";
 import {
   buildText,
@@ -13,10 +11,11 @@ import {
   CONTENT_WIDTH,
   CONTENT_LEFT_X,
   CONTENT_RIGHT_X,
+  getTextBaselineY,
   getTextBottomY,
   type DetailAppearance,
 } from "./layout";
-import type { ProviderSection, ProviderSupplementalUsageSection, ProviderUsageSection } from "../usage/types";
+import type { ProviderSection } from "../usage/types";
 
 const PROGRESS_BAR = {
   height: 8,
@@ -127,8 +126,7 @@ function renderUsageMeter({
   remainingPercent,
   resetsIn,
   resetText,
-  pacingLine,
-  detailLeftLine,
+  sharedLine,
   detailLine,
   regenLine,
   providerId,
@@ -141,8 +139,7 @@ function renderUsageMeter({
   remainingPercent: number;
   resetsIn?: string;
   resetText?: string;
-  pacingLine?: string;
-  detailLeftLine?: string;
+  sharedLine?: string;
   detailLine?: string;
   regenLine?: string;
   providerId: string;
@@ -154,9 +151,7 @@ function renderUsageMeter({
   const palette = DETAIL_PALETTES[appearance];
   const progressY = getUsageProgressY(startY);
   const titleText = `${title} ${formatPercentRemaining(remainingPercent)} left`;
-  const footerLines = [pacingLine ?? detailLeftLine, detailLine, regenLine].filter(
-    (line): line is string => line !== undefined,
-  );
+  const footerLines = [sharedLine, detailLine, regenLine].filter((line): line is string => line !== undefined);
   const markup = [
     buildText(
       titleText,
@@ -230,8 +225,11 @@ export function renderMetricSection(
   }
 
   const title = section.kind === "usage" ? section.displayTitle : section.title;
-  const showPace = drawPaceLine(section, providerId);
-  const usagePacing = showPace ? section.usagePacing : undefined;
+  if (section.statusText) {
+    return renderStatusMeter({ title, statusText: section.statusText, appearance, startY });
+  }
+
+  const usagePacing = section.showPaceMarker ? section.usagePacing : undefined;
   const markerKind = usagePacing ? paceMarkerKind(usagePacing) : undefined;
   const marker =
     usagePacing && markerKind
@@ -240,14 +238,15 @@ export function renderMetricSection(
           fill: PACE_MARKER_FILLS[markerKind][appearance],
         }
       : undefined;
+  const sharedParts = [section.detailLeftText, section.detailRightText].filter((text): text is string => Boolean(text));
 
   return renderUsageMeter({
     title,
     remainingPercent: section.remainingPercent,
     resetsIn: section.resetsIn,
     resetText: "resetText" in section ? section.resetText : undefined,
-    pacingLine: usagePacing ? formatUsagePacingLine(usagePacing) : undefined,
-    detailLeftLine: showPace ? undefined : section.detailLeftText,
+    // MetricRow.linePresentation joins the left and right labels with " · ".
+    sharedLine: sharedParts.length > 0 ? sharedParts.join(" · ") : undefined,
     detailLine: section.detailText,
     regenLine:
       section.nextRegenPercent !== undefined
@@ -261,18 +260,44 @@ export function renderMetricSection(
   });
 }
 
-function drawPaceLine(section: ProviderUsageSection | ProviderSupplementalUsageSection, providerId: string): boolean {
-  if (!section.usagePacing) return false;
-  if (!section.replacesPace) return true;
-  // usagePacing.context is "window" for both a reset-window forecast and ordinary weekly pace.
-  if (section.kind !== "usage" || section.title !== "Secondary") return false;
-  const computedAt = Date.parse(section.usagePacing.computedAt);
-  return matchesResetWindowPace(
-    providerId,
-    { windowMinutes: section.windowMinutes, resetsAt: section.resetsAt },
-    Number.isNaN(computedAt) ? Date.now() : computedAt,
-    PROVIDER_MODULES,
+// MetricRow with statusText: the title, then the sentence. No percent, bar, or other lines.
+function renderStatusMeter({
+  title,
+  statusText,
+  appearance,
+  startY,
+}: {
+  title: string;
+  statusText: string;
+  appearance: DetailAppearance;
+  startY: number;
+}): { markup: string[]; contentBottomY: number } {
+  const palette = DETAIL_PALETTES[appearance];
+  const statusY = getTextBaselineY(
+    getTextBottomY(startY, DETAIL_TYPOGRAPHY.sectionTitleSize) + USAGE_LAYOUT.sectionGap,
+    DETAIL_TYPOGRAPHY.rowLabelSize,
   );
+  return {
+    markup: [
+      buildText(
+        title,
+        CONTENT_LEFT_X,
+        startY,
+        palette.sectionTitleFill,
+        DETAIL_TYPOGRAPHY.sectionTitleSize,
+        DETAIL_FONT_WEIGHT.bold,
+      ),
+      buildText(
+        statusText,
+        CONTENT_LEFT_X,
+        statusY,
+        palette.labelFill,
+        DETAIL_TYPOGRAPHY.rowLabelSize,
+        DETAIL_FONT_WEIGHT.medium,
+      ),
+    ],
+    contentBottomY: getTextBottomY(statusY, DETAIL_TYPOGRAPHY.rowLabelSize),
+  };
 }
 
 function renderLoadingSkeletonSection(

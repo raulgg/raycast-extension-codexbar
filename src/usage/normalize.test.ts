@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { extractSvgMarkup, parseSvg, rectsWithSize } from "../../test/svg-markdown";
 import { buildProviderDetailMarkdown } from "../render/detailCard";
-import type { ProviderModule } from "../providers/module";
+import { PROVIDER_MODULES } from "../providers/index";
+import { METER_DETAIL, type MeterDetail } from "../providers/meterDetail";
+import type { ProviderModule, ProviderModuleMap } from "../providers/module";
 import { extractProviderErrorMessage, normalizeProviderDetailPayload } from "./normalize";
-import { formatUsagePacingLine } from "./pacing";
-import type { ProviderSection, ProviderUsagePacing, ProviderUsageSection } from "./types";
+import { formatUsagePacingLabels, formatUsagePacingLine } from "./pacing";
+import type {
+  ProviderSection,
+  ProviderSupplementalUsageSection,
+  ProviderUsagePacing,
+  ProviderUsageSection,
+} from "./types";
 
 const codexPayload = {
   provider: "codex",
@@ -571,6 +578,9 @@ describe("provider normalization", () => {
           lastsUntilReset: true,
           computedAt: "2026-04-16T12:30:00.000Z",
         },
+        detailLeftText: "40% in reserve",
+        detailRightText: "Lasts until reset",
+        showPaceMarker: true,
       },
     ]);
     expect(detailSvg).toContain(">Weekly 47% left<");
@@ -1151,6 +1161,9 @@ describe("Codex weekly caps session (raw path)", () => {
       },
     ]);
     expect(result[0].kind === "usage" && result[0].usagePacing).toBeUndefined();
+    expect(result[0]).not.toHaveProperty("detailLeftText");
+    expect(result[0]).not.toHaveProperty("detailRightText");
+    expect(result[0]).not.toHaveProperty("showPaceMarker");
   });
 
   it("still caps session when weekly is exhausted with no resetsAt", () => {
@@ -1610,7 +1623,6 @@ describe("menu card detail", () => {
       detailText: balance,
     });
     expect(usageSection(detail, "Primary")).not.toHaveProperty("detailLeftText");
-    expect(usageSection(detail, "Primary")).not.toHaveProperty("replacesPace");
   });
 
   it("copies detailText from a schema 1 meter", () => {
@@ -1641,7 +1653,16 @@ describe("menu card detail", () => {
     });
   });
 
-  it("keeps Copilot primary detailLeftText and lets pacing replace it on the card", () => {
+  function withModule(id: keyof typeof PROVIDER_MODULES, patch: Partial<ProviderModule>): ProviderModuleMap {
+    return { ...PROVIDER_MODULES, [id]: { ...PROVIDER_MODULES[id], ...patch } };
+  }
+
+  function sharedLineOf(pacing: ProviderUsagePacing) {
+    const { leftLabel, rightLabel } = formatUsagePacingLabels(pacing, now);
+    return { detailLeftText: leftLabel, ...(rightLabel ? { detailRightText: rightLabel } : {}) };
+  }
+
+  it("lets primary pacing replace Copilot's detailLeftText", () => {
     const paced = normalizeProviderDetailPayload(
       {
         provider: "copilot",
@@ -1651,11 +1672,10 @@ describe("menu card detail", () => {
       now,
     );
     const primary = usageSection(paced, "Primary");
-    expect(primary).toMatchObject({ detailLeftText: "Included" });
-    expect(primary).not.toHaveProperty("replacesPace");
     expect(primary?.usagePacing).toBeDefined();
+    expect(primary).toMatchObject({ ...sharedLineOf(primary!.usagePacing!), showPaceMarker: true });
     const pacedSvg = cardSvg(paced);
-    expect(pacedSvg).toContain(`>${formatUsagePacingLine(primary!.usagePacing!)}<`);
+    expect(pacedSvg).toContain(`>${formatUsagePacingLine(primary!.usagePacing!, now)}<`);
     expect(pacedSvg).not.toContain(">Included<");
 
     const plain = normalizeProviderDetailPayload(
@@ -1664,14 +1684,48 @@ describe("menu card detail", () => {
       now,
     );
     expect(usageSection(plain, "Primary")).toMatchObject({ detailLeftText: "Included" });
-    expect(usageSection(plain, "Primary")?.usagePacing).toBeUndefined();
+    expect(usageSection(plain, "Primary")).not.toHaveProperty("showPaceMarker");
+    expect(usageSection(plain, "Primary")).not.toHaveProperty("detailRightText");
     const plainSvg = cardSvg(plain);
     expect(plainSvg).toContain(">Included<");
     expect(plainSvg).not.toContain("in reserve");
     expect(plainSvg).not.toContain("in deficit");
   });
 
-  it("sets replacesPace on Copilot secondary and draws the description unless the forecast is a reset window", () => {
+  it("lets Copilot's secondary description replace an ordinary weekly pace line", () => {
+    const copilot = PROVIDER_MODULES.copilot;
+    const modules = withModule("copilot", {
+      pace: { ...copilot.pace!, resetWindowPace: { type: "unsupported" } },
+    });
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "copilot",
+        usage: {
+          secondary: {
+            usedPercent: 50,
+            windowMinutes: 10_080,
+            resetsAt: "2026-03-28T10:30:00Z",
+            resetDescription: "115% used",
+          },
+        },
+      },
+      "copilot",
+      now,
+      modules,
+    );
+    const secondary = usageSection(detail, "Secondary");
+    expect(secondary?.usagePacing).toBeDefined();
+    expect(secondary).toMatchObject({ detailLeftText: "115% used" });
+    expect(secondary).not.toHaveProperty("detailRightText");
+    expect(secondary).not.toHaveProperty("showPaceMarker");
+    const svg = cardSvg(detail);
+    expect(svg).toContain(">115% used<");
+    expect(svg).not.toContain("in reserve");
+    expect(svg).not.toContain("in deficit");
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
+  });
+
+  it("lets a Copilot secondary reset-window forecast win over its description", () => {
     const detail = normalizeProviderDetailPayload(
       {
         provider: "copilot",
@@ -1681,25 +1735,12 @@ describe("menu card detail", () => {
       now,
     );
     const secondary = usageSection(detail, "Secondary");
-    expect(secondary).toMatchObject({ detailLeftText: "115% used", replacesPace: true });
     expect(secondary?.usagePacing).toBeDefined();
-    const pacedSvg = cardSvg(detail);
-    expect(pacedSvg).toContain(`>${formatUsagePacingLine(secondary!.usagePacing!)}<`);
-    expect(pacedSvg).not.toContain(">115% used<");
-    expect(rectsWithSize(parseSvg(pacedSvg), 3, 12)).toHaveLength(1);
-
-    const ordinary = {
-      ...detail,
-      sections: detail.sections.map((section) =>
-        section.kind === "usage" && section.title === "Secondary" ? { ...section, resetsAt: undefined } : section,
-      ),
-    };
-    const ordinarySvg = cardSvg(ordinary);
-    expect(ordinarySvg).toContain(">115% used<");
-    expect(ordinarySvg).not.toContain("in reserve");
-    expect(ordinarySvg).not.toContain("in deficit");
-    expect(ordinarySvg).not.toContain(">On pace<");
-    expect(rectsWithSize(parseSvg(ordinarySvg), 3, 12)).toEqual([]);
+    expect(secondary).toMatchObject({ ...sharedLineOf(secondary!.usagePacing!), showPaceMarker: true });
+    const svg = cardSvg(detail);
+    expect(svg).toContain(`>${formatUsagePacingLine(secondary!.usagePacing!, now)}<`);
+    expect(svg).not.toContain(">115% used<");
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toHaveLength(1);
   });
 
   it("draws Zenmux secondary description instead of an ordinary weekly pace line", () => {
@@ -1719,15 +1760,13 @@ describe("menu card detail", () => {
       now,
     );
     const secondary = usageSection(detail, "Secondary");
-    expect(secondary).toMatchObject({
-      detailLeftText: "4 days left",
-      replacesPace: true,
-      resetsIn: "5d",
-    });
+    expect(secondary).toMatchObject({ detailLeftText: "4 days left", resetsIn: "5d" });
+    expect(secondary).not.toHaveProperty("showPaceMarker");
+    expect(secondary).not.toHaveProperty("detailRightText");
     expect(secondary?.usagePacing).toBeDefined();
     const svg = cardSvg(detail);
     expect(svg).toContain(">4 days left<");
-    expect(svg).not.toContain(formatUsagePacingLine(secondary!.usagePacing!));
+    expect(svg).not.toContain(formatUsagePacingLine(secondary!.usagePacing!, now));
     expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
 
     const undated = normalizeProviderDetailPayload(
@@ -1735,7 +1774,7 @@ describe("menu card detail", () => {
       "zenmux",
       now,
     );
-    expect(usageSection(undated, "Secondary")).toMatchObject({ detailLeftText: "Weekly quota", replacesPace: true });
+    expect(usageSection(undated, "Secondary")).toMatchObject({ detailLeftText: "Weekly quota" });
     expect(usageSection(undated, "Secondary")).not.toHaveProperty("resetsIn");
     expect(usageSection(undated, "Secondary")).not.toHaveProperty("resetText");
   });
@@ -1764,11 +1803,12 @@ describe("menu card detail", () => {
     expect(usageSection(detail, "Primary")).toMatchObject({ detailLeftText: "120 of 500 credits left" });
     expect(usageSection(detail, "Primary")).not.toHaveProperty("detailText");
     const bonus = usageSection(detail, "Secondary");
-    expect(bonus).toMatchObject({ detailLeftText: "40 of 100 bonus credits left", replacesPace: true });
+    expect(bonus).toMatchObject({ detailLeftText: "40 of 100 bonus credits left" });
+    expect(bonus).not.toHaveProperty("showPaceMarker");
     expect(bonus?.usagePacing).toBeDefined();
     const svg = cardSvg(detail);
     expect(svg).toContain(">40 of 100 bonus credits left<");
-    expect(svg).not.toContain(formatUsagePacingLine(bonus!.usagePacing!));
+    expect(svg).not.toContain(formatUsagePacingLine(bonus!.usagePacing!, now));
     expect(rectsWithSize(parseSvg(svg), 3, 12)).toEqual([]);
 
     const zero = normalizeProviderDetailPayload(
@@ -1793,7 +1833,7 @@ describe("menu card detail", () => {
     );
     expect(usageSection(zero, "Primary")).not.toHaveProperty("detailLeftText");
     expect(usageSection(zero, "Secondary")).not.toHaveProperty("detailLeftText");
-    expect(usageSection(zero, "Secondary")).not.toHaveProperty("replacesPace");
+    expect(usageSection(zero, "Secondary")).not.toHaveProperty("showPaceMarker");
   });
 
   it("copies an Alibaba tertiary resetDescription to detailText", () => {
@@ -1807,7 +1847,6 @@ describe("menu card detail", () => {
     );
     expect(usageSection(detail, "Tertiary")).toMatchObject({ detailText: "3,000 / 10,000 left" });
     expect(usageSection(detail, "Tertiary")).not.toHaveProperty("detailLeftText");
-    expect(usageSection(detail, "Tertiary")).not.toHaveProperty("replacesPace");
   });
 
   it("uses OpenRouter's reset placement only when the window has no countdown", () => {
@@ -1892,7 +1931,7 @@ describe("menu card detail", () => {
     expect(other).not.toHaveProperty("detailLeftText");
   });
 
-  it("replaces the Kiro overage pace line from the overage rows", () => {
+  it("puts the Kiro overage sentence on the left label from the overage rows", () => {
     const detail = normalizeProviderDetailPayload(
       {
         provider: "kiro",
@@ -1918,10 +1957,11 @@ describe("menu card detail", () => {
       (section) => section.kind === "supplementalUsage" && section.title === "Overage",
     );
     const other = detail.sections.find((section) => section.kind === "supplementalUsage" && section.title === "Other");
-    expect(overage).toMatchObject({ detailLeftText: "15 of 20 credits left", replacesPace: true });
+    expect(overage).toMatchObject({ detailLeftText: "15 of 20 credits left" });
     expect(overage).not.toHaveProperty("detailText");
+    expect(overage).not.toHaveProperty("showPaceMarker");
     expect(other).not.toHaveProperty("detailLeftText");
-    expect(other).not.toHaveProperty("replacesPace");
+    expect(other).not.toHaveProperty("showPaceMarker");
 
     const missing = normalizeProviderDetailPayload(
       {
@@ -1937,6 +1977,44 @@ describe("menu card detail", () => {
     expect(missing.sections.find((section) => section.kind === "supplementalUsage")).not.toHaveProperty(
       "detailLeftText",
     );
+  });
+
+  it("keeps the Kiro overage pace marker and right label beside the overage sentence", () => {
+    const window = { usedPercent: 60, windowMinutes: 10_080, resetsAt: "2026-03-28T10:30:00Z" };
+    const payload = (rows: { label: string; value: string; secondaryValue?: string }[]) => ({
+      provider: "kiro",
+      usage: { extraRateWindows: [{ id: "kiro-overage", title: "Overage", window }], details: [{ rows }] },
+    });
+    const modules = withModule("kiro", { extraWindowPace: "session-or-weekly" });
+    const overageOf = (detail: { sections: ProviderSection[] }) =>
+      detail.sections.find(
+        (section): section is ProviderSupplementalUsageSection => section.kind === "supplementalUsage",
+      );
+
+    const detail = normalizeProviderDetailPayload(
+      payload([
+        { label: "Overage credits left", value: "15" },
+        { label: "Overage usage", value: "5 credits", secondaryValue: "of 20" },
+      ]),
+      "kiro",
+      now,
+      modules,
+    );
+    const overage = overageOf(detail);
+    expect(overage?.usagePacing).toBeDefined();
+    const { rightLabel } = formatUsagePacingLabels(overage!.usagePacing!, now);
+    expect(rightLabel).toBeDefined();
+    expect(overage).toMatchObject({
+      detailLeftText: "15 of 20 credits left",
+      detailRightText: rightLabel,
+      showPaceMarker: true,
+    });
+    const svg = cardSvg(detail);
+    expect(svg).toContain(`>15 of 20 credits left · ${rightLabel}<`);
+    expect(rectsWithSize(parseSvg(svg), 3, 12)).toHaveLength(1);
+
+    const paceOnly = overageOf(normalizeProviderDetailPayload(payload([]), "kiro", now, modules));
+    expect(paceOnly).toMatchObject({ ...sharedLineOf(paceOnly!.usagePacing!), showPaceMarker: true });
   });
 
   it("leaves resetDescription alone for a provider outside the table", () => {
@@ -1971,6 +2049,84 @@ describe("menu card detail", () => {
       resetsAt,
     });
     expect(usageSection(detail, "Secondary")).not.toHaveProperty("resetsIn");
+
+    const plain = normalizeProviderDetailPayload(
+      { provider: "warp", usage: { secondary: { usedPercent: 10, resetsAt, resetDescription: "  " } } },
+      "warp",
+      now,
+    );
+    expect(usageSection(plain, "Secondary")).toMatchObject({ resetsIn: "25d 4h" });
+    expect(usageSection(plain, "Secondary")).not.toHaveProperty("detailText");
+  });
+
+  it("drops Manus's primary countdown even when the window has a date", () => {
+    const detail = normalizeProviderDetailPayload(
+      { provider: "manus", usage: { primary: { usedPercent: 10, resetsAt, resetDescription: "1,000 credits" } } },
+      "manus",
+      now,
+    );
+    expect(usageSection(detail, "Primary")).toMatchObject({ detailText: "1,000 credits", resetsAt });
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(detail, "Primary")).not.toHaveProperty("resetText");
+  });
+
+  describe("flags the generated table does not carry yet", () => {
+    type PendingFlags = MeterDetail & { usesRawPrimaryResetDescription?: true; movePrimaryDetailToStatus?: true };
+
+    function withMeterDetail<T>(id: string, entry: PendingFlags, run: () => T): T {
+      const table = METER_DETAIL as Record<string, PendingFlags>;
+      const had = Object.hasOwn(table, id);
+      const previous = table[id];
+      table[id] = entry;
+      try {
+        return run();
+      } finally {
+        if (had) table[id] = previous;
+        else delete table[id];
+      }
+    }
+
+    it("moves the primary detail to statusText and draws no bar when movePrimaryDetailToStatus is on", () => {
+      const payload = {
+        provider: "deepseek",
+        usage: { primary: { usedPercent: 0, resetDescription: "$12.40 available" } },
+      };
+      const detail = withMeterDetail(
+        "deepseek",
+        { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true, movePrimaryDetailToStatus: true },
+        () => normalizeProviderDetailPayload(payload, "deepseek", now),
+      );
+      const primary = usageSection(detail, "Primary");
+      expect(primary).toMatchObject({ statusText: "$12.40 available" });
+      expect(primary).not.toHaveProperty("detailText");
+      const svg = cardSvg(detail);
+      const parsed = parseSvg(svg);
+      expect(svg).toContain(">$12.40 available<");
+      expect(svg).not.toContain("% left");
+      expect(rectsWithSize(parsed, 3, 12)).toEqual([]);
+      expect(parsed.rects.filter((rect) => rect.height === 8)).toEqual([]);
+
+      const without = withMeterDetail(
+        "deepseek",
+        { showsPrimaryBalanceDescription: true, hidesPrimaryResetWithoutDate: true },
+        () => normalizeProviderDetailPayload(payload, "deepseek", now),
+      );
+      expect(usageSection(without, "Primary")).toMatchObject({ detailText: "$12.40 available" });
+      expect(usageSection(without, "Primary")).not.toHaveProperty("statusText");
+    });
+
+    it("puts the raw primary resetDescription on the title row even with a countdown", () => {
+      const detail = withMeterDetail("fixture-raw", { usesRawPrimaryResetDescription: true }, () =>
+        normalizeProviderDetailPayload(
+          { provider: "fixture-raw", usage: { primary: { usedPercent: 10, resetsAt, resetDescription: "10/20" } } },
+          "fixture-raw",
+          now,
+        ),
+      );
+      expect(detail.sections[0]).toMatchObject({ resetText: "10/20" });
+      expect(detail.sections[0]).not.toHaveProperty("resetsIn");
+      expect(cardSvg(detail)).toContain(">10/20<");
+    });
   });
 
   it("keeps an Aixy secondary countdown when the window has a date", () => {
@@ -1990,7 +2146,6 @@ describe("menu card detail", () => {
       detailText: "12 / 40 requests left",
       resetsIn: "25d 4h",
     });
-    expect(usageSection(detail, "Secondary")).not.toHaveProperty("replacesPace");
   });
 
   it("gives a supplemental meter that is not an extra rate window neither line", () => {
@@ -2018,7 +2173,6 @@ describe("menu card detail", () => {
     expect(supplemental).toBeDefined();
     expect(supplemental).not.toHaveProperty("detailText");
     expect(supplemental).not.toHaveProperty("detailLeftText");
-    expect(supplemental).not.toHaveProperty("replacesPace");
   });
 
   it("does not copy a Raycast extra window's reset description", () => {

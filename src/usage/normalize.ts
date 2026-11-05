@@ -1,5 +1,6 @@
 import {
   getPaceCapability,
+  matchesResetWindowPace,
   resolveDynamicSlotTitle,
   resolveExtraWindowPace,
   resolveSlotPace,
@@ -8,21 +9,17 @@ import {
 } from "../providers/paceCapabilities";
 import { PROVIDER_MODULES } from "../providers/index";
 import type { ProviderModuleMap } from "../providers/module";
-import { METER_DETAIL } from "../providers/meterDetail";
+import { METER_DETAIL, type MeterDetail } from "../providers/meterDetail";
+import { kiroBonusDetail, kiroCreditsDetail, kiroOverageDetail } from "../providers/kiro/menuCard";
+import { poeBalanceDetail } from "../providers/poe/menuCard";
+import { warpSecondaryClearsCountdown } from "../providers/warp/menuCard";
 import { getProviderMetadata, getProviderUsageSectionDisplayTitle } from "../providers/registry";
-import { calculateUsagePacing } from "./pacing";
+import { calculateUsagePacing, formatUsagePacingLabels } from "./pacing";
+import { usageDetailRow } from "./detailRows";
 import { parseProviderStatus } from "./status";
 import { formatCountdown } from "./duration";
 import { extractAccountEmail, extractAccountOrganization, formatPlanText } from "./identity";
-import {
-  clampPercent,
-  firstString,
-  isRecord,
-  toFiniteNumber,
-  toNonBlankString,
-  toRecord,
-  toTrimmedString,
-} from "./json";
+import { clampPercent, isRecord, toFiniteNumber, toNonBlankString, toRecord, toTrimmedString } from "./json";
 import { usageItemIdForSlot, usageItemIdFromMeterId } from "./usageItemVisibility";
 import type {
   ProviderDetailData,
@@ -56,25 +53,8 @@ function allowsUsagePacing(
   return extractDataConfidence(payload) !== "estimated";
 }
 
-function usageHasDetailRow(usage: RawProviderPayload | undefined, label: string): boolean {
-  if (!usage || !Array.isArray(usage.details)) {
-    return false;
-  }
-
-  for (const section of usage.details) {
-    const rows = toRecord(section)?.rows;
-    if (!Array.isArray(rows)) {
-      continue;
-    }
-
-    for (const row of rows) {
-      if (toTrimmedString(toRecord(row)?.label) === label) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+function usageHasDetailRow(payload: RawProviderPayload, label: string): boolean {
+  return usageDetailRow(payload, label) !== undefined;
 }
 
 function normalizePercentFromFraction(value: number): number | undefined {
@@ -143,11 +123,17 @@ function meterContext(
   return { providerId, pacingAllowed: allowsUsagePacing(providerId, payload, modules), now, modules, payload };
 }
 
-function computeMeterPacing(
+type MeterPace = {
+  pacing: ProviderUsagePacing;
+  // The window matched resetWindowPace, not the generic session or weekly rule.
+  isResetWindowForecast: boolean;
+};
+
+function computeMeterPace(
   slot: SlotTitle | "extra",
   input: MeterInput,
   { providerId, pacingAllowed, now, modules }: MeterContext,
-): ProviderUsagePacing | undefined {
+): MeterPace | undefined {
   if (!pacingAllowed || !input.resetsAt) {
     return undefined;
   }
@@ -175,7 +161,13 @@ function computeMeterPacing(
     now,
     resolved.defaultWindowMinutes,
   );
-  return pacing ? { ...pacing, context: resolved.context } : undefined;
+  if (!pacing) {
+    return undefined;
+  }
+  return {
+    pacing: { ...pacing, context: resolved.context },
+    isResetWindowForecast: slot !== "extra" && matchesResetWindowPace(providerId, window, now, modules),
+  };
 }
 
 function meterResetFields(input: MeterInput): { resetsAt?: string; windowMinutes?: number } {
@@ -187,106 +179,33 @@ function meterResetFields(input: MeterInput): { resetsAt?: string; windowMinutes
 
 type MeterRole = "primary" | "secondary" | "tertiary" | "extra" | "supplemental";
 
+// Who owns the first line under the bar when Provider text and a pace forecast both exist.
+// Absent: the pace forecast replaces Provider text (primary .detailLeft, .kiroCredits).
+// "whole": Provider text replaces the pace label, run-out text, and marker (upstream sets
+// pacePercent to nil). A reset-window forecast on Secondary still wins, as resetWindowPaceDetail
+// runs after that branch in secondaryMetric.
+// "left": Provider text replaces only the left label. The run-out text and marker stay.
+type ProviderLineOwnership = "whole" | "left";
+
 type MeterLines = {
+  statusText?: string;
   detailText?: string;
   detailLeftText?: string;
   resetText?: string;
-  replacesPace?: true;
+  providerLine?: ProviderLineOwnership;
   clearCountdown?: true;
+};
+
+// Flags the generator does not emit yet. Read when present; absent keeps today's behavior.
+type MeterDetailEntry = MeterDetail & {
+  usesRawPrimaryResetDescription?: true;
+  movePrimaryDetailToStatus?: true;
 };
 
 function meterRole(slot: SlotTitle): MeterRole {
   if (slot === "Primary") return "primary";
   if (slot === "Secondary") return "secondary";
   return "tertiary";
-}
-
-function detailRow(
-  payload: RawProviderPayload,
-  label: string,
-): { value?: string; secondaryValue?: string } | undefined {
-  const usage = toRecord(payload.usage);
-  if (!usage || !Array.isArray(usage.details)) {
-    return undefined;
-  }
-
-  for (const section of usage.details) {
-    const rows = toRecord(section)?.rows;
-    if (!Array.isArray(rows)) {
-      continue;
-    }
-
-    for (const row of rows) {
-      const record = toRecord(row);
-      if (toTrimmedString(record?.label) !== label) {
-        continue;
-      }
-      return { value: scalarString(record?.value), secondaryValue: scalarString(record?.secondaryValue) };
-    }
-  }
-
-  return undefined;
-}
-
-function scalarString(value: unknown): string | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-  return toTrimmedString(value);
-}
-
-function kiroCreditsDetail(payload: RawProviderPayload): string | undefined {
-  const remaining = detailRow(payload, "Credits left")?.value;
-  const total = detailRow(payload, "Credits total")?.value;
-  if (!remaining || !total || total === "0") {
-    return undefined;
-  }
-  return `${remaining} of ${total} credits left`;
-}
-
-function kiroBonusDetail(payload: RawProviderPayload): string | undefined {
-  const row = detailRow(payload, "Bonus credits left");
-  const remaining = row?.value;
-  const head = row?.secondaryValue?.split("·", 2)[0]?.trim();
-  if (!remaining || !head) {
-    return undefined;
-  }
-  const total = head.startsWith("of ") ? head.slice(3).trim() : head;
-  if (!total) {
-    return undefined;
-  }
-  return `${remaining} of ${total} bonus credits left`;
-}
-
-function kiroOverageDetail(payload: RawProviderPayload): string | undefined {
-  const remaining = detailRow(payload, "Overage credits left")?.value;
-  const capPhrase = detailRow(payload, "Overage usage")?.secondaryValue;
-  if (!remaining || !capPhrase?.startsWith("of ")) {
-    return undefined;
-  }
-  const total = capPhrase.slice(3);
-  if (!total) {
-    return undefined;
-  }
-  return `${remaining} of ${total} credits left`;
-}
-
-function poeBalanceDetail(payload: RawProviderPayload): string | undefined {
-  const usage = toRecord(payload.usage);
-  const identity = toRecord(payload.identity);
-  const usageIdentity = toRecord(usage?.identity);
-  const loginMethod = firstString(
-    payload.loginMethod,
-    identity?.loginMethod,
-    usage?.loginMethod,
-    usageIdentity?.loginMethod,
-  );
-  const prefix = "Balance:";
-  if (!loginMethod?.startsWith(prefix)) {
-    return undefined;
-  }
-  const balance = loginMethod.slice(prefix.length).trim();
-  return balance || undefined;
 }
 
 function meterLines(
@@ -298,7 +217,7 @@ function meterLines(
   if (role === "supplemental") {
     return {};
   }
-  const entry = METER_DETAIL[context.providerId];
+  const entry: MeterDetailEntry | undefined = METER_DETAIL[context.providerId];
   if (!entry) {
     return {};
   }
@@ -326,8 +245,21 @@ function meterLines(
       const detailLeftText = kiroCreditsDetail(context.payload);
       if (detailLeftText) lines.detailLeftText = detailLeftText;
     }
-    if ((entry.clearsPrimaryReset || entry.hidesPrimaryResetWithoutDate) && !resetsIn) {
+    if (entry.clearsPrimaryReset) {
       delete lines.resetText;
+      lines.clearCountdown = true;
+    }
+    if (entry.usesRawPrimaryResetDescription) {
+      if (input.resetDescription) lines.resetText = input.resetDescription;
+      else delete lines.resetText;
+      lines.clearCountdown = true;
+    }
+    if (entry.hidesPrimaryResetWithoutDate && !resetsIn) {
+      delete lines.resetText;
+    }
+    if (entry.movePrimaryDetailToStatus && lines.detailText) {
+      lines.statusText = lines.detailText;
+      delete lines.detailText;
     }
     return lines;
   }
@@ -336,8 +268,7 @@ function meterLines(
     if ((entry.secondaryDetailText || entry.showsSecondaryBalanceDescription) && description) {
       lines.detailText = description;
     }
-    // CLI JSON has no suppliedResetText, so Warp clears this countdown whenever the detail line is present.
-    if (context.providerId === "warp" && lines.detailText) {
+    if (warpSecondaryClearsCountdown(context.providerId, description)) {
       lines.clearCountdown = true;
     }
     if (entry.showsSecondaryBalanceDescription && description && !resetsIn) {
@@ -345,13 +276,13 @@ function meterLines(
     }
     if (entry.secondaryReplacesPace === "resetDescription" && description) {
       lines.detailLeftText = description;
-      lines.replacesPace = true;
+      lines.providerLine = "whole";
     }
     if (entry.secondaryReplacesPace === "kiroBonusCredits") {
       const detailLeftText = kiroBonusDetail(context.payload);
       if (detailLeftText) {
         lines.detailLeftText = detailLeftText;
-        lines.replacesPace = true;
+        lines.providerLine = "whole";
       }
     }
     if (entry.secondaryHidesResetWithoutDate && !resetsIn) {
@@ -373,23 +304,40 @@ function meterLines(
     lines.detailText = description;
     if (!resetsIn) lines.clearCountdown = true;
   }
-  if (entry.extraDetailLeft === "kiroOverage" && input.windowId === "kiro-overage") {
-    const detailLeftText = kiroOverageDetail(context.payload);
+  if (entry.extraDetailLeft === "kiroOverage") {
+    const detailLeftText = kiroOverageDetail(context.payload, input.windowId);
     if (detailLeftText) {
       lines.detailLeftText = detailLeftText;
-      lines.replacesPace = true;
+      lines.providerLine = "left";
     }
   }
   return lines;
 }
 
-function presentedLines(lines: MeterLines, resetsIn: string | undefined) {
+type SharedLine = { detailLeftText?: string; detailRightText?: string; showPaceMarker?: true };
+
+// The first line under the bar, settled here so render only draws what the section carries.
+function settleSharedLine(lines: MeterLines, pace: MeterPace | undefined, now: number): SharedLine {
+  if (!pace || (lines.providerLine === "whole" && !pace.isResetWindowForecast)) {
+    return lines.detailLeftText ? { detailLeftText: lines.detailLeftText } : {};
+  }
+
+  const { leftLabel, rightLabel } = formatUsagePacingLabels(pace.pacing, now);
+  const providerLeft = lines.providerLine === "left" ? lines.detailLeftText : undefined;
+  return {
+    detailLeftText: providerLeft ?? leftLabel,
+    ...(rightLabel ? { detailRightText: rightLabel } : {}),
+    showPaceMarker: true,
+  };
+}
+
+function presentedLines(lines: MeterLines, resetsIn: string | undefined, pace: MeterPace | undefined, now: number) {
   return {
     ...(resetsIn && !lines.clearCountdown ? { resetsIn } : {}),
+    ...(lines.statusText ? { statusText: lines.statusText } : {}),
     ...(lines.resetText ? { resetText: lines.resetText } : {}),
     ...(lines.detailText ? { detailText: lines.detailText } : {}),
-    ...(lines.detailLeftText ? { detailLeftText: lines.detailLeftText } : {}),
-    ...(lines.replacesPace ? { replacesPace: true as const } : {}),
+    ...settleSharedLine(lines, pace, now),
   };
 }
 
@@ -401,14 +349,15 @@ function buildUsageMeter(
   usageItemId: string,
 ): ProviderUsageSection {
   const resetsIn = input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined;
+  const pace = computeMeterPace(slot, input, context);
   return {
     kind: "usage",
     title: slot,
     displayTitle,
     remainingPercent: clampPercent(input.remainingPercent),
     ...meterResetFields(input),
-    ...presentedLines(meterLines(meterRole(slot), input, context, resetsIn), resetsIn),
-    usagePacing: computeMeterPacing(slot, input, context),
+    ...presentedLines(meterLines(meterRole(slot), input, context, resetsIn), resetsIn, pace, context.now),
+    usagePacing: pace?.pacing,
     nextRegenPercent: input.nextRegenPercent,
     usageItemId,
   };
@@ -422,13 +371,14 @@ function buildSupplementalMeter(
   role: "extra" | "supplemental",
 ): ProviderSupplementalUsageSection {
   const resetsIn = input.resetsAt ? formatCountdown(input.resetsAt, context.now) : undefined;
+  const pace = computeMeterPace("extra", input, context);
   return {
     kind: "supplementalUsage",
     title,
     remainingPercent: clampPercent(input.remainingPercent),
     ...meterResetFields(input),
-    ...presentedLines(meterLines(role, input, context, resetsIn), resetsIn),
-    usagePacing: computeMeterPacing("extra", input, context),
+    ...presentedLines(meterLines(role, input, context, resetsIn), resetsIn, pace, context.now),
+    usagePacing: pace?.pacing,
     nextRegenPercent: input.nextRegenPercent,
     ...(usageItemId ? { usageItemId } : {}),
   };
@@ -480,7 +430,7 @@ function buildUsageSections(
     Secondary: dynamicWindow(slotFallbacks[1].record, slotFallbacks[1].resetTimestamp),
     Tertiary: dynamicWindow(slotFallbacks[2].record, slotFallbacks[2].resetTimestamp),
   };
-  const hasAgentDetailRow = usageHasDetailRow(usage, "Agent");
+  const hasAgentDetailRow = usageHasDetailRow(payload, "Agent");
   const context = meterContext(providerId, payload, now, modules);
 
   for (const slot of slotFallbacks) {

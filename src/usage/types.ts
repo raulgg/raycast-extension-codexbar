@@ -73,14 +73,18 @@ export type ProviderUsageSection = {
   remainingPercent: number;
   // resetsIn is the countdown the card shows. resetsAt and windowMinutes are the source window.
   resetsIn?: string;
-  // Title-row text when the card has no countdown. The CLI string, with no "Resets in" prefix.
+  // Title-row text in place of the countdown. The CLI string, with no "Resets in" prefix.
   resetText?: string;
+  // Drawn in place of the bar: the title, then this sentence. No percent and no other lines.
+  statusText?: string;
   // Second line under the bar. Pacing does not replace it.
   detailText?: string;
-  // Shared line under the bar when this meter does not draw a pace line.
+  // Left label of the first line under the bar: the pace label or Provider text. Normalize settles it.
   detailLeftText?: string;
-  // Provider text owns the shared line. Render still draws a reset-window forecast on Secondary.
-  replacesPace?: true;
+  // Right label of that line, after the left one. The pace run-out text when pace owns the line.
+  detailRightText?: string;
+  // Draw the pace marker from usagePacing. The only signal render reads to draw it.
+  showPaceMarker?: true;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
@@ -94,12 +98,16 @@ export type ProviderSupplementalUsageSection = {
   title: string;
   remainingPercent: number;
   resetsIn?: string;
+  // Drawn in place of the bar: the title, then this sentence. No percent and no other lines.
+  statusText?: string;
   // Second line under the bar. Pacing does not replace it.
   detailText?: string;
-  // Shared line under the bar when this meter does not draw a pace line.
+  // Left label of the first line under the bar: the pace label or Provider text. Normalize settles it.
   detailLeftText?: string;
-  // Provider text owns the shared line, so the pace line and marker stay off.
-  replacesPace?: true;
+  // Right label of that line, after the left one. The pace run-out text when pace owns the line.
+  detailRightText?: string;
+  // Draw the pace marker from usagePacing. The only signal render reads to draw it.
+  showPaceMarker?: true;
   resetsAt?: string;
   windowMinutes?: number;
   usagePacing?: ProviderUsagePacing;
