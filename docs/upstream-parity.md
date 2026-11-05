@@ -328,12 +328,12 @@ Primary, in the app's order:
 Secondary: weekly pacing is computed first. Kimi's secondary stays on the session rule in
 `paceCapabilities.ts`. `secondaryDetailText` or `showsSecondaryBalanceDescription` then sets
 `detailText`. `showsSecondaryBalanceDescription` clears the countdown when the window has no date.
-`secondaryReplacesPace` sets `detailLeftText` and `replacesPace`, the local mark for upstream setting
-`pacePercent` to nil. At render, a reset-window forecast still wins when the section is secondary,
-`replacesPace` is set, and `usagePacing` is present for a window `resetWindowPace` matches. An
-ordinary weekly forecast does not. That is `secondaryMetric` applying `resetWindowPaceDetail` after
-the Copilot and Zenmux branch. `usagePacing.context` is `window` for both, so the card reads
-`paceCapabilities.ts` instead of the pacing object.
+`secondaryReplacesPace` owns the whole shared line: `detailLeftText` is that text, and the pace
+marker and right label stay off. That is upstream setting `pacePercent` to nil. Normalize still lets
+a Secondary reset-window forecast win, by calling `matchesResetWindowPace` before it settles the
+line. An ordinary weekly forecast does not. That is `secondaryMetric` applying `resetWindowPaceDetail`
+after the Copilot and Zenmux branch. `usagePacing.context` is `window` for both, so the check reads
+`paceCapabilities.ts` instead of the pacing object. Render does not consult the pace table.
 
 Secondary reset text, after the lines above: `secondaryRawResetDescription` sets it to the window's
 `resetDescription` as sent, even when that is missing (Sub2API). `secondaryResetDescriptionAsReset`
@@ -347,8 +347,9 @@ Extra rate window: `extraResetDescriptionAsDetail` copies `resetDescription` to 
 drops the countdown when the window has no date. `true` is every extra window (Sub2API's
 `{ _ in true }`). A string is that window id (`mistral-monthly-plan`). Any other closure stays in
 `UNPORTABLE_MENU_CARD`. The `kiro-overage` window sets `detailLeftText` to `X of Y credits left`
-from Overage credits left and the `of …` prefix on Overage usage, and that text replaces the pace
-line. Skip when a piece is missing. Other extras keep the pace line they already have.
+from Overage credits left and the `of …` prefix on Overage usage. That sentence replaces only the
+left label. The pace right label and marker stay. Skip when a piece is missing. Other extras keep
+the pace line they already have.
 
 These ids are not on the descriptor. They are `MenuCardView` branches, kept as named sets in
 `scripts/lib/meter-detail.mjs`, so a drift in the Swift list still requires the `menuCardReviewed` pin:

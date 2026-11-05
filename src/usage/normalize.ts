@@ -196,12 +196,6 @@ type MeterLines = {
   clearCountdown?: true;
 };
 
-// Flags the generator does not emit yet. Read when present; absent keeps today's behavior.
-type MeterDetailEntry = MeterDetail & {
-  usesRawPrimaryResetDescription?: true;
-  movePrimaryDetailToStatus?: true;
-};
-
 function meterRole(slot: SlotTitle): MeterRole {
   if (slot === "Primary") return "primary";
   if (slot === "Secondary") return "secondary";
@@ -217,7 +211,7 @@ function meterLines(
   if (role === "supplemental") {
     return {};
   }
-  const entry: MeterDetailEntry | undefined = METER_DETAIL[context.providerId];
+  const entry: MeterDetail | undefined = METER_DETAIL[context.providerId];
   if (!entry) {
     return {};
   }
@@ -289,12 +283,30 @@ function meterLines(
       delete lines.resetText;
       lines.clearCountdown = true;
     }
+    // Sub2API assigns the secondary reset text from resetDescription, and nil clears the countdown.
+    // The CLI value is already trimmed, so a blank description is the nil case.
+    if (entry.secondaryRawResetDescription) {
+      lines.clearCountdown = true;
+      if (description) lines.resetText = description;
+      else delete lines.resetText;
+    }
+    // Perplexity replaces the reset text only when the description is non-empty, and keeps the countdown otherwise.
+    if (entry.secondaryResetDescriptionAsReset && description) {
+      lines.clearCountdown = true;
+      lines.resetText = description;
+    }
     return lines;
   }
 
   if (role === "tertiary") {
     if (entry.tertiaryDetailText && description) {
       lines.detailText = description;
+    }
+    // Perplexity and Sub2API show the trimmed resetDescription instead of the countdown, including when it is missing.
+    if (entry.tertiaryRawResetDescription) {
+      lines.clearCountdown = true;
+      if (description) lines.resetText = description;
+      else delete lines.resetText;
     }
     return lines;
   }

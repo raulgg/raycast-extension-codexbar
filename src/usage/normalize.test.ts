@@ -2059,6 +2059,66 @@ describe("menu card detail", () => {
     expect(usageSection(plain, "Secondary")).not.toHaveProperty("detailText");
   });
 
+  it("uses Sub2API's reset descriptions as the secondary and tertiary reset text", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "sub2api",
+        usage: {
+          secondary: { usedPercent: 10, resetsAt, resetDescription: "  12/40  " },
+          tertiary: { usedPercent: 20, resetsAt, resetDescription: "credits left" },
+        },
+      },
+      "sub2api",
+      now,
+    );
+    expect(usageSection(detail, "Secondary")).toMatchObject({ resetText: "12/40", resetsAt });
+    expect(usageSection(detail, "Secondary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(detail, "Tertiary")).toMatchObject({ resetText: "credits left", resetsAt });
+    expect(usageSection(detail, "Tertiary")).not.toHaveProperty("resetsIn");
+
+    const missing = normalizeProviderDetailPayload(
+      {
+        provider: "sub2api",
+        usage: {
+          secondary: { usedPercent: 10, resetsAt },
+          tertiary: { usedPercent: 20, resetsAt, resetDescription: "   " },
+        },
+      },
+      "sub2api",
+      now,
+    );
+    expect(usageSection(missing, "Secondary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(missing, "Secondary")).not.toHaveProperty("resetText");
+    expect(usageSection(missing, "Tertiary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(missing, "Tertiary")).not.toHaveProperty("resetText");
+  });
+
+  it("replaces Perplexity's secondary reset text only when the description is present", () => {
+    const detail = normalizeProviderDetailPayload(
+      {
+        provider: "perplexity",
+        usage: {
+          secondary: { usedPercent: 10, resetsAt, resetDescription: "bonus credits" },
+          tertiary: { usedPercent: 20, resetsAt, resetDescription: "purchased" },
+        },
+      },
+      "perplexity",
+      now,
+    );
+    expect(usageSection(detail, "Secondary")).toMatchObject({ resetText: "bonus credits", resetsAt });
+    expect(usageSection(detail, "Secondary")).not.toHaveProperty("resetsIn");
+    expect(usageSection(detail, "Tertiary")).toMatchObject({ resetText: "purchased" });
+    expect(usageSection(detail, "Tertiary")).not.toHaveProperty("resetsIn");
+
+    const blank = normalizeProviderDetailPayload(
+      { provider: "perplexity", usage: { secondary: { usedPercent: 10, resetsAt, resetDescription: "  " } } },
+      "perplexity",
+      now,
+    );
+    expect(usageSection(blank, "Secondary")).toMatchObject({ resetsIn: "25d 4h" });
+    expect(usageSection(blank, "Secondary")).not.toHaveProperty("resetText");
+  });
+
   it("drops Manus's primary countdown even when the window has a date", () => {
     const detail = normalizeProviderDetailPayload(
       { provider: "manus", usage: { primary: { usedPercent: 10, resetsAt, resetDescription: "1,000 credits" } } },
