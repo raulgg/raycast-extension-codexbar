@@ -2400,7 +2400,7 @@ describe("menu card detail", () => {
 
     const svg = cardSvg(detail);
     const parsed = parseSvg(svg);
-    const paceLine = formatUsagePacingLine(primary!.usagePacing!);
+    const paceLine = formatUsagePacingLine(primary!.usagePacing!, now);
     expect(svg).toContain(`>${paceLine}<`);
     expect(svg).toContain(`>${balance}<`);
     expect(svg).toContain(">Regenerates 4% next tick<");
