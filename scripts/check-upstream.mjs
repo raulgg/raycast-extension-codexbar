@@ -35,7 +35,9 @@ import {
   compareMeterDetail,
   compareUnportableMenuCard,
   menuCardReviewProblems,
+  menuCardWatchDigest,
   parseMenuCardPresentation,
+  readMenuCardWatchFiles,
 } from "./lib/meter-detail.mjs";
 import { checkProviderModuleIndex } from "./lib/provider-modules.mjs";
 import {
@@ -147,7 +149,8 @@ const UNPORTABLE_HEADROOM_HINT = {
 };
 
 // Hand-edited list. upstream:prune removes an id only when CodexBar no longer ships that Provider.
-// Regenerate src/providers/meterDetail.ts for placement, balance flags, detail kind, and menu-card lines.
+// Every menu card argument maps to a meterDetail.ts field or sits here. Run npm run upstream:sync-meter-detail
+// to rewrite meterDetail.ts.
 const UNPORTABLE_MENU_CARD = {
   abacus: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
@@ -179,6 +182,10 @@ const UNPORTABLE_MENU_CARD = {
   },
   kilo: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
+  },
+  kimi: {
+    blockingQuota: "kimi-monthly binding projection, not a descriptor flag the CLI JSON carries",
+    resetWindowUsesWeeklyPace: "primary reset-window pace from the weekly pace, not ported",
   },
   litellm: {
     primaryDescriptionIsDetail: "menu descriptor, not the under-bar line",
@@ -481,7 +488,9 @@ export async function checkUpstream(source, policy = DEFAULT_POLICY) {
   };
 }
 
-// Bump checks the candidate before it rewrites the lock pin. A copied review sha still has to name every changed path.
+// Bump checks the candidate before it rewrites the lock pin. The digest covers the watched bytes at the
+// candidate, so a copied sha or a longer path list cannot stand in for a review. A path diff over GitHub's
+// 300-file compare cap throws instead of passing.
 async function reviewMenuCard(source, reviewed, pinnedSha) {
   if (!source.sha || typeof source.listChangedPaths !== "function") {
     return ["menuCardReviewed needs an upstream source sha and a path diff."];
@@ -491,8 +500,9 @@ async function reviewMenuCard(source, reviewed, pinnedSha) {
   }
   const candidate = source.sha.toLowerCase();
   const pin = pinnedSha.toLowerCase();
+  const digest = menuCardWatchDigest(await readMenuCardWatchFiles(source));
   const changed = pin === candidate ? [] : await source.listChangedPaths(pin, candidate);
-  return menuCardReviewProblems(reviewed, candidate, changed);
+  return menuCardReviewProblems(reviewed, { sha: candidate, digest }, changed);
 }
 
 async function main() {

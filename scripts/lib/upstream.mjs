@@ -64,11 +64,17 @@ export function readMenuCardReviewed(lockSource) {
     throw new Error("codexbar-upstream.lock menuCardReviewed.paths must be a list of paths.");
   }
 
-  return { sha: reviewed.sha.toLowerCase(), paths: reviewed.paths };
+  if (typeof reviewed.digest !== "string" || !/^[0-9a-f]{64}$/i.test(reviewed.digest)) {
+    throw new Error("codexbar-upstream.lock menuCardReviewed.digest must be a 64-character sha256 hex digest.");
+  }
+
+  return { sha: reviewed.sha.toLowerCase(), digest: reviewed.digest.toLowerCase(), paths: reviewed.paths };
 }
 
 // Written into codexbar-upstream.lock. JSON has no line comments, and readUpstreamLock ignores this.
-export const UPSTREAM_LOCK_NOTE = "Written by npm run upstream:bump. Don't hand-edit.";
+// upstream:bump keeps menuCardReviewed as it finds it. A menu card review is the only edit by hand.
+export const UPSTREAM_LOCK_NOTE =
+  "npm run upstream:bump writes tag and sha. Edit only menuCardReviewed, after a menu card review.";
 
 export function renderUpstreamLock(target, previousSource) {
   const lock = {
@@ -82,6 +88,7 @@ export function renderUpstreamLock(target, previousSource) {
   if (reviewed) {
     lock.menuCardReviewed = {
       sha: reviewed.sha.toLowerCase(),
+      digest: reviewed.digest.toLowerCase(),
       paths: reviewed.paths,
     };
   }

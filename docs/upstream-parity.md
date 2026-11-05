@@ -308,11 +308,22 @@ keeps `detailText` on the next line. Regen stays under those.
 Primary, in the app's order:
 
 1. `.reset` copies that window's `resetDescription` to the title row when the window has no countdown.
+   This is a deliberate divergence. Upstream's `.reset` sets `resetText` even when a countdown
+   exists, so the description replaces the countdown. `meterLines` applies `.reset` only without a
+   countdown and keeps the countdown otherwise.
 2. `.detail` copies it to `detailText`. `.detailLeft` copies it to `detailLeftText`.
 3. `showsPrimaryBalanceDescription` copies it to `detailText`.
 4. `.poeBalance` writes `detailText` from the text after `Balance:` on `loginMethod`. `.kiroCredits`
    writes `detailLeftText` as `X of Y credits left` and skips a zero total.
-5. `clearsPrimaryReset` or `hidesPrimaryResetWithoutDate` drops `resetText` when the window has no countdown.
+5. `clearsPrimaryReset` means the primary shows neither reset text nor the countdown, even when
+   `resetsAt` exists. Upstream sets `resetText` to nil, and its `resetText` is the countdown too
+   (Manus). `hidesPrimaryResetWithoutDate` drops `resetText` only when the window has no countdown.
+6. `usesRawPrimaryResetDescription` makes the reset text the window's `resetDescription` as sent,
+   even when a countdown exists (Sub2API). `hidesPrimaryResetWithoutDate` still runs after it.
+7. `movePrimaryDetailToStatus` moves the final `detailText` to `statusText` and clears
+   `detailText` (DeepSeek, DeepInfra). Upstream then draws the title and that text instead of the
+   bar. The descriptor passes `{ _ in true }`. Any other closure body stays in
+   `UNPORTABLE_MENU_CARD`.
 
 Secondary: weekly pacing is computed first. Kimi's secondary stays on the session rule in
 `paceCapabilities.ts`. `secondaryDetailText` or `showsSecondaryBalanceDescription` then sets
@@ -324,8 +335,13 @@ ordinary weekly forecast does not. That is `secondaryMetric` applying `resetWind
 the Copilot and Zenmux branch. `usagePacing.context` is `window` for both, so the card reads
 `paceCapabilities.ts` instead of the pacing object.
 
-Tertiary: `tertiaryDetailText` sets `detailText`. The shared line is the reset-window pace forecast
-when the pace table has one.
+Secondary reset text, after the lines above: `secondaryRawResetDescription` sets it to the window's
+`resetDescription` as sent, even when that is missing (Sub2API). `secondaryResetDescriptionAsReset`
+replaces it with the trimmed `resetDescription` when that is not empty (Perplexity).
+
+Tertiary: `tertiaryDetailText` sets `detailText`. `tertiaryRawResetDescription` makes the reset text
+the trimmed `resetDescription` instead of the countdown, even when that is missing (Perplexity,
+Sub2API). The shared line is the reset-window pace forecast when the pace table has one.
 
 Extra rate window: `extraResetDescriptionAsDetail` copies `resetDescription` to `detailText` and
 drops the countdown when the window has no date. `true` is every extra window (Sub2API's
@@ -337,20 +353,34 @@ line. Skip when a piece is missing. Other extras keep the pace line they already
 These ids are not on the descriptor. They are `MenuCardView` branches, kept as named sets in
 `scripts/lib/meter-detail.mjs`, so a drift in the Swift list still requires the `menuCardReviewed` pin:
 
-- `secondaryDetailText`: Warp, Alibaba, Alibaba Token Plan. Warp also clears the secondary countdown
-  when the window has no supplied reset text. The CLI JSON does not carry `suppliedResetText`, so
-  Warp's secondary countdown is cleared whenever that detail line is present.
+- `secondaryDetailText`: Warp, Alibaba, Alibaba Token Plan. Warp also clears the secondary
+  countdown whenever its `resetDescription` is not empty.
 - `secondaryReplacesPace: "resetDescription"`: Copilot, Zenmux. Zenmux also sets
   `secondaryHidesResetWithoutDate`.
 - `secondaryReplacesPace: "kiroBonusCredits"`: Kiro. The total is the text before `·` on Bonus
   credits left, with a leading `of ` removed. Skip when either piece is missing.
+- `secondaryRawResetDescription`: Sub2API.
+- `secondaryResetDescriptionAsReset`: Perplexity.
 - `tertiaryDetailText`: Alibaba, Alibaba Token Plan, from that window's `resetDescription`.
+- `tertiaryRawResetDescription`: Perplexity, Sub2API.
 - `extraDetailLeft: "kiroOverage"`: the `kiro-overage` extra window.
+
+`npm run upstream:sync-meter-detail` writes `meterDetail.ts`. Don't edit that file by hand.
+
+Every argument a descriptor passes to `ProviderMenuCardPresentation` or
+`ProviderMenuDescriptorPresentation` has a row in `MENU_CARD_ARGUMENTS` or
+`MENU_DESCRIPTOR_ARGUMENTS` in `scripts/lib/meter-detail.mjs`. A row either maps to a
+`meterDetail.ts` field, needs an `UNPORTABLE_MENU_CARD` entry when set, belongs to
+`UNPORTABLE_PRESENTATION_PACE` (`usesAbacusPace`, `usesSyntheticRollingRegen`), or feeds a section
+that is not a usage meter (credits, cost, the menu descriptor). An argument with no row fails the
+check until it is ported or listed in `UNPORTABLE_MENU_CARD` for that Provider. A stale entry fails too.
 
 `.standard` and `.none` are omitted from the table. `.requestQuota` stays in `UNPORTABLE_MENU_CARD`
 because the CLI JSON does not expose that row. A non-default `usageNotesResolver` or
 `primaryDescriptionIsDetail` closure stays there until an entry names it. `primaryDescriptionIsDetail`
-is the menu descriptor, not the card, including Raycast's `{ _ in true }`.
+is the menu descriptor, not the card, including Raycast's `{ _ in true }`. Kimi's `blockingQuota`
+is a `(windowID, message)` pair, not a flag, and its `resetWindowUsesWeeklyPace` is a pace input.
+Both stay in `UNPORTABLE_MENU_CARD`.
 
 `codexbar-upstream.lock` keeps the review pin on `menuCardReviewed`. The watched paths are:
 
@@ -360,9 +390,22 @@ is the menu descriptor, not the card, including Raycast's `{ _ in true }`.
 - `Sources/CodexBarCLI/CLIRenderer.swift`
 - `Sources/CodexBarCore/Resources/Plugins/`
 
-`upstream:check` diffs the pinned lock sha against the candidate. A changed watched path fails
-the check until `menuCardReviewed.sha` is the candidate and the path is listed. A plugin change
-names the file, such as `raycast.js`.
+`menuCardReviewed` holds `sha`, `paths`, and `digest`. The digest is a sha256 over the watch list
+and the contents of every watched file at that sha, in watch-list order and then path order. A
+directory entry covers every file under it. `upstream:check` reads the watched files at the
+candidate and compares their digest with `menuCardReviewed.digest`:
+
+- Same bytes: the check passes. A bump that leaves the watched files alone needs no edit, and the
+  sha can stay behind.
+- Different bytes: the check fails and prints the candidate sha and digest. It names the changed
+  files from the diff between the pinned lock sha and the candidate, such as `raycast.js`. After a
+  review, set `menuCardReviewed.sha` and `menuCardReviewed.digest` to those values and add each
+  changed file to `paths`. Setting the sha alone, or adding paths alone, still fails.
+- A listed path that is neither a watch entry nor a file under a watched directory fails.
+- A GitHub compare that hits the 300-file cap throws instead of passing.
+
+`upstream:bump` does not advance `menuCardReviewed`. It rewrites the lock with the old object, so
+sha, digest, and paths survive.
 
 DeepSeek localizes `detailText` in the app. The extension shows the CLI's English text. Providers
 absent from the table keep `resetDescription` as a pace hint (Devin "Daily", Z.ai "MCP", Amp

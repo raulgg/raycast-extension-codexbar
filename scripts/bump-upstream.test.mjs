@@ -94,12 +94,13 @@ describe("runBump", () => {
 });
 
 describe("writeBumpedLock", () => {
-  it("keeps menuCardReviewed when the lock is rewritten", async () => {
+  it("keeps menuCardReviewed, digest included, when the lock is rewritten", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "bump-lock-"));
     roots.push(root);
     const lockPath = path.join(root, "codexbar-upstream.lock");
     const reviewed = {
       sha: "a".repeat(40),
+      digest: "d".repeat(64),
       paths: ["Sources/CodexBar/MenuCardView.swift", "Sources/CodexBarCore/Resources/Plugins/"],
     };
     await writeFile(

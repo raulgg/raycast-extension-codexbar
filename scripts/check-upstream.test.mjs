@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDER_CATALOG, PROVIDER_MODULES } from "../src/providers/index.ts";
 import { checkUpstream, DEFAULT_POLICY } from "./check-upstream.mjs";
-import { MENU_CARD_WATCH_PATHS } from "./lib/meter-detail.mjs";
+import { MENU_CARD_WATCH_PATHS, menuCardWatchDigest, readMenuCardWatchFiles } from "./lib/meter-detail.mjs";
 import {
   compareProviders,
   parseDescriptorMetadata,
@@ -980,7 +980,7 @@ describe("checkUpstream", () => {
       toyTree({ extra: "let card = ProviderMenuCardPresentation(showsPrimaryBalanceDescription: true)" }),
       TOY_POLICY,
     );
-    expect(result.problems.some((problem) => problem.includes("Regenerate src/providers/meterDetail.ts"))).toBe(true);
+    expect(result.problems.some((problem) => problem.includes("Run npm run upstream:sync-meter-detail"))).toBe(true);
     expect(result.meterEntries).toEqual({ toy: { showsPrimaryBalanceDescription: true } });
   });
 
@@ -1051,49 +1051,116 @@ describe("checkUpstream", () => {
   it("prints a changed plugin path until menuCardReviewed matches the candidate", async () => {
     const reviewed = "a".repeat(40);
     const candidate = "b".repeat(40);
+    const plugin = "Sources/CodexBarCore/Resources/Plugins/raycast.js";
+    const before = await reviewDigest(watchedFiles());
+    const after = watchedFiles({ [plugin]: "export const raycast = 2;\n" });
     const result = await checkUpstream(
-      fakeSource(toyFiles(), {
-        sha: candidate,
-        changed: ["Sources/CodexBarCore/Resources/Plugins/raycast.js", "README.md"],
-      }),
+      fakeSource({ ...toyFiles(), ...after }, { sha: candidate, changed: [plugin, "README.md"] }),
       {
         ...TOY_POLICY,
         pinnedSha: reviewed,
-        menuCardReviewed: { sha: reviewed, paths: [...MENU_CARD_WATCH_PATHS] },
+        menuCardReviewed: { sha: reviewed, digest: before, paths: [...MENU_CARD_WATCH_PATHS] },
       },
     );
     const text = result.problems.join("\n");
     expect(text).toContain("raycast.js");
     expect(text).toContain(candidate);
+    expect(text).toContain(`menuCardReviewed.digest to ${await reviewDigest(after)}`);
     expect(text).not.toContain("README.md");
   });
 
-  it("still names an unlisted plugin path when menuCardReviewed.sha is the candidate", async () => {
+  it("fails a sha-only or path-only review, and passes once the digest matches", async () => {
     const pin = "a".repeat(40);
     const candidate = "b".repeat(40);
     const plugin = "Sources/CodexBarCore/Resources/Plugins/raycast.js";
+    const before = await reviewDigest(watchedFiles());
+    const afterFiles = watchedFiles({ [plugin]: "export const raycast = 2;\n" });
+    const after = await reviewDigest(afterFiles);
     const calls = [];
-    const source = fakeSource(toyFiles(), { sha: candidate });
+    const source = fakeSource({ ...toyFiles(), ...afterFiles }, { sha: candidate });
     source.listChangedPaths = async (from, to) => {
       calls.push([from, to]);
       return [plugin];
     };
-    const missing = await checkUpstream(source, {
-      ...TOY_POLICY,
-      pinnedSha: pin,
-      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS] },
-    });
-    expect(calls).toEqual([[pin, candidate]]);
-    expect(missing.problems.join("\n")).toContain("raycast.js");
+    const review = (menuCardReviewed) => checkUpstream(source, { ...TOY_POLICY, pinnedSha: pin, menuCardReviewed });
 
-    const listed = await checkUpstream(source, {
-      ...TOY_POLICY,
-      pinnedSha: pin,
-      menuCardReviewed: { sha: candidate, paths: [...MENU_CARD_WATCH_PATHS, plugin] },
-    });
+    const shaOnly = await review({ sha: candidate, digest: before, paths: [...MENU_CARD_WATCH_PATHS] });
+    expect(calls).toEqual([[pin, candidate]]);
+    expect(shaOnly.problems.join("\n")).toContain("do not match menuCardReviewed.digest");
+
+    const pathOnly = await review({ sha: pin, digest: before, paths: [...MENU_CARD_WATCH_PATHS, plugin] });
+    expect(pathOnly.problems.join("\n")).toContain("do not match menuCardReviewed.digest");
+
+    const unlisted = await review({ sha: candidate, digest: after, paths: [...MENU_CARD_WATCH_PATHS] });
+    expect(unlisted.problems).toEqual([`menuCardReviewed.paths does not list changed file ${plugin}.`]);
+
+    const listed = await review({ sha: candidate, digest: after, paths: [...MENU_CARD_WATCH_PATHS, plugin] });
     expect(listed.problems).toEqual([]);
   });
+
+  it("keeps passing after a bump that leaves the watched bytes alone", async () => {
+    const reviewedSha = "a".repeat(40);
+    const candidate = "c".repeat(40);
+    const files = watchedFiles();
+    const digest = await reviewDigest(files);
+    const source = fakeSource({ ...toyFiles(), ...files }, { sha: candidate });
+    source.listChangedPaths = async () => {
+      throw new Error("pin equals candidate; no compare needed");
+    };
+    const result = await checkUpstream(source, {
+      ...TOY_POLICY,
+      pinnedSha: candidate,
+      menuCardReviewed: { sha: reviewedSha, digest, paths: [...MENU_CARD_WATCH_PATHS] },
+    });
+    expect(result.problems).toEqual([]);
+  });
+
+  it("fails after a bump when the watched bytes moved but the pin did not", async () => {
+    const candidate = "c".repeat(40);
+    const before = await reviewDigest(watchedFiles());
+    const source = fakeSource(
+      { ...toyFiles(), ...watchedFiles({ "Sources/CodexBar/MenuCardView.swift": `${PACE_RENDERER}struct MenuCard {}\n` }) },
+      { sha: candidate },
+    );
+    const result = await checkUpstream(source, {
+      ...TOY_POLICY,
+      pinnedSha: candidate,
+      menuCardReviewed: { sha: candidate, digest: before, paths: [...MENU_CARD_WATCH_PATHS] },
+    });
+    expect(result.problems.join("\n")).toContain("do not match menuCardReviewed.digest");
+  });
+
+  it("keeps failing closed when GitHub's compare hits the file cap", async () => {
+    const files = watchedFiles();
+    const digest = await reviewDigest(files);
+    const source = fakeSource({ ...toyFiles(), ...files }, { sha: "b".repeat(40) });
+    source.listChangedPaths = async () => {
+      throw new Error("GitHub compare did not return a complete file list.");
+    };
+    await expect(
+      checkUpstream(source, {
+        ...TOY_POLICY,
+        pinnedSha: "a".repeat(40),
+        menuCardReviewed: { sha: "a".repeat(40), digest, paths: [...MENU_CARD_WATCH_PATHS] },
+      }),
+    ).rejects.toThrow(/complete file list/);
+  });
 });
+
+function watchedFiles(overrides = {}) {
+  return {
+    "Sources/CodexBar/MenuCardView.swift": PACE_RENDERER,
+    "Sources/CodexBar/MenuCardView+ModelHelpers.swift": "extension MenuCard {}\n",
+    "Sources/CodexBar/MenuCardMetricRow.swift": "struct MetricRow {}\n",
+    "Sources/CodexBarCLI/CLIRenderer.swift": "enum CLIRenderer {}\n",
+    "Sources/CodexBarCore/Resources/Plugins/raycast.js": "export const raycast = 1;\n",
+    ...overrides,
+  };
+}
+
+async function reviewDigest(files) {
+  return menuCardWatchDigest(await readMenuCardWatchFiles(fakeSource(files)));
+}
 
 const WINDOW_PACE = {
   resetWindowPace: { type: "windowDurationPresent" },

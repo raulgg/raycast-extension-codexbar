@@ -1,10 +1,11 @@
 {
-  "note": "Written by npm run upstream:bump. Don't hand-edit.",
+  "note": "npm run upstream:bump writes tag and sha. Edit only menuCardReviewed, after a menu card review.",
   "repo": "steipete/CodexBar",
   "tag": "v0.69.0",
   "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90",
   "menuCardReviewed": {
     "sha": "48ded68da6932a4fe5de9037d06c4ac48bd36e90",
+    "digest": "bd6c4d0bf7f6ac070bf30b3e2f706c7de050e268aa56eb3a226b905081b68788",
     "paths": [
       "Sources/CodexBar/MenuCardView.swift",
       "Sources/CodexBar/MenuCardView+ModelHelpers.swift",
