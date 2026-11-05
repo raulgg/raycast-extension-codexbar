@@ -41,6 +41,12 @@ type ProgressMarker = {
   fill: string;
 };
 
+// pacePercent is already a position on this remaining bar. A shorter fill has used past that point.
+function copiedPaceMarker(remainingPercent: number, pacePercent: number, appearance: DetailAppearance): ProgressMarker {
+  const kind = remainingPercent < pacePercent ? "deficit" : "reserve";
+  return { percent: pacePercent, fill: PACE_MARKER_FILLS[kind][appearance] };
+}
+
 const LOADING_SKELETON_LAYOUT = {
   sectionCount: 2,
   titleWidth: 88,
@@ -229,29 +235,33 @@ export function renderMetricSection(
     return renderStatusMeter({ title, statusText: section.statusText, appearance, startY });
   }
 
-  const usagePacing = section.showPaceMarker ? section.usagePacing : undefined;
+  const copiedLines = section.metaText !== undefined || section.pacePercent !== undefined;
+  const usagePacing = !copiedLines && section.showPaceMarker ? section.usagePacing : undefined;
   const markerKind = usagePacing ? paceMarkerKind(usagePacing) : undefined;
   const marker =
-    usagePacing && markerKind
-      ? {
-          percent: Math.max(0, 100 - usagePacing.idealUsedPercentByNow),
-          fill: PACE_MARKER_FILLS[markerKind][appearance],
-        }
-      : undefined;
+    section.pacePercent !== undefined
+      ? copiedPaceMarker(section.remainingPercent, section.pacePercent, appearance)
+      : usagePacing && markerKind
+        ? {
+            percent: Math.max(0, 100 - usagePacing.idealUsedPercentByNow),
+            fill: PACE_MARKER_FILLS[markerKind][appearance],
+          }
+        : undefined;
   const sharedParts = [section.detailLeftText, section.detailRightText].filter((text): text is string => Boolean(text));
+  const settledLine = sharedParts.length > 0 ? sharedParts.join(" · ") : undefined;
 
   return renderUsageMeter({
     title,
     remainingPercent: section.remainingPercent,
     resetsIn: section.resetsIn,
-    resetText: "resetText" in section ? section.resetText : undefined,
-    // MetricRow.linePresentation joins the left and right labels with " · ".
-    sharedLine: sharedParts.length > 0 ? sharedParts.join(" · ") : undefined,
+    resetText: section.resetText,
+    // Schema 2 sends the joined line. Otherwise MetricRow.linePresentation joins the labels with " · ".
+    sharedLine: section.metaText ?? settledLine,
     detailLine: section.detailText,
     regenLine:
-      section.nextRegenPercent !== undefined
-        ? `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`
-        : undefined,
+      copiedLines || section.nextRegenPercent === undefined
+        ? undefined
+        : `Regenerates ${formatPercentRemaining(section.nextRegenPercent)} next tick`,
     providerId,
     appearance,
     startY,
