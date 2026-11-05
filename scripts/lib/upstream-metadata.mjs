@@ -159,6 +159,137 @@ export function parseDescriptorMetadata(swiftSource, fileName = "descriptor") {
   };
 }
 
+// Module `aliases` in src/providers/<id>/index.ts are the CLI spellings, not the raw
+// descriptor array. cliName is included when it is not the id. The id is left out:
+// an alias that is a provider id fails the collision check.
+export function expectedModuleAliases(id, cliName, aliases) {
+  const expected = [];
+  if (cliName && cliName !== id) {
+    expected.push(cliName);
+  }
+  for (const alias of aliases) {
+    if (alias === id || alias === cliName || expected.includes(alias)) {
+      continue;
+    }
+    expected.push(alias);
+  }
+  return expected;
+}
+
+function skipAliasNoise(source, index) {
+  while (index < source.length) {
+    if (/[\s,]/.test(source[index])) {
+      index += 1;
+      continue;
+    }
+    if (source.startsWith("//", index)) {
+      const newline = source.indexOf("\n", index);
+      index = newline === -1 ? source.length : newline + 1;
+      continue;
+    }
+    if (source.startsWith("/*", index)) {
+      const end = source.indexOf("*/", index + 2);
+      if (end === -1) {
+        return -1;
+      }
+      index = end + 2;
+      continue;
+    }
+    break;
+  }
+  return index;
+}
+
+function readAliasArray(source, fileName) {
+  const keys = [...source.matchAll(/(?<![\w])aliases\s*:/g)];
+  if (keys.length > 1) {
+    return { error: `${fileName} has ${keys.length} aliases arrays; expected one string array.` };
+  }
+  if (keys.length === 0) {
+    return { aliases: [] };
+  }
+
+  let index = skipAliasNoise(source, keys[0].index + keys[0][0].length);
+  if (index < 0 || source[index] !== "[") {
+    return { error: `${fileName} aliases is not a string array literal.` };
+  }
+  index += 1;
+  const aliases = [];
+  while (index < source.length) {
+    index = skipAliasNoise(source, index);
+    if (index < 0) {
+      return { error: `${fileName} aliases is not a string array literal.` };
+    }
+    if (source[index] === "]") {
+      return { aliases };
+    }
+    if (source[index] !== '"') {
+      return { error: `${fileName} aliases is not a string array literal.` };
+    }
+    index += 1;
+    let value = "";
+    while (index < source.length && source[index] !== '"') {
+      if (source[index] === "\\") {
+        return { error: `${fileName} aliases is not a string array literal.` };
+      }
+      value += source[index];
+      index += 1;
+    }
+    if (source[index] !== '"') {
+      return { error: `${fileName} aliases is not a string array literal.` };
+    }
+    index += 1;
+    aliases.push(value);
+  }
+  return { error: `${fileName} aliases is not a string array literal.` };
+}
+
+function readCliName(source, id, fileName) {
+  const matches = [...source.matchAll(/(?<![\w])cliName\s*:\s*([^\n,]+)/g)];
+  if (matches.length > 1) {
+    return { error: `${fileName} has ${matches.length} cliName values; expected one.` };
+  }
+  if (matches.length === 0) {
+    return { cliName: id };
+  }
+  const raw = matches[0][1].trim().replace(/\)+$/, "").trim();
+  const literal = raw.match(/^"([^"]*)"$/);
+  if (!literal) {
+    return { error: `${fileName} cliName is not a string literal.` };
+  }
+  return { cliName: literal[1] };
+}
+
+export function parseDescriptorCliAliases(source, id, fileName) {
+  const parsed = readAliasArray(source, fileName);
+  if (parsed.error) {
+    return { id, fileName, error: parsed.error };
+  }
+  const cliName = readCliName(source, id, fileName);
+  if (cliName.error) {
+    return { id, fileName, error: cliName.error };
+  }
+  return { id, fileName, cliName: cliName.cliName, aliases: parsed.aliases };
+}
+
+export function descriptorAliasProblems(descriptors, modules = {}) {
+  const problems = [];
+  for (const descriptor of descriptors) {
+    if (descriptor.error) {
+      problems.push(descriptor.error);
+      continue;
+    }
+    const expected = expectedModuleAliases(descriptor.id, descriptor.cliName, descriptor.aliases);
+    const actual = Array.isArray(modules[descriptor.id]?.aliases) ? modules[descriptor.id].aliases : [];
+    if (actual.length !== expected.length || actual.some((alias, index) => alias !== expected[index])) {
+      problems.push(
+        `${descriptor.fileName}: ${descriptor.id} aliases ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`,
+      );
+    }
+  }
+  return problems;
+}
+
 // ---------------------------------------------------------------------------
 // Dynamic label overrides (renderer call sites)
 // ---------------------------------------------------------------------------

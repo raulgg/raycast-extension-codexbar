@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafeUpstreamRef,
   encodeRefForUrl,
+  githubRateLimitHint,
+  githubTokenFromEnv,
   isMainModule,
   readMenuCardReviewed,
   readUpstreamLock,
@@ -46,6 +48,22 @@ describe("isMainModule", () => {
 
   it("is false when argv1 is missing", () => {
     expect(isMainModule(moduleUrl, undefined)).toBe(false);
+  });
+});
+
+describe("github auth", () => {
+  it("uses gh auth token when GITHUB_TOKEN is unset", () => {
+    expect(githubTokenFromEnv({}, () => "from-gh")).toBe("from-gh");
+    expect(githubTokenFromEnv({ GITHUB_TOKEN: "  " }, () => "from-gh")).toBe("from-gh");
+    expect(githubTokenFromEnv({ GITHUB_TOKEN: " explicit " }, () => "from-gh")).toBe("explicit");
+  });
+
+  it("names GITHUB_TOKEN=$(gh auth token) on a GitHub 403", () => {
+    expect(githubRateLimitHint(403, "https://api.github.com/repos/steipete/CodexBar/releases/latest")).toContain(
+      "GITHUB_TOKEN=$(gh auth token)",
+    );
+    expect(githubRateLimitHint(404, "https://api.github.com/repos/steipete/CodexBar")).toBe("");
+    expect(githubRateLimitHint(403, "https://example.com/secret")).toBe("");
   });
 });
 
